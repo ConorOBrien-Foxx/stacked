@@ -1,0 +1,83 @@
+html {
+	font-family: "Constantia", serif;
+    background-color: #222;
+    font-size: 20px;
+    color: #CCC;
+}
+
+h1, h2, h3, h4, h5, h6 { margin: 5px; }
+
+canvas {
+    background: #333;
+    margin: 10px;
+	border: 1px solid;
+}
+
+#stacked-output, textarea {
+    color: #CCC;
+    font-size: 18px;
+    margin: 10px;
+    background-color: #333;
+	white-space: pre-wrap;
+	width: 90%;
+	font-family: "Consolas", monospace;
+	border: 1px solid;
+	padding: 15px;
+	display: block;
+}
+
+#stacked-output {
+    min-height: 1.3em;
+}
+
+button {
+    font-size: 18px;
+    background: #444;
+    color: #AAA;
+    border: 1px solid #222;
+    border-radius: 5px;
+    padding: 5px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #555;
+}
+
+/* for syntax highlighting */
+.number {
+    color: rgb(255, 205, 54);
+}
+
+.setfunc, .setvar {
+    color: rgb(147, 199, 99);
+}
+
+.lambdaStart, .lambdaEnd, .funcStart, .funcEnd {
+    font-weight: bold;
+}
+
+.op {
+    color: rgb(232, 226, 183);
+}
+
+.quoteFunc {
+    color: rgb(182, 176, 133);
+}
+
+.word {
+    color: rgb(204, 204, 204);
+}
+
+.string {
+    color: rgb(236, 118, 0);
+}
+
+.charString {
+    color: rgb(255, 132, 9);
+}
+
+.comment, .commentStart, .commentEnd {
+    color: rgb(102, 116, 123);
+    font-style: italic;
+}
