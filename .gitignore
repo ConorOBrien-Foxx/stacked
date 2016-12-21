@@ -4,6 +4,8 @@ pen.min.js
 tests.txt
 ideas.txt
 bugs.txt
+*.html
+*.css
 
 # Logs
 logs
