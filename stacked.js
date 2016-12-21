@@ -62,6 +62,7 @@ function typedFunc(typeMap, arity = -1){
 }
 
 const ANY = [() => true];
+const ITERABLE = [(e) => typeof e[Symbol.iterator] !== "undefined"];
 
 function typed(typeMap){
     return function(...args){
@@ -238,7 +239,7 @@ class Lambda {
         let t = new Stacked("");
         t.vars = inst.vars;
         t.ops = inst.ops;
-        t.stack = args;
+        t.stack = args.slice(0, this.args.length);
         this.exec(t);
         return defined(t.stack.pop(), new Nil);
     }
@@ -480,6 +481,7 @@ const ops = new Map([
     }],
     ["rawout", function(){
         this.output(joinArray(this.stack.pop()));
+        this.output("\n");
     }],
     ["sout", function(){
         this.output(pp(this.stack));
@@ -750,9 +752,9 @@ const ops = new Map([
 		k.exec = function(inst){
 			let ent = inst.stack.pop();
 			if(!(ent instanceof Array))
-				error(typeName(ent.constructor) + " is not instertable");
+				error(typeName(ent.constructor) + " is not insertable");
 			
-			inst.stack.push(ent.length <= 1 ? ent : ent.reduce((p, c) => func.over(p, c)));
+			inst.stack.push(ent.length <= 1 ? ent[0] : ent.reduce((p, c) => func.over(p, c)));
 		}
 		this.stack.push(k);
     }],
@@ -966,11 +968,30 @@ const ops = new Map([
     ["wrap", func((a) => [a])],
     ["flat", typedFunc([
         [[Array], flatten],
-        [[[() => true]], e => e]
+        [[ANY], e => e]
     ], 2)],
     ["cellmap", typedFunc([
-        [[Array, [FUNC_LIKE]], (a, f) => cellMap(a, (...args) => f.over(...args.map(sanatize)))],
-    ], 2)]
+        [[Array, [FUNC_LIKE]], function(a, f){ return cellMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
+    ], 2)],
+    ["deepmap", typedFunc([
+        [[Array, [FUNC_LIKE]], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
+    ], 2)],
+    ["has", typedFunc([
+        [[String, ANY],    (a, b) => sanatize(!!a.find(e => equal(e, b)))],
+        [[ITERABLE, ANY],  (a, b) => sanatize(!!a.find(e => equal(e, b)))],
+    ], 2)],
+    ["intersection", typedFunc([
+        [[ITERABLE, ITERABLE], intersection],
+    ], 2)],
+    ["partition", typedFunc([
+        [[ITERABLE, ITERABLE], partition],
+    ], 2)],
+    ["vrep", typedFunc([
+        [[String, Decimal], verticalRepeat],
+    ], 2)],
+    ["hrep", typedFunc([
+        [[String, Decimal], horizontalRepeat]
+    ], 2)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1035,7 +1056,10 @@ new Map([
     ["+", "compose"],
 	["execeach", "#!"],
     ["powerset", ["\u2119", "P"]],
-    ["transpose", "tr"]
+    ["transpose", "tr"],
+    ["intersection", "\u2229"],
+    ["union", "\u222A"],
+    ["has", "\u2208"],
 ]).forEach((v, k) => {
     let n = ops.get(k);
     if(v.forEach)
@@ -1072,6 +1096,7 @@ const tokenize = (str, keepWhiteSpace = false) => {
     let isAlpha = (d) => (/[A-Za-z]/.test(d));
     let isIdentifierPrefix = isAlpha;
     let isIdentifier = (d) => isAlphaNumeric(d) || d === "_";
+    let commentDepth = 0;
     tokenizeLoop: while(hasCharsLeft()){
         // 0. skip whitespace
         if(/^\s$/.test(cur())){
@@ -1119,9 +1144,19 @@ const tokenize = (str, keepWhiteSpace = false) => {
             advance();
             toks.push(build + "'");
         }
-        // 4. match a comment symbol, if available
+        // 4. match a comment start symbol, if available
         // 5. match a function array start, if available (`$(`)
-        else if(needle("(*") || needle("*)") || needle("$(")){
+        else if(needle("(*")){
+            toks.push(cur() + next());
+            advance();
+            commentDepth++;
+        }
+        else if(needle("*)") && commentDepth > 0){
+            toks.push(cur() + next());
+            advance();
+            commentDepth--;
+        }
+        else if(needle("$(")){
             toks.push(cur() + next());
             advance();
         }
@@ -1159,13 +1194,18 @@ const tokenize = (str, keepWhiteSpace = false) => {
             toks.push(build);
         }
         // 9. tokenize an operator, if avaialable
-        else for(let name of opNames){
-            if(needle(name)){
-                advance(name.length);
-                toks.push(name);
-                continue tokenizeLoop;
+        else {
+            for(let name of opNames){
+                if(needle(name)){
+                    advance(name.length);
+                    toks.push(name);
+                    continue tokenizeLoop;
+                }
             }
+            error("`" + cur() + "` is an invalid character.");
         }
+        // toks.push(cur());
+        // advance();
         // 10. do not match any non-whitespace characters
         // error("`" + cur() + "` is an invalid character.");
     }
@@ -1350,6 +1390,9 @@ class Stacked {
                         args.push(cur.raw);
                     }
                     this.index++;
+                    if(!isDefined(this.toks[this.index])){
+                        error("unexpected end in lambda while looking for `:`");
+                    }
                 }
             }
             this.index++;    // skip over `:` or `.`
@@ -1474,7 +1517,7 @@ $not $any + @:none
 
 { f :
   f tostr @str
-  'Operation %0 took %1 seconds' (str f timeop) format out
+  'Operation %0 took %1 seconds' (str  f timeop) format out
 } @:time
 `);
 

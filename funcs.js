@@ -39,6 +39,29 @@ RegExp.of = function(str){
 	return new RegExp(RegExp.escape(str));
 }
 
+const union = (a, b) => [...a, ...b];
+
+const intersection = (a, b) =>
+    union(a, b).filter(e => a.indexOf(e) >= 0 && b.indexOf(e) >= 0);
+
+const partition = (a, b) => {
+    b = flatten([...b]);
+    let res = [];
+    let i = 0;
+    for(let n of a){
+        n = +n;
+        if(b.length < i + n){
+            let build = b.slice(i, i + n);
+            res.push(build.concat(b.slice(0, n - build.length)));
+            i = 0;
+        } else {
+            res.push(b.slice(i, i + n));
+            i += n;
+        }
+    }
+    return res;
+}
+
 const prefix = (arr, len) => {
 	return arr.slice(0, len);
 };
@@ -122,16 +145,27 @@ const formatDate = (time, str) => {
 			(opt) => dateOpts.get(opt)(date));
 }
 
+const deepMap = (arr, f) => {
+    let trav = (arr, d = 0) => {
+        if(arr instanceof Array){
+            return arr.map((e, i) => trav(e, d + 1));
+        } else {
+            return f(arr, d);
+        }
+    }
+    return trav(arr);
+}
+
 const cellMap = (arr, f) => {
     let collect = [];
-    let trav = (arr, f, d = 0) => {
+    let trav = (arr, d = 0) => {
         if(arr instanceof Array){
-            arr.forEach((e, i) => trav(e, f, d + 1));
+            arr.forEach((e, i) => trav(e, d + 1));
         } else {
             collect.push(f(arr, d));
         }
     }
-    trav(arr, f);
+    trav(arr);
     return collect;
 };
 
@@ -249,6 +283,21 @@ let rotate = (a, n) => {
 
 let gridify = (str) => str.split(/\r?\n/).map(e => [...e]);
 let ungridify = (arr) => arr.map(e => e.join("")).join("\n");
+
+let verticalRepeat = (x, n) => {
+    let arr = [...Array(+n)];
+    arr.fill(x);
+    return arr.join("\n");
+}
+
+let horizontalRepeat = (x, n) => {
+    let res = [];
+    n = +n;
+    for(let c of x.split("\n")){
+        res.push(c.repeat(n));
+    }
+    return res.join("\n");
+}
 
 let hcat = (a1, a2) => {
 	if(typeof a1 === "string" && typeof a2 === "string"){
