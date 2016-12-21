@@ -942,7 +942,7 @@ const ops = new Map([
     ["timeop", function(){
         let f = this.stack.pop();
         let start = +new Date;
-        f.overWith(this);
+        f.exec(this);
         let end = +new Date;
         this.stack.push(Decimal(end - start).div(1000));
     }],
