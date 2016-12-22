@@ -1215,7 +1215,12 @@ const tokenize = (str, keepWhiteSpace = false) => {
             }
             toks.push(build);
         }
-        // 9. tokenize an operator, if avaialable
+        // 9. match a blank
+        else if(needle(".")){
+            toks.push(cur());
+            advance();
+        }
+        // 10. tokenize an operator, if avaialable
         else {
             for(let name of opNames){
                 if(window.DEBUG)
@@ -1228,10 +1233,6 @@ const tokenize = (str, keepWhiteSpace = false) => {
             }
             error("`" + cur() + "` is an invalid character.");
         }
-        // toks.push(cur());
-        // advance();
-        // 10. do not match any non-whitespace characters
-        // error("`" + cur() + "` is an invalid character.");
     }
     
     // preprocess comments
@@ -1418,6 +1419,8 @@ class Stacked {
                     let cur = this.toks[this.index];
                     if(cur.type === "word"){
                         args.push(cur.raw);
+                    } else if(cur.raw === "."){
+                        args.push("");
                     }
                     this.index++;
                     if(!isDefined(this.toks[this.index])){
