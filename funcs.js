@@ -6,8 +6,12 @@ Array.prototype.clone = function(){
 	return this.map(e => e.clone ? e.clone() : e);
 }
 
-Array.prototype.has = String.prototype.has = function(...a){
-    return this.indexOf(...a) >= 0;
+Array.prototype.has = String.prototype.has = function(a, index = 0){
+    for(let i = index; i < this.length; i++){
+        if(equal(this[i], a)) return true;
+    }
+    return false;
+    // return this.indexOf(...a) >= 0;
 }
 
 Array.prototype.padStart = function(len, fill){
@@ -66,6 +70,29 @@ const partition = (a, b) => {
             res.push(b.slice(i, i + n));
             i += n;
         }
+    }
+    return res;
+}
+
+function periodLoop(o, f){
+    let it = o;
+    let steps = [];
+    while(unique(steps).length === steps.length){
+        steps.push(it);
+        it = f(it);
+    }
+    steps.pop();    // remove dup. entry
+    return {
+        result: it,
+        steps: steps
+    };
+}
+
+const unique = (s) => {
+    let res = [];
+    for(let k of s){
+        if(!res.has(k))
+            res.push(k);
     }
     return res;
 }

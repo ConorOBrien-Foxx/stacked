@@ -5,7 +5,7 @@ const DELAY = 200;
 const error = (err) => {
     new Stacked("").output("error: " + err)
     // console.log("error: " + err);
-    throw "haha have fun";
+    throw new Error("haha have fun");
 };
 
 function func(f, merge = false, refs = [], arity = f.length){
@@ -182,6 +182,11 @@ class Func {
         return defined(t.stack.pop(), new Nil);
     }
     
+    sanatized(inst, ...args){
+        let k = this.overWith(inst, ...args.map(sanatize));
+        return unsanatize(k);
+    }
+    
     exec(inst){
         let temp = new Stacked(this.body);
         temp.stack = inst.stack;
@@ -242,6 +247,11 @@ class Lambda {
         t.stack = args.slice(0, this.args.length);
         this.exec(t);
         return defined(t.stack.pop(), new Nil);
+    }
+    
+    sanatized(inst, ...args){
+        let k = this.overWith(inst, ...args.map(sanatize));
+        return unsanatize(k);
     }
     
     exec(inst){
@@ -452,6 +462,7 @@ const ops = new Map([
         let k = new Func(f.body);
         // dirty hack, todo: fix it
 		// dear past me: in your dreams.
+        // dear past me's: you guys are so immature
         k.exec = function(inst){
 			let vec = vectorize(e => f.overWith(inst, e));
 			let entity = inst.stack.pop();
@@ -1007,6 +1018,20 @@ const ops = new Map([
     ["hrep", typedFunc([
         [[String, Decimal], horizontalRepeat]
     ], 2)],
+    ["uniq", typedFunc([
+        [[String], s => unique(s).join("")],
+        [[ITERABLE], unique],
+    ], 1)],
+    ["periodloop", typedFunc([
+        [[ANY, [FUNC_LIKE]], function(o, f){
+            return periodLoop(o, (...a) => f.sanatized(this, ...a)).result;
+        }],
+    ], 2)],
+    ["periodsteps", typedFunc([
+        [[ANY, [FUNC_LIKE]], function(o, f){
+            return periodLoop(o, (...a) => f.sanatized(this, ...a)).steps;
+        }],
+    ], 2)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1215,12 +1240,7 @@ const tokenize = (str, keepWhiteSpace = false) => {
             }
             toks.push(build);
         }
-        // 9. match a blank
-        else if(needle(".")){
-            toks.push(cur());
-            advance();
-        }
-        // 10. tokenize an operator, if avaialable
+        // 9. tokenize an operator, if avaialable
         else {
             for(let name of opNames){
                 if(window.DEBUG)
@@ -1231,7 +1251,12 @@ const tokenize = (str, keepWhiteSpace = false) => {
                     continue tokenizeLoop;
                 }
             }
-            error("`" + cur() + "` is an invalid character.");
+            // 10. match a blank
+            if(needle(".")){
+                toks.push(cur());
+                advance();
+            } else
+                error("`" + cur() + "` is an invalid character.");
         }
     }
     
@@ -1594,7 +1619,10 @@ const sanatize = (ent) => {
 const unsanatize = (ent) => {
     if(ent instanceof Decimal)
         return +ent;
-    if(ent instanceof Array) return ent.map(unsanatize);
+    else if(ent instanceof Array)
+        return ent.map(unsanatize);
+    else
+        return ent;
 }
 
 // integrates a class into stacked
