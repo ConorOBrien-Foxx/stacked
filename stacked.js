@@ -1800,8 +1800,6 @@ integrate(CharString, true);
 
 makeAlias("CharString", "CS");
 
-let hw = new CharString("hello, world!");
-
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;
 }
