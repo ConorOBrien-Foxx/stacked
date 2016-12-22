@@ -912,7 +912,13 @@ const ops = new Map([
 	}],
     ["tofunc", func((s) => new Func(s))],
 	["rot", func((a, n) => rotate(a, n))],
-	["index", func((ent, n) => new Decimal(ent.indexOf(n)))],
+	["index", rightVectorTyped([
+        [[ITERABLE, ANY], (ent, n) => {
+            console.log(ent, n);
+            console.log(pp([ent, n]));
+            return new Decimal([...ent].newIndexOf(n))
+        }],
+    ], 2)],
 	["execeach", function(){
 		let funcArr = this.stack.pop();
 		let k = new Func("$(" + funcArr.join(" ") + ")#!");
@@ -1740,6 +1746,10 @@ class CharString {
         }
     }
     
+    map(f){
+        return new CharString([...this].map(f));
+    }
+    
     get length(){
         return this.members.length;
     }
@@ -1784,9 +1794,13 @@ class CharString {
     }
 }
 
+CharString.prototype[VECTORABLE] = true;
+
 aliasPrototype(CharString, "+", "add");
 
 integrate(CharString, true);
+
+makeAlias("CharString", "CS");
 
 let hw = new CharString("hello, world!");
 

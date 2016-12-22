@@ -1,3 +1,5 @@
+const VECTORABLE = Symbol("VECTORABLE");
+
 Array.prototype.reject = function(f){
 	return this.filter((...a) => !f(...a));
 }
@@ -6,12 +8,17 @@ Array.prototype.clone = function(){
 	return this.map(e => e.clone ? e.clone() : e);
 }
 
-Array.prototype.has = String.prototype.has = function(a, index = 0){
+Array.prototype[VECTORABLE] = true;
+
+Array.prototype.newIndexOf = String.prototype.newIndexOf = function(a, index = 0){
     for(let i = index; i < this.length; i++){
-        if(equal(this[i], a)) return true;
+        if(equal(this[i], a)) return i;
     }
-    return false;
-    // return this.indexOf(...a) >= 0;
+    return -1;
+}
+
+Array.prototype.has = String.prototype.has = function(a, index = 0){
+    return this.newIndexOf(a, index) >= 0;
 }
 
 Array.prototype.padStart = function(len, fill){
@@ -428,7 +435,7 @@ const truthy = (tp) => !falsey(tp);
 function vectorize(f, arity = f.length){
 	if(arity === 1){
 		function trav(item){
-			if(item instanceof Array){
+			if(item[VECTORABLE]){
 				return item.map(trav);
 			} else {
 				return f.bind(this)(item);
@@ -438,8 +445,8 @@ function vectorize(f, arity = f.length){
 		return trav;
 	} else if(arity === 2){
 		function trav2(a, b){
-			if(a instanceof Array){
-				if(b instanceof Array){
+			if(a[VECTORABLE]){
+				if(b[VECTORABLE]){
 					if(b.length !== a.length){
 						error("length error");
 					}
@@ -481,7 +488,7 @@ function threeVector(f){
 function vectorizeRight(f, arity = f.length){
 	if(arity === 1){
 		function trav(item){
-			if(item instanceof Array){
+			if(item[VECTORABLE]){
 				return item.map(trav);
 			} else {
 				return f.bind(this)(item);
@@ -492,7 +499,7 @@ function vectorizeRight(f, arity = f.length){
 	} else if(arity === 2){
 		function trav2(a, b){
 			// console.log(a, b);
-			if(b instanceof Array){
+			if(b[VECTORABLE]){
 				return b.map(e => trav2.bind(this)(a, e));
 			} else {
 				return f.bind(this)(a, b);
