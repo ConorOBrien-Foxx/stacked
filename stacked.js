@@ -914,8 +914,8 @@ const ops = new Map([
 	["rot", func((a, n) => rotate(a, n))],
 	["index", rightVectorTyped([
         [[ITERABLE, ANY], (ent, n) => {
-            console.log(ent, n);
-            console.log(pp([ent, n]));
+            // console.log(ent, n);
+            // console.log(pp([ent, n]));
             return new Decimal([...ent].newIndexOf(n))
         }],
     ], 2)],
