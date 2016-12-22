@@ -11,7 +11,7 @@ const error = (err) => {
 function func(f, merge = false, refs = [], arity = f.length){
     // this works for retaining the `this` instance.
     return function(){
-        let args = this.stack.splice(-arity);
+        let args = arity ? this.stack.splice(-arity) : [];
         if(args.some(e => typeof e === "undefined"))
             error("popping from empty stack");
         args = args.map((e, i) =>
