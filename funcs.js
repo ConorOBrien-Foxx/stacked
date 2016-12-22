@@ -58,6 +58,10 @@ RegExp.of = function(str){
 	return new RegExp(RegExp.escape(str));
 }
 
+const runLengthEncode = (str) => {
+    let k = [];
+}
+
 const union = (a, b) => [...a, ...b];
 
 const intersection = (a, b) =>
@@ -189,6 +193,7 @@ const formatDate = (time, str) => {
 
 const chunkBy = (arr, f) => {
     let collect = [];
+    arr = [...arr];
     let build = [arr[0]];
     for(let i = 1; i < arr.length; i++){
         let k = arr[i];

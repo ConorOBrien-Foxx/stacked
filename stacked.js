@@ -742,12 +742,6 @@ const ops = new Map([
             error("unsupported body type `" + typeName(next.constructor) + "` for `def`");
         }
     }],
-    ["bits", vectorTyped([
-        [[Decimal], (n) => toBase(n, 2)]
-    ], 2)],
-    ["digits", vectorTyped([
-        [[Decimal], (n) => toBase(n, 10)]
-    ], 1)],
     ["tobase", vectorTyped([
         [[Decimal, Decimal], (a, b) => toBase(a, b)]
     ], 2)],
@@ -937,7 +931,7 @@ const ops = new Map([
 	], 1)],
 	["chunk", func((a, b) => chunk(a, b))],
     ["chunkby", typedFunc([
-        [[Array, [FUNC_LIKE]], function(a, f){
+        [[ITERABLE, [FUNC_LIKE]], function(a, f){
             return chunkBy(a, (...args) => unsanatize(f.overWith(this, ...args.map(sanatize))));
         }],
     ], 2)],
@@ -1520,8 +1514,12 @@ const bootstrap = (code) => {
     }
 }
 bootstrap(`
+[2 tobase] @:bits
+[10 tobase] @:digits
 [0 get] @:first
 [_1 get] @:last
+[2 mod 1 eq] @:odd
+[2 mod 0 eq] @:even
 $max #/ @:MAX
 $min #/ @:MIN
 $* #/ @:prod
