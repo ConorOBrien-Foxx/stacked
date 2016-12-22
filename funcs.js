@@ -30,6 +30,14 @@ Map.prototype.toString = function(){
     str += " }";
     return str;
 }
+Array.prototype.get = String.prototype.get = function(i){
+    i = +i;
+    if(isDefined(this[i]))
+        return this[i];
+    else if(isDefined(this[i + this.length]))
+        return this[i + this.length];
+    else error("index `" + i + "` out of bounds");
+}
 
 RegExp.escape = function(str){
 	return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
@@ -143,6 +151,22 @@ const formatDate = (time, str) => {
 						.map(RegExp.escape)
 						.join("|"), "g"),
 			(opt) => dateOpts.get(opt)(date));
+}
+
+const chunkBy = (arr, f) => {
+    let collect = [];
+    let build = [arr[0]];
+    for(let i = 1; i < arr.length; i++){
+        let k = arr[i];
+        if(!f(k, i, build, arr)){
+            collect.push(build);
+            build = [];
+        }
+        build.push(k);
+    }
+    if(build.length)
+        collect.push(build);
+    return collect;
 }
 
 const deepMap = (arr, f) => {

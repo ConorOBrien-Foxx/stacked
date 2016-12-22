@@ -385,7 +385,13 @@ const ops = new Map([
     ["prime", vectorTyped([
         [[Decimal], isPrime]
     ], 1)],
-    ["get", func(vectorizeRight((a, b) => a[b]))],
+    ["get", func(vectorizeRight((a, b) => {
+        if(isDefined(a.get)){
+            return a.get(b);
+        } else {
+            return a[b];
+        }
+    }))],
     ["=", func((a, b) => Decimal(+equal(a, b)))],
     // ["=", func((a, b) => Decimal(+equal(a, b)))],
     ["eq", func(vectorize((a, b) => Decimal(+equal(a, b))), false, [], 2)],
@@ -405,6 +411,9 @@ const ops = new Map([
         [[Decimal, Decimal], (a, b) => Decimal(+a.gte(b))],
         [[String, String], (a, b) => Decimal(+(a >= b))]
     ], 2)],
+    // ["<=>", vectorTyped([
+        
+    // ])],
     ["!", function(){
         let obj = this.stack.pop();
         if(obj instanceof Decimal || obj instanceof Array){
@@ -468,13 +477,13 @@ const ops = new Map([
         let k = this.stack.pop();
         this.stack = this.stack.concat(k);
     }],
-    ["group", function(){
+    ["sgroup", function(){
         this.stack = [this.stack];
     }],
-    ["ngroup", function(){
+    ["nsgroup", function(){
         this.stack.push(this.stack.splice(-this.stack.pop()));
     }],
-    ["debug", func(    e => console.log(disp(e)))],
+    ["debug", func(e => console.log(disp(e)))],
     ["put", function(){
         this.output(this.stack.pop());
         // this.output(tp.type === "word" ? this.vars.get(tp.raw) : tp);
@@ -583,6 +592,7 @@ const ops = new Map([
     }],
     // todo: take from a textarea
     ["input", func(() => Decimal(prompt()))],
+    ["prompt", func(() => prompt())],
     ["for", function(){
         let [f, min, max] = this.stack.splice(-3);
         // console.log(f, min, max);
@@ -740,10 +750,10 @@ const ops = new Map([
 		[[String, Decimal], (a, b) => antiBaseString(a, b)],
 	], 2)],
     ["pad", typedFunc([
-        [[Array, Object, Decimal], (a, f, len) => a.padStart(len, f)],
+        [[[e => isDefined(e.padStart)], ANY, Decimal], (a, f, len) => a.padStart(len, f)],
     ], 3)],
     ["dpad", rightVectorTyped([
-        [[Array, Decimal], (arr, len) => arr.padStart(len,
+        [[[e => isDefined(e.padStart)], Decimal], (arr, len) => arr.padStart(len,
             isString(flatten(arr)[0]) ? " " : 0)],
     ], 2)],
     ["insert", function(){
@@ -909,6 +919,11 @@ const ops = new Map([
 		[[String], (e) => [...e]],
 	], 1)],
 	["chunk", func((a, b) => chunk(a, b))],
+    ["chunkby", typedFunc([
+        [[Array, [FUNC_LIKE]], function(a, f){
+            return chunkBy(a, (...args) => unsanatize(f.overWith(this, ...args.map(sanatize))));
+        }],
+    ], 2)],
     ["runsof", typedFunc([
         [[[e => e instanceof Array || typeof e === "string"], [FUNC_LIKE]], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
     ], 2)],
@@ -1039,6 +1054,14 @@ let arityOverides = new Map([
     // );
 });
 
+const makeAlias = (k, v) => {
+    let n = ops.get(k);
+    if(v.forEach)
+        v.forEach(e => ops.set(e, n));
+    else
+        ops.set(v, n);
+}
+
 // aliases
 new Map([
     ["oneach", '"'],
@@ -1060,12 +1083,11 @@ new Map([
     ["intersection", "\u2229"],
     ["union", "\u222A"],
     ["has", "\u2208"],
+    [">=", "≥"],
+    ["<=", "≤"],
+    ["not", "¬"],
 ]).forEach((v, k) => {
-    let n = ops.get(k);
-    if(v.forEach)
-        v.forEach(e => ops.set(e, n));
-    else
-        ops.set(v, n);
+    makeAlias(k, v);
 });
 
 const tokenize = (str, keepWhiteSpace = false) => {
@@ -1196,6 +1218,8 @@ const tokenize = (str, keepWhiteSpace = false) => {
         // 9. tokenize an operator, if avaialable
         else {
             for(let name of opNames){
+                if(window.DEBUG)
+                    console.log(name);
                 if(needle(name)){
                     advance(name.length);
                     toks.push(name);
@@ -1252,16 +1276,20 @@ const parseNum = function(str){
 }
 
 const vars = new Map([
-	["LF",    "\n"],
-	["CR",    "\r"],
-	["CRLF",  "\r\n"],
-	["PI",    Decimal.PI],
-	["TAU",   Decimal.PI.mul(2)],
-	["PAU",   Decimal.PI.mul(1.5)],
-	["E",     Decimal(1).exp()],
-	["alpha", "abcdefghijklmnopqrstuvwxyz"],
-	["ALPHA", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+	["LF",     "\n"],
+	["CR",     "\r"],
+	["CRLF",   "\r\n"],
+	["PI",     Decimal.PI],
+	["TAU",    Decimal.PI.mul(2)],
+	["PAU",    Decimal.PI.mul(1.5)],
+	["E",      Decimal(1).exp()],
+	["alpha",  "abcdefghijklmnopqrstuvwxyz"],
+	["ALPHA",  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+    ["\u2205", []],
 ]);
+
+vars.set("π", vars.get("PI"));
+vars.set("τ", vars.get("TAU"));
 
 class Stacked {
     constructor(code, slow = false){
@@ -1316,6 +1344,8 @@ class Stacked {
             }
             this.vars.set(cur.value, this.stack.pop());
         } else if(cur.type === "setfunc"){
+            if(!this.stack.length)
+                error("popping from an empty stack");
             let next = this.stack.pop();
             if(!FUNC_LIKE(next)){
                 error("invalid function-like `" + next.toString() + "`");
@@ -1456,6 +1486,8 @@ const bootstrap = (code) => {
     }
 }
 bootstrap(`
+[0 get] @:first
+[_1 get] @:last
 $max #/ @:MAX
 $min #/ @:MIN
 $* #/ @:prod
@@ -1521,6 +1553,8 @@ $not $any + @:none
 } @:time
 `);
 
+makeAlias("prod", "\u220f");
+
 vars.set("typeDecimal", Decimal);
 Decimal.toString = function(){ return "[type Decimal]"; }
 vars.set("typeString", String);
@@ -1552,6 +1586,12 @@ const sanatize = (ent) => {
     if(typeof ent === "boolean") return new Decimal(+ent);
     if(ent instanceof Array) return ent.map(sanatize);
     return ent;
+}
+
+const unsanatize = (ent) => {
+    if(ent instanceof Decimal)
+        return +ent;
+    if(ent instanceof Array) return ent.map(unsanatize);
 }
 
 // integrates a class into stacked
