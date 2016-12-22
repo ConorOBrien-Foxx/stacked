@@ -600,8 +600,9 @@ const factorial = (dec) => {
 const assureTyped = (obj, type) => {
 	if(typeof type !== "function")
 		throw new Error(type + " is not a type thingy...");
-	
-    // console.log(obj);
+    
+    if(!isDefined(obj))
+        error("popping from an empty stack");
     
 	if(obj.constructor === type || obj instanceof type)
 		return true;

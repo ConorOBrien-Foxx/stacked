@@ -4,7 +4,6 @@ const DELAY = 200;
 
 const error = (err) => {
     new Stacked("").output("error: " + err)
-    // console.log("error: " + err);
     throw new Error("haha have fun");
 };
 
@@ -164,6 +163,7 @@ class Nil {
 class Func {
     constructor(body){
         this.body = body;
+        this.arity = null;
     }
     
     over(...args){
@@ -177,7 +177,7 @@ class Func {
         let t = new Stacked("");
         t.vars = inst.vars;
         t.ops = inst.ops;
-        t.stack = args;
+        t.stack = this.arity ? args.slice(0, this.arity) : args;
         this.exec(t);
         return defined(t.stack.pop(), new Nil);
     }
@@ -257,7 +257,6 @@ class Lambda {
     exec(inst){
         let temp = new Stacked(this.body);
         temp.ops = inst.ops.clone();
-        // console.log(inst.ops.get("h"));
         temp.reg = inst.reg;
         temp.output = inst.output;
         temp.heldString = inst.heldString;
@@ -271,8 +270,6 @@ class Lambda {
         for(let arg of this.args){
             temp.vars.set(arg, slice.shift());
         }
-        
-        // console.log(temp.vars);
         
         temp.run();
         
@@ -335,7 +332,7 @@ const ops = new Map([
         }],
     ], 2)],
     ["++", func(typed(new Map([
-        [[Array, Array],     (a, b) => a.concat(b)],
+        [[Array, ANY], (a, b) => a.concat(b)],
     ])), false, [], 2)],
     ["-", vectorTyped([
         [[Decimal, Decimal], (a, b) => a.sub(b)],
@@ -622,8 +619,9 @@ const ops = new Map([
     // }],
     ["size", func(a => new Decimal(a.length))],
     ["if", function(){
-        let [ent, f] = this.stack.splice(-2);
-        assureTyped(f, Func);
+        let [f, ent] = this.stack.splice(-2);
+        if(!FUNC_LIKE(f))
+            error("type conflict; expected a function-like, received `" + f + "`, which is of type " + typeName(f.constructor));
         if(truthy(ent)) f.exec(this);
     }],
     ["unless", function(){
@@ -631,6 +629,8 @@ const ops = new Map([
         if(falsey(ent)) f.exec(this);
     }],
     ["ifelse", function(){
+        if(this.stack.length < 3)
+            error("popping from an empty stack");
         let [f1, f2, ent] = this.stack.splice(-3);
         (truthy(ent) ? f1 : f2).exec(this);
     }],
@@ -678,7 +678,6 @@ const ops = new Map([
         this.stack = [this.stack.reduce((p, c) => {
             let t = new Stacked("");
             t.stack.push(p, c);
-            // console.log(p, c);
             f.exec(t);
             return t.stack.pop();
         })].reject(falsey);
@@ -781,15 +780,17 @@ const ops = new Map([
             (a, b, f) => table(a, b, (...args) => f.over(...args))],
     ], 3)],
     ["filter", typedFunc([
-        [[Array, [FUNC_LIKE]], function(a, f){
-            // console.log(a.map(e=>e+[]));
-            return a.filter(e => truthy(f.overWith(this, e)));
+        [[[(e) => isDefined(e.filter)], [FUNC_LIKE]], function(a, f){
+            return a.filter((...args) => {
+                let r = f.overWith(this, ...args.map(sanatize));
+                // console.log(pp(r), ";", pp(args));
+                return truthy(r);
+            });
         }],
     ], 2)],
     ["reject", typedFunc([
-        [[Array, [FUNC_LIKE]], function(a, f){
-            // console.log(a.map(e=>e+[]));
-            return a.reject(e => truthy(f.overWith(this, e)));
+        [[[(e) => isDefined(e.filter)], [FUNC_LIKE]], function(a, f){
+            return a.filter((...args) => falsey(f.overWith(this, ...args)));
         }],
     ], 2)],
     ["date", vectorTyped([
@@ -851,7 +852,6 @@ const ops = new Map([
     }],
     ["hook", function(){
         let arr = this.stack.pop();
-        console.log(arr+[]);
         if(arr.length !== 2)
             error("argument vector must be 2, got " + arr.length);
         let [ga, fa] = arr;
@@ -908,8 +908,6 @@ const ops = new Map([
 	["rot", func((a, n) => rotate(a, n))],
 	["index", rightVectorTyped([
         [[ITERABLE, ANY], (ent, n) => {
-            // console.log(ent, n);
-            // console.log(pp([ent, n]));
             return new Decimal([...ent].newIndexOf(n))
         }],
     ], 2)],
@@ -985,6 +983,7 @@ const ops = new Map([
 		[[String, Decimal], (a, d) => prefix(a, d)],
 	], 2)],
     ["keys", func((a) => sanatize([...a.keys()]))],
+    ["values", func((a) => sanatize([...a.values()]))],
     ["lower", vectorTyped([
         [[String], a => a.toLowerCase()]
     ], 1)],
@@ -1266,21 +1265,15 @@ const tokenize = (str, keepWhiteSpace = false) => {
     // for(let i = 0, t = 0; i < toks.length && t < max; i++, t++){
     for(let i = 0; i < toks.length; i++){
         if(toks[i] === "(*"){
-            // console.log(i, t);
             let depth = 1;
             i++;
-            // console.group();
             while(depth && i < toks.length){
                 let cur = toks[i];
-                // console.log(cur, i);
                 if(cur === "(*") depth++;
                 else if(cur === "*)") depth--;
                 else commentInds[i] = true;
-                // console.log(cur, i, commentInds);
                 i++;
             }
-            // console.groupEnd();
-            // console.log(i);
             i--;
             if(depth)
                 warn("unclosed comment");
@@ -1372,15 +1365,16 @@ class Stacked {
         } else if(cur.type === "setfunc"){
             if(!this.stack.length)
                 error("popping from an empty stack");
+            else if(ops.has(cur.value)){
+                error("reserved identifier `" + cur.value + "`");
+            }
             let next = this.stack.pop();
             if(!FUNC_LIKE(next)){
                 error("invalid function-like `" + next.toString() + "`");
             }
-            // console.log(cur.value, next+[], this.ops.get(cur.value)+[]);
             this.ops.set(cur.value, function(){
                 next.exec(this);
             });
-            // console.log(this.ops.get(cur.value)+[]);
         } else if(cur.type === "op"){
             // execute command
             cur.func.bind(this)();
@@ -1520,6 +1514,8 @@ bootstrap(`
 [_1 get] @:last
 [2 mod 1 eq] @:odd
 [2 mod 0 eq] @:even
+[0 or] @:truthy
+[truthy not] @:falsey
 $max #/ @:MAX
 $min #/ @:MIN
 $* #/ @:prod
@@ -1535,6 +1531,10 @@ $not $any + @:none
     [e] [] mask i get 1 and ifelse
   } map { e : e nil = } reject
 } @:keep
+
+{ a f :
+  a   a f map keep
+} @:fkeep
 
 (
   [1 <=] [()]               (* return empty array for n <= 1*)
@@ -1556,8 +1556,6 @@ $not $any + @:none
 } @:randin
 
 { arr i j : arr [i j nswap] apply } @:exch
-
-[0 get] @:first
 
 { arr :
   arr size @n
@@ -1583,9 +1581,18 @@ $not $any + @:none
   f tostr @str
   'Operation %0 took %1 seconds' (str  f timeop) format out
 } @:time
+
+{ ent :
+  ent { el . build : el build first = } chunkby
+  { run :
+    run first @k
+    (k   run size)
+  } map KeyArray
+} @:runlengthencode
 `);
 
 makeAlias("prod", "\u220f");
+makeAlias("runlengthencode", "rle");
 
 vars.set("typeDecimal", Decimal);
 Decimal.toString = function(){ return "[type Decimal]"; }
@@ -1630,7 +1637,7 @@ const unsanatize = (ent) => {
 }
 
 // integrates a class into stacked
-const integrate = (klass, merge = false, ...methods) => {
+const integrate = (klass, merge = false, ignore = [], methods = []) => {
 	let props = Object.getOwnPropertyNames(klass.prototype);
 	ops.set(klass.name, function(){
 		let args = this.stack.splice(-klass.length);
@@ -1645,6 +1652,7 @@ const integrate = (klass, merge = false, ...methods) => {
 		let prop = nme;
 		let dprop = prop;
 		if(["constructor", "toString"].indexOf(prop) >= 0
+            || ignore.indexOf(prop) >= 0
             || prop.constructor === Symbol) continue;
 		if(ops.has(prop)){
 			// todo: overload
@@ -1659,7 +1667,8 @@ const integrate = (klass, merge = false, ...methods) => {
 		// so that scoping of `nme` persists
 		let prop = nme;
 		let dprop = prop;
-		if(["constructor", "toString", "length"].indexOf(prop) >= 0) continue;
+		if(["constructor", "toString", "length"].indexOf(prop) >= 0
+            || ignore.indexOf(prop) >= 0) continue;
         let arity = klass.prototype[prop].length;
         let body = function(){
             let instance = this.stack.pop();
@@ -1711,7 +1720,7 @@ const integrate = (klass, merge = false, ...methods) => {
 	}
 }
 
-integrate(Element, false, "atomic", "sym", "name", "weight");
+integrate(Element, false, [], ["atomic", "sym", "name", "weight"]);
 
 Element.ptable.forEach((v, k) => {
 	vars.set("E" + k, v);
@@ -1799,6 +1808,71 @@ aliasPrototype(CharString, "+", "add");
 integrate(CharString, true);
 
 makeAlias("CharString", "CS");
+
+// 
+class KeyArray {
+    constructor(arr){
+        this.kmap = new Map(arr);
+    }
+    
+    forEach(f){
+        for(let [k, v] of this.kmap){
+            f(k, v, this);
+        }
+    }
+    
+    map(f){
+        let arr = [];
+        for(let [k, v] of this.kmap){
+            arr.push([k, f(k, v)]);
+        }
+        return new KeyArray(arr);
+    }
+    
+    filter(f){
+        let arr = [];
+        for(let [k, v] of this.kmap){
+            if(f(k, v))
+                arr.push([k, v]);
+        }
+        return new KeyArray(arr);
+    }
+    
+    // todo: make key array not read-only
+    
+    get(nk){
+        for(let [k, v] of this.kmap){
+            if(equal(k, nk)) return v;
+        }
+        return new Nil;
+    }
+    
+    *keys(){
+        for(let [k, _] of this.kmap){
+            yield k;
+        }
+    }
+    
+    *values(){
+        for(let [_, v] of this.kmap){
+            yield v;
+        }
+    }
+    
+    toString(){
+        let str = "KeyArray [ ";
+        let body = "";
+        this.forEach((k, v) => {
+            body += `${k} => ${v}, `;
+        });
+        str += body.slice(0, -2);
+        str += " ]";
+        return str;
+    }
+}
+
+// allow the default `map`, `filter`, etc. to be used
+integrate(KeyArray, true, ["map", "filter", "keys", "values"]);
 
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;
