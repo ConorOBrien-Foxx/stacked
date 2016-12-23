@@ -478,6 +478,9 @@ const ops = new Map([
         [[String, String, String],
             (orig, target, sub) =>
                 orig.replace(new RegExp(target, "g"), sub)],
+        [[String, String, [FUNC_LIKE]], function(orig, target, sub){
+            return orig.replace(new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a))
+        }],
     ], 3)],
     ["recrepl", typedFunc([
         [[String, String, String], 
@@ -1456,7 +1459,7 @@ class Stacked {
         } else if(cur.type === "lambdaStart"){
             let args = [];
             this.index++;
-            if(this.toks[this.index].raw == "."){
+            if(this.toks[this.index].raw == "!"){
                 args.push("n");
             } else {
                 // look for args
