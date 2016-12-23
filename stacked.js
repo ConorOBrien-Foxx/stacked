@@ -778,6 +778,9 @@ const ops = new Map([
     ["and", func((a, b) => new Decimal(+(truthy(a) && truthy(b))))],
     ["or", func((a, b) => new Decimal(+(truthy(a) || truthy(b))))],
     ["xor", func((a, b) => new Decimal(+(truthy(a) ^ truthy(b))))],
+    ["BAND", func((a, b) => new Decimal(+a & +b))],
+    ["BOR", func((a, b) => new Decimal(+a | +b))],
+    ["BXOR", func((a, b) => new Decimal(+a ^ +b))],
     ["table", typedFunc([
         [[Object, Object, [FUNC_LIKE]],
             (a, b, f) => table(a, b, (...args) => f.over(...args))],
@@ -1041,6 +1044,12 @@ const ops = new Map([
     ["jsonparse", typedFunc([
         [[String], JSON.parse],
     ], 1)],
+    ["fixshape", typedFunc([
+        [[Array], e => sanatize(fixShape(e))],
+    ], 1)],
+    ["compose", typedFunc([
+        [[Func, Func], (a, b) => new Func(a.body + b.body)],
+    ], 2)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1110,7 +1119,6 @@ new Map([
     ["neg", "_"],
     ["square", "²"],
     ["mod", "%%"],
-    ["+", "compose"],
 	["execeach", "#!"],
     ["powerset", ["\u2119", "P"]],
     ["transpose", "tr"],
@@ -1364,7 +1372,7 @@ class Stacked {
         if(["comment", "commentStart", "commentEnd"].indexOf(cur.type) >= 0){
             // do nothing, it's a comment.
         } else if(cur.type === "quoteFunc"){
-            let k = new Func(cur.value);
+            let k = new Func(cur.raw);
             k.toString = function(){ return cur.raw; }
             k.exec = function(inst){
                 inst.ops.get(cur.value).bind(inst)();
@@ -1527,9 +1535,25 @@ const bootstrap = (code) => {
 }
 bootstrap(`
 [2 tobase] @:bits
+[2 antibase] @:unbits
 [10 tobase] @:digits
+[10 antibase] @:undigits
+[$rev map] @:reveach
+{ f :
+  [, $bits map reveach fixshape reveach
+    tr
+  ] f compose
+  [clmn
+    flat
+    unbits
+  ] compose
+} @:bitwise
+$and bitwise @:band
+$or  bitwise @:bor
+$xpr bitwise @:bxor
 [2 /] @:halve
 [2 *] @:double
+{ e f : e [f apply] map } @:clmn
 [0 get] @:first
 [_1 get] @:last
 [2 mod 1 eq] @:odd

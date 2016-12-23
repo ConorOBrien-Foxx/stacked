@@ -28,6 +28,15 @@ Array.prototype.padStart = function(len, fill){
 	}
 	return k;
 }
+
+Array.prototype.padEnd = function(len, fill){
+	let k = this.clone();
+	while(k.length < len){
+		k.push(fill);
+	}
+	return k;
+}
+
 Map.prototype.clone = function(){
 	return new Map([...this]);
 }
@@ -60,6 +69,17 @@ RegExp.of = function(str){
 
 const runLengthEncode = (str) => {
     let k = [];
+}
+
+const isArray = (a) => a instanceof Array;
+
+const fixShape = (arr) => {
+    let recur = (a) => {
+        if(!a.map) return a;
+        let maxlen = Math.max(...a.map(e => isArray(e) ? e.length : -1));
+        return a.map(e => recur(isArray(e) ? e.padEnd(maxlen, 0) : e));
+    }
+    return recur(arr);
 }
 
 const union = (a, b) => [...a, ...b];
