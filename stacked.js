@@ -402,6 +402,9 @@ const ops = new Map([
             return a[b];
         }
     }))],
+    ["stack", function(){
+        this.stack.push(this.stack.clone());
+    }],
     ["=", func((a, b) => Decimal(+equal(a, b)))],
     ["!=", func((a, b) => Decimal(+!equal(a, b)))],
     ["eq", func(vectorize((a, b) => Decimal(+equal(a, b))), false, [], 2)],
