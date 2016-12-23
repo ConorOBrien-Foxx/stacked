@@ -403,8 +403,9 @@ const ops = new Map([
         }
     }))],
     ["=", func((a, b) => Decimal(+equal(a, b)))],
-    // ["=", func((a, b) => Decimal(+equal(a, b)))],
+    ["!=", func((a, b) => Decimal(+!equal(a, b)))],
     ["eq", func(vectorize((a, b) => Decimal(+equal(a, b))), false, [], 2)],
+    ["neq", func(vectorize((a, b) => Decimal(+!equal(a, b))), false, [], 2)],
     ["<", vectorTyped([
         [[Decimal, Decimal], (a, b) => Decimal(+a.lt(b))],
         [[String, String], (a, b) => Decimal(+(a < b))]
@@ -592,6 +593,16 @@ const ops = new Map([
                 this.stack.push(r);
                 break;
             }
+        }
+    }],
+    ["while", function(){
+        let effect = this.stack.pop();
+        let cond = this.stack.pop();
+        while(true){
+            cond.exec(this);
+            let e = this.stack.pop();
+            if(falsey(e)) break;
+            effect.exec(this);
         }
     }],
     ["jump", func(function(k){
@@ -1132,6 +1143,7 @@ new Map([
     ["<=", "≤"],
     ["not", "¬"],
     ["rep", "×"],
+    ["!=", "≠"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
