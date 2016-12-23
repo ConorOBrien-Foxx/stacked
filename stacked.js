@@ -187,7 +187,11 @@ class Func {
         return unsanatize(k);
     }
     
-    exec(inst){
+    // degree of scoping:
+    // 0 - none         (nothing touched)
+    // 1 - intelligent  (everything updated)
+    // 2 - obnoxious    (everything integrated)
+    exec(inst, scoping = 1){
         let temp = new Stacked(this.body);
         temp.stack = inst.stack;
         temp.reg = inst.reg;
@@ -214,10 +218,19 @@ class Func {
         
         // fuck scoping
         // idea: make argument scoping different
-        for(let [key, val] of inst.vars){
-            if(temp.vars.has(key)){
-                inst.vars.set(key, temp.vars.get(key));
+        // nevermind, just have degrees of scoping
+        if(+scoping === 1){
+            for(let [key, val] of inst.vars){
+                if(temp.vars.has(key)){
+                    inst.vars.set(key, temp.vars.get(key));
+                }
             }
+        } else if(+scoping === 2){
+            inst.vars = temp.vars.clone();
+        } else if(+scoping === 0){
+            return;
+        } else {
+            error("invalid scoping degree `" + scoping + "`");
         }
     }
     
@@ -284,10 +297,20 @@ class Lambda {
         // scoping, as per above
         
         // fuck scoping
-        for(let [key, val] of inst.vars){
-            if(temp.vars.has(key)){
-                inst.vars.set(key, temp.vars.get(key));
+        // idea: make argument scoping different
+        // nevermind, just have degrees of scoping
+        if(+scoping === 1){
+            for(let [key, val] of inst.vars){
+                if(temp.vars.has(key)){
+                    inst.vars.set(key, temp.vars.get(key));
+                }
             }
+        } else if(+scoping === 2){
+            inst.vars = temp.vars.clone();
+        } else if(+scoping === 0){
+            return;
+        } else {
+            error("invalid scoping degree `" + scoping + "`");
         }
         // inst.vars.forEach((key, val) => {
             // console.log(key);
