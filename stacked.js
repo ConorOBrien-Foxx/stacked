@@ -355,6 +355,9 @@ const ops = new Map([
             }
         }]
     ], 2)],
+    ["rep", typedFunc([
+        [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
+    ], 2)],
     // todo: make this work with fold(r?)
     [",", func((a, b) => [...(a instanceof Array ? a : [a]), ...(b instanceof Array ? b : [b])])],
     // [",", func((a, b) => [a, ...(b instanceof Array ? b : [b])])],
@@ -944,6 +947,7 @@ const ops = new Map([
         this.stack.push(new Func(t));
         ops.get("!").bind(this)();
     }],
+    // ["uneval", func(Stacked.uneval)],
     ["perm", typedFunc([
         [[Array], permute],
         [[String], e => permute([...e]).map(e => e.join(""))],
@@ -1116,6 +1120,7 @@ new Map([
     [">=", "≥"],
     ["<=", "≤"],
     ["not", "¬"],
+    ["rep", "×"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
@@ -1345,6 +1350,10 @@ class Stacked {
         this.vars = instance.vars;
         this.output = instance.output;
         // idk anymore ;_;
+    }
+    
+    uneval(ent){
+        // todo
     }
     
     step(){
@@ -1599,11 +1608,16 @@ $not $any + @:none
     run first @k
     (k   run size)
   } map KeyArray
-} @:runlengthencode
+} @:rle
+
+[rle toarr $rev map flat] @:flatrle
+
+[2 chunk [rev $rep apply] map flat] @:flatrld
+
+[toarr $rev map flat flatrld] @:rld
 `);
 
 makeAlias("prod", "\u220f");
-makeAlias("runlengthencode", "rle");
 
 vars.set("typeDecimal", Decimal);
 Decimal.toString = function(){ return "[type Decimal]"; }
@@ -1823,7 +1837,7 @@ makeAlias("CharString", "CS");
 // 
 class KeyArray {
     constructor(arr){
-        this.kmap = new Map(arr);
+        this.kmap = arr;
     }
     
     *[Symbol.iterator](){
@@ -1889,7 +1903,7 @@ class KeyArray {
 }
 
 // allow the default `map`, `filter`, etc. to be used
-integrate(KeyArray, true, ["map", "filter", "keys", "values"]);
+integrate(KeyArray, true, ["map", "filter", "keys", "values", "forEach"]);
 
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;
