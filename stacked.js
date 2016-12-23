@@ -495,7 +495,7 @@ const ops = new Map([
     ["sgroup", function(){
         this.stack = [this.stack];
     }],
-    ["sngroup", function(){
+    ["nsgroup", function(){
         this.stack.push(this.stack.splice(-this.stack.pop()));
     }],
     ["debug", func(e => console.log(disp(e)))],

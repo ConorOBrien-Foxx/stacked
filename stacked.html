@@ -115,7 +115,7 @@
         vars.set("stdbg", new Color(34));
         vars.set("stdfg", new Color(51));
         const highlight = (prog) =>
-            tokenize(prog, true).map(e => "<span class=\"" + e.type + "\">" + e.raw + "</span>").join("");
+            tokenize(prog, true).map(e => "<span class=\"" + e.type + "\">" + e.raw.replace(/(.)'(.)/, "$1''$2") + "</span>").join("");
             
         // vars.set("PEN", pen);
 
