@@ -488,7 +488,7 @@ const ops = new Map([
     ["sgroup", function(){
         this.stack = [this.stack];
     }],
-    ["nsgroup", function(){
+    ["sngroup", function(){
         this.stack.push(this.stack.splice(-this.stack.pop()));
     }],
     ["debug", func(e => console.log(disp(e)))],
@@ -904,6 +904,9 @@ const ops = new Map([
 		}
 		this.stack.push(res);
 	}],
+    ["toarr", typedFunc([
+        [[ITERABLE], (e) => [...e]],
+    ], 1)],
     ["tofunc", func((s) => new Func(s))],
 	["rot", func((a, n) => rotate(a, n))],
 	["index", rightVectorTyped([
@@ -1031,6 +1034,9 @@ const ops = new Map([
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).steps;
         }],
     ], 2)],
+    ["jsonparse", typedFunc([
+        [[String], JSON.parse],
+    ], 1)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1408,6 +1414,9 @@ class Stacked {
                 }
                 this.index++;
             }
+            arr.exec = function(inst){
+                arr.forEach(e => e.exec(inst));
+            }
             this.stack.push(arr);
         } else if(cur.type === "arrayStart"){
             let build = "";
@@ -1510,6 +1519,8 @@ const bootstrap = (code) => {
 bootstrap(`
 [2 tobase] @:bits
 [10 tobase] @:digits
+[2 /] @:halve
+[2 *] @:double
 [0 get] @:first
 [_1 get] @:last
 [2 mod 1 eq] @:odd
@@ -1813,6 +1824,12 @@ makeAlias("CharString", "CS");
 class KeyArray {
     constructor(arr){
         this.kmap = new Map(arr);
+    }
+    
+    *[Symbol.iterator](){
+        for(let [k, v] of this.kmap){
+            yield [k, v];
+        }
     }
     
     forEach(f){
