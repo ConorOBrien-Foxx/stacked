@@ -549,7 +549,7 @@ const ops = new Map([
         this.output(tp.type === "word" ? this.vars.get(tp.raw) : tp);
         this.output("\n");
     }],
-    ["repr", func(pp)],
+    ["repr", func(e => isDefined(e.repr) ? e.repr() : pp(e))],
     ["dup", func(e => [e, e], true)],
     ["swap", func((x, y) => [y, x], true)],
     ["sdrop", function(){ this.stack.pop(); }],
@@ -1807,7 +1807,8 @@ const integrate = (klass, merge = false, ignore = [], methods = []) => {
 		}
         if(klass[staticProp] instanceof Function){
             ops.set(dstaticProp, function(){
-                let args = this.stack.splice(-klass[staticProp].length);
+                let ar = -klass[staticProp].length;
+                let args = ar ? this.stack.splice(ar) : [];
                 this.stack.push(sanatize(klass[staticProp](...args)));
             });
         } else {
@@ -1975,6 +1976,9 @@ class KeyArray {
 
 // allow the default `map`, `filter`, etc. to be used
 integrate(KeyArray, true, ["map", "filter", "keys", "values", "forEach"]);
+
+integrate(AutomataRule, true, ["repr"]);
+integrate(CellularAutomata);
 
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;
