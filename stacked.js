@@ -219,15 +219,15 @@ class Func {
         // fuck scoping
         // idea: make argument scoping different
         // nevermind, just have degrees of scoping
-        if(+scoping === 1){
+        if(scoping === 1){
             for(let [key, val] of inst.vars){
                 if(temp.vars.has(key)){
                     inst.vars.set(key, temp.vars.get(key));
                 }
             }
-        } else if(+scoping === 2){
+        } else if(scoping === 2){
             inst.vars = temp.vars.clone();
-        } else if(+scoping === 0){
+        } else if(scoping === 0){
             return;
         } else {
             error("invalid scoping degree `" + scoping + "`");
@@ -267,7 +267,7 @@ class Lambda {
         return unsanatize(k);
     }
     
-    exec(inst){
+    exec(inst, scoping = 1){
         let temp = new Stacked(this.body);
         temp.ops = inst.ops.clone();
         temp.reg = inst.reg;
@@ -299,15 +299,15 @@ class Lambda {
         // fuck scoping
         // idea: make argument scoping different
         // nevermind, just have degrees of scoping
-        if(+scoping === 1){
+        if(scoping === 1){
             for(let [key, val] of inst.vars){
                 if(temp.vars.has(key)){
                     inst.vars.set(key, temp.vars.get(key));
                 }
             }
-        } else if(+scoping === 2){
+        } else if(scoping === 2){
             inst.vars = temp.vars.clone();
-        } else if(+scoping === 0){
+        } else if(scoping === 0){
             return;
         } else {
             error("invalid scoping degree `" + scoping + "`");
@@ -460,6 +460,12 @@ const ops = new Map([
         } else {
             error("unrecognized type `" + typeName(obj.constructor) + "` for `!`");
         }
+    }],
+    ["nexec", function(){
+        console.log(pp(this.stack));
+        let [k, n] = this.stack.splice(-2);
+        assureTyped(n, Decimal);
+        k.exec(this, +n);
     }],
     // divides
     ["|", vectorTyped([
