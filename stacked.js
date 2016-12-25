@@ -1710,6 +1710,10 @@ $not $any + @:none
 [2 chunk [rev $rep apply] map flat] @:flatrld
 
 [toarr $rev map flat flatrld] @:rld
+
+[Conway '' CellularAutomata] @:conway
+
+{ c : c repr out [cls c step repr out] 1 animation } @:cellani
 `);
 
 makeAlias("prod", "\u220f");

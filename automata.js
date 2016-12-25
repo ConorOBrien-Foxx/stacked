@@ -58,6 +58,7 @@ class CellularAutomata {
         
         for(let i = 0; i < height; i++){
             for(let j = 0; j < width; j++){
+                // todo: make it more like VGoL
                 for(let rule of this.rules){
                     let live = rule.display["live" + this.type];
                     let dead = rule.display["dead" + this.type];
