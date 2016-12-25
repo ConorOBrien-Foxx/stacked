@@ -93,6 +93,9 @@ class Token {
             this.type = "comment";
         }
         // let's identify what type of token this is
+        else if(str == "."){
+            this.type = "accessor";
+        }
         else if(/^\s$/.test(str)){
             this.type = "whitespace";
         } else if(str === "nil"){
@@ -552,7 +555,7 @@ const ops = new Map([
     ["repr", func(e => isDefined(e.repr) ? e.repr() : pp(e))],
     ["dup", func(e => [e, e], true)],
     ["swap", func((x, y) => [y, x], true)],
-    ["sdrop", function(){ this.stack.pop(); }],
+    ["sdropdrop", function(){ this.stack.pop(); }],
     ["drop", typedFunc([
         [[Array], (a) => (a.slice(1))],
         [[String], (a) => (a.slice(1))],
@@ -1020,6 +1023,18 @@ const ops = new Map([
             rec(min);
         }]
     ], 4)],
+    ["animation", typedFunc([
+        [[[FUNC_LIKE], Decimal], function(f, d){
+            let n = +d.mul(1000);
+            let i = setInterval(() => f.exec(this), n);
+            return new Decimal(i);
+        }]
+    ], 2)],
+    ["stopani", typedFunc([
+        [[Decimal], function(d){
+            clearInterval(+d);
+        }],
+    ], 1)],
     ["typeof", func((a) => a.constructor)],
     ["timeop", function(){
         let f = this.stack.pop();
@@ -1093,9 +1108,13 @@ const ops = new Map([
     ["fixshape", typedFunc([
         [[Array], e => sanatize(fixShape(e))],
     ], 1)],
+    ["nfixshape", typedFunc([
+        [[Array, ANY], (e, x) => sanatize(fixShape(e, x))],
+    ], 2)],
     ["compose", typedFunc([
         [[Func, Func], (a, b) => new Func(a.body + b.body)],
     ], 2)],
+    ["cls", () => document.getElementById("stacked-output").innerHTML = ""],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1418,6 +1437,11 @@ class Stacked {
         let cur = this.toks[this.index];
         if(["comment", "commentStart", "commentEnd"].indexOf(cur.type) >= 0){
             // do nothing, it's a comment.
+        } else if(cur.type === "accessor"){
+            this.index++;
+            let ref = this.toks[this.index].raw;
+            let e = this.stack.pop();
+            this.stack.push(e[ref]);
         } else if(cur.type === "quoteFunc"){
             let k = new Func(cur.raw);
             k.toString = function(){ return cur.raw; }
@@ -1978,7 +2002,7 @@ class KeyArray {
 integrate(KeyArray, true, ["map", "filter", "keys", "values", "forEach"]);
 
 integrate(AutomataRule, true, ["repr"]);
-integrate(CellularAutomata);
+integrate(CellularAutomata, true, ["repr"]);
 
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;

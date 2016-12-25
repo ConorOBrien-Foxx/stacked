@@ -1,5 +1,7 @@
 const VECTORABLE = Symbol("VECTORABLE");
 
+const isString = (s) => typeof s === "string";
+
 Array.prototype.reject = function(f){
 	return this.filter((...a) => !f(...a));
 }
@@ -67,17 +69,40 @@ RegExp.of = function(str){
 	return new RegExp(RegExp.escape(str));
 }
 
-const runLengthEncode = (str) => {
-    let k = [];
+const makeArray = (len, fill) => [...Array(len)].map(() => fill);
+
+const surround = (s, f) => {
+    if(isString(s)) return gridify(surround(ungridify(s), f));
+    s = fixShape(s);
+    let height = s.length;
+    let width = s[0].length;
+    s = s.map(a => [f, ...a, f]);
+    s.unshift(makeArray(width + 2, f));
+    s.push(makeArray(width + 2, f));
+    return s;
+}
+
+const moore = (arr, x, y, n = 1, m = n) => {
+    let grid = [];
+    for(let i = y - n; i <= y + n; i++){
+        if(typeof arr[i] === "undefined") continue;
+        let row = [];
+        for(let j = x - m; j <= x + m; j++){
+            if(typeof arr[i][j] === "undefined") continue;
+            row.push(arr[i][j]);
+        }
+        grid.push(row);
+    }
+    return grid;
 }
 
 const isArray = (a) => a instanceof Array;
 
-const fixShape = (arr) => {
+const fixShape = (arr, fill = 0) => {
     let recur = (a) => {
         if(!a.map) return a;
         let maxlen = Math.max(...a.map(e => isArray(e) ? e.length : -1));
-        return a.map(e => recur(isArray(e) ? e.padEnd(maxlen, 0) : e));
+        return a.map(e => recur(isArray(e) ? e.padEnd(maxlen, fill) : e));
     }
     return recur(arr);
 }
@@ -260,8 +285,6 @@ const recursiveRepl = (orig, re, sub) => {
 	return orig;
 }
 
-const isString = (s) => typeof s === "string";
-
 const FALSE = Decimal(0);
 const TRUE = Decimal(1);
 
@@ -364,7 +387,7 @@ let rotate = (a, n) => {
 	return a;
 }
 
-let gridify = (str) => str.split(/\r?\n/).map(e => [...e]);
+let gridify = (str) => fixShape(str.split(/\r?\n/).map(e => [...e]), " ");
 let ungridify = (arr) => arr.map(e => e.join("")).join("\n");
 
 let verticalRepeat = (x, n) => {
@@ -404,6 +427,12 @@ let hcat = (a1, a2) => {
 }
 
 const equal = (x, y) => {
+    if(x == null){
+        if(y == null){
+            return true;
+        }
+        return false;
+    }
 	if(x.constructor !== y.constructor)
 		return false;
 	
