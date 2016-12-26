@@ -246,7 +246,14 @@ class Lambda {
     constructor(args, body){
         this.args = args;
         this.body = body;
-        this.arity = this.args.length;
+    }
+    
+    get arity(){
+        return this.args.length;
+    }
+    
+    set arity(v){
+        return this.arity;
     }
     
     over(...args){
@@ -386,7 +393,7 @@ const ops = new Map([
     ], 2)],
     // todo: make this work with fold(r?)
     [",", func((a, b) => [...(a instanceof Array ? a : [a]), ...(b instanceof Array ? b : [b])])],
-    // [",", func((a, b) => [a, ...(b instanceof Array ? b : [b])])],
+    ["pair", func((a, b) => [a, b])],
     ["%", vectorTyped([
         [[Decimal, Decimal], (a, b) => a.mod(b)],
     ], 2)],
@@ -495,15 +502,22 @@ const ops = new Map([
     ["join", func((a, b) => a.join(b.toString()))],
     ["split", func((a, b) => a.split(b.toString()))],
     ["oneach", func((f) => {
-        let k = new Func(f.body);
+        let k = new Func(f + "oneach");
         // dirty hack, todo: fix it
 		// dear past me: in your dreams.
         // dear past me's: you guys are so immature
-        k.exec = function(inst){
-			let vec = vectorize(e => f.overWith(inst, e));
-			let entity = inst.stack.pop();
-			inst.stack.push(vec(entity));
-        };
+        if(f.arity && f.arity == 2){
+            k.exec = function(inst){
+                let vec = vectorize((a, b) => f.overWith(inst, a, b));
+                let [e1, e2] = inst.stack.splice(-2);
+                inst.stack.push(vec(e1, e2));
+            };
+        } else
+            k.exec = function(inst){
+                let vec = vectorize(e => f.overWith(inst, e));
+                let entity = inst.stack.pop();
+                inst.stack.push(vec(entity));
+            };
         return k;
     })],
     ["each", function(){
@@ -1115,6 +1129,7 @@ const ops = new Map([
         [[Func, Func], (a, b) => new Func(a.body + b.body)],
     ], 2)],
     ["cls", () => document.getElementById("stacked-output").innerHTML = ""],
+    ["alert", func(e => alert(e))],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1640,11 +1655,23 @@ $or #/ @:any
 $not $any + @:none
 [95 baserep] @:compnum
 [95 antibaserep] @:decompnum
+{ a b :
+  [b 0 !=] [
+    b @t
+    a b mod @b
+    t @a
+  ] while
+  a isolate
+} oneach @:gcd
+{ a b :
+  a b * abs @num
+  a b gcd @den
+  num den /
+} oneach @:lcm
 { a f : a [merge f!] map } @:with
+
 { arr mask :
-  arr { e i :
-    [e] [] mask i get 1 and ifelse
-  } map { e : e nil = } reject
+  arr { . i : mask i get } accept
 } @:keep
 
 { a f :
