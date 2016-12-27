@@ -1063,6 +1063,7 @@ const ops = new Map([
     ["animation", typedFunc([
         [[[FUNC_LIKE], Decimal], function(f, d){
             let n = +d.mul(1000);
+            f.exec(this)
             let i = setInterval(() => f.exec(this), n);
             return new Decimal(i);
         }]
