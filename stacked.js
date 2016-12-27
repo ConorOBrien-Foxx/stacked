@@ -1623,6 +1623,10 @@ const bootstrap = (code) => {
     }
 }
 bootstrap(`
+[: floor -] @:fpart
+[: fpart -] @:ipart
+$(fpart , ipart) fork @:fipart
+$(ipart , fpart) fork @:ifpart
 [2 tobase] @:bits
 [2 antibase] @:unbits
 [10 tobase] @:digits
