@@ -1212,6 +1212,7 @@ new Map([
     ["not", "¬"],
     ["rep", "×"],
     ["!=", "≠"],
+    ["merge", "..."],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
