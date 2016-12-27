@@ -1513,7 +1513,7 @@ class Stacked {
                 let cur = this.toks[this.index];
                 if(cur.type === "arrayEnd")
                     break;
-                if(cur.type === "op"){
+                if(cur.type === "op" || cur.type == "word"){
                     arr.push(new Func(cur.raw));
                 } else {
                     error("`" + cur.raw + "` is not a function.");
