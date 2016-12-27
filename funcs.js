@@ -69,6 +69,10 @@ RegExp.of = function(str){
 	return new RegExp(RegExp.escape(str));
 }
 
+const betterSort = (arr) => {
+    return arr.sort((left, right) => 2 * (left > right) - 1);
+}
+
 const makeArray = (len, fill) => [...Array(len)].map(() => fill);
 
 const surround = (s, f) => {
@@ -576,8 +580,28 @@ const flatten = (arr) =>
 		? arr.map(flatten).reduce((p, c) => p.concat(c), [])
 		: arr;
 
+// from http://stackoverflow.com/a/30832210/4119004
+function download(data, filename, type) {
+    var a = document.createElement("a"),
+        file = new Blob([data], {type: type});
+    if (window.navigator.msSaveOrOpenBlob) // IE10+
+        window.navigator.msSaveOrOpenBlob(file, filename);
+    else { // Others
+        var url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);  
+        }, 0); 
+    }
+}
+
 const joinArray = (item) => {
 	let trav = (arr, depth = depthOf(arr)) => {
+        if(!isDefined(arr)) return "undefined";
 		if(arr instanceof Array)
             if(arr.length === 0)
                 return "()";
@@ -586,7 +610,7 @@ const joinArray = (item) => {
                     .join(depth === 1 ? " "
                         : "\n".repeat(depth - 1)) + ")";
 		else if(arr instanceof Decimal)
-			return arr.toString();
+			return arr.toString().replace(/-/g, "_");
 		else
 			return arr.toString();
 	};
@@ -614,7 +638,7 @@ const joinGrid = (item) => {
 				.join(depth <= 1 ? ""
 					: "\n".repeat(depth - 1));
 		else if(arr instanceof Decimal)
-			return arr.toString();
+			return arr.toString().replace(/-/g, "_");
 		else
 			return arr.toString();
 	};

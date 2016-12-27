@@ -88,6 +88,11 @@ const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
 
 class Token {
     constructor(str, isComment){
+        if(isArray(str)){
+            this.type = "op";
+            this.func = str[0];
+            return;
+        }
         this.raw = str;
         if(isComment){
             this.type = "comment";
@@ -238,7 +243,7 @@ class Func {
     }
     
     toString(){
-        return "[" + this.body.trim() + "]";
+        return "[" + (this.display || this.body).trim() + "]";
     }
 }
 
@@ -679,10 +684,26 @@ const ops = new Map([
             f.exec(this);
         }
     }],
-    // ["agenda", function(){
-        // let agenda = this.stack.pop();
-        // let size = 
-    // }],
+    ["agenda", function(){
+        let agendaCond = this.stack.pop();  // function
+        let agenda = this.stack.pop();
+        let k = new Func("$(" + agenda.join(" ") + ") " + agendaCond + " agenda");
+        k.exec = function(inst){
+            let args = [];
+            args.push(inst.stack.pop());
+            if(agendaCond.arity && agendaCond.arity === 2){
+                args.unshift(inst.stack.pop());
+            }
+            let selection = agendaCond.overWith(inst, ...args);
+            inst.stack.push(...args);
+            let todoNext = agenda.get(selection);
+            if(!isDefined(todoNext)){
+                error("no agenda item at position `" + selection + "`");
+            }
+            todoNext.exec(inst);
+        }
+        this.stack.push(k);
+    }],
     ["size", func(a => new Decimal(a.length))],
     ["if", function(){
         let [f, ent] = this.stack.splice(-2);
@@ -1062,6 +1083,14 @@ const ops = new Map([
     ["format", typedFunc([
         [[String, Array], (s, ar) => format(s, ...ar)]
     ], 2)],
+    ["sorted", typedFunc([
+        [[Array], betterSort],
+    ], 1)],
+    ["sortby", typedFunc([
+        [[Array, [FUNC_LIKE]], function(a, f){
+            return a.sort((l, r) => f.overWith(this, l, r));
+        }],
+    ], 2)],
     ["transpose", typedFunc([
         [[Array], transpose],
     ], 1)],
@@ -1128,10 +1157,70 @@ const ops = new Map([
         [[Array, ANY], (e, x) => sanatize(fixShape(e, x))],
     ], 2)],
     ["compose", typedFunc([
-        [[Func, Func], (a, b) => new Func(a.body + b.body)],
+        [[Func, Func], (a, b) => {
+            let k = new Func(a + " " + b + " compose");
+            k.exec = function(inst){
+                a.exec(inst);
+                b.exec(inst);
+            }
+            return k;
+        }],
+        // [[Func, Func], (a, b) => new Func(a.body + " " + b.body)],
     ], 2)],
+    // takes a function and binds it to the current scope
+    // works by replacing all occuracnes of variables/functions with their respective
+    // entries
+    ["bind", function(){
+        let f = this.stack.pop();
+        if(f.exec != Func.prototype.exec && f.exec != Lambda.prototype.exec){
+            error("cannot bind `" + f + "`");
+        }
+        let toks = tokenize(f.body).map(e => {
+            if(e.type === "word"){
+                if(this.ops.has(e.value)){
+                    let nf = this.ops.get(e.value);
+                    return new Token([function(){
+                        nf.bind(this)();
+                    }]);
+                } else if(this.vars.has(e.value)){
+                    let val = this.vars.get(e.value);
+                    return new Token([function(){
+                        this.stack.push(val);
+                    }]);
+                } else {
+                    return e;
+                }
+            } else {
+                return e;
+            }
+        });
+        let k;
+        if(f instanceof Func){
+            k = new Func(f.body);
+        } else if(f instanceof Lambda){
+            k = new Lambda(f.args, f.body);
+            toks.unshift(...[...f.args].reverse().map(e => new Token("@" + e)));
+        }
+        k.exec = function(inst){
+            let st = new Stacked("");
+            st.raw = f.body;
+            st.toks = toks.clone();
+            st.stack = inst.stack.clone();
+            st.run();
+            inst.stack = st.stack.clone();
+        }
+        console.log(k+[]);
+        console.log(k);
+        this.stack.push(k);
+    }],
     ["cls", () => document.getElementById("stacked-output").innerHTML = ""],
     ["alert", func(e => alert(e))],
+    ["download", typedFunc([
+        [
+            [ANY, ANY, String],
+            (content, name, type) => download(content.toString(), name.toString(), type)
+        ],
+    ], 3)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1461,7 +1550,7 @@ class Stacked {
             let e = this.stack.pop();
             this.stack.push(e[ref]);
         } else if(cur.type === "quoteFunc"){
-            let k = new Func(cur.raw);
+            let k = new Func(cur.value);
             k.toString = function(){ return cur.raw; }
             k.exec = function(inst){
                 inst.ops.get(cur.value).bind(inst)();
@@ -1623,6 +1712,11 @@ const bootstrap = (code) => {
     }
 }
 bootstrap(`
+{ f : { n : n f! n = } bind } @:invariant
+[0 >] @:ispos
+[0 <] @:ispos
+[0 eq] @:iszero
+{ x : x } @:id
 [: floor -] @:fpart
 [: fpart -] @:ipart
 $(fpart , ipart) fork @:fipart
@@ -1641,6 +1735,7 @@ $(ipart , fpart) fork @:ifpart
     unbits
   ] compose
 } @:bitwise
+['txt' download] @:savetxt
 $and bitwise @:band
 $or  bitwise @:bor
 $xpr bitwise @:bxor
@@ -1662,6 +1757,8 @@ $or #/ @:any
 $not $any + @:none
 [95 baserep] @:compnum
 [95 antibaserep] @:decompnum
+$(+ + -) { x . : x sign } agenda @:increase
+$(- - +) { x . : x sign } agenda @:decrease
 { a b :
   [b 0 !=] [
     b @t
@@ -1751,6 +1848,7 @@ $not $any + @:none
 `);
 
 makeAlias("prod", "\u220f");
+makeAlias("iszero", "is0");
 
 vars.set("typeDecimal", Decimal);
 Decimal.toString = function(){ return "[type Decimal]"; }
