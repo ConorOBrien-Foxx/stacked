@@ -985,7 +985,9 @@ const ops = new Map([
     ], 2)],
 	["execeach", function(){
 		let funcArr = this.stack.pop();
-		let k = new Func("$(" + funcArr.join(" ") + ")#!");
+        if(!funcArr.every(FUNC_LIKE))
+            error("expected an array of Lambdas or Funcs, received " + funcArr);
+		let k = new Func("$(" + funcArr.join(" ") + ")execeach");
 		k.exec = function(inst){
 			let e = inst.stack.pop();
 			inst.stack.push(funcArr.map(f => f.overWith(inst, e)));
