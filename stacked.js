@@ -574,7 +574,7 @@ const ops = new Map([
     ["repr", func(e => isDefined(e.repr) ? e.repr() : pp(e))],
     ["dup", func(e => [e, e], true)],
     ["swap", func((x, y) => [y, x], true)],
-    ["sdropdrop", function(){ this.stack.pop(); }],
+    ["sdrop", function(){ this.stack.pop(); }],
     ["drop", typedFunc([
         [[Array], (a) => (a.slice(1))],
         [[String], (a) => (a.slice(1))],
@@ -1063,7 +1063,7 @@ const ops = new Map([
     ["animation", typedFunc([
         [[[FUNC_LIKE], Decimal], function(f, d){
             let n = +d.mul(1000);
-            f.exec(this)
+            f.exec(this);
             let i = setInterval(() => f.exec(this), n);
             return new Decimal(i);
         }]
@@ -1222,6 +1222,9 @@ const ops = new Map([
             (content, name, type) => download(content.toString(), name.toString(), type)
         ],
     ], 3)],
+    // ["upload", typedFunc([
+        // [[]]
+    // ])],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();

@@ -52,13 +52,14 @@ canvas {
     min-height: 1.3em;
 }
 
-button {
+button, input[type="file"] {
     font-size: 18px;
     background: #444;
     color: #AAA;
     border: 1px solid #222;
     border-radius: 5px;
     padding: 5px;
+    margin: 5px 0;
     cursor: pointer;
 }
 

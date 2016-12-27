@@ -18,12 +18,28 @@
     </header>
     <h2>code</h2>
 	<textarea id="code" spellcheck="false" rows="10">'Hello, World!' out</textarea>
-	<button id="run">run</button> <button id="runSlow">run (delayed)</button> <button id="stylize">stylize</button>
+	<button id="run">run</button> <button id="runSlow">run (delayed)</button> <button id="stylize">stylize (syntax highlighter)</button> <br> <input type="file" id="fileInput"/> <button id="upload">upload</button>
 	<h2>output</h2>
 	<pre id="stacked-output"></pre>
     <h2>canvas</h2>
 	<canvas id="canvas" height="250" width="250"></canvas>
 	<script>
+        upload.addEventListener("click", function(){
+            if(!window.FileReader){
+                error("your browser does not support `FileReader`.");
+                if(fileInput.files.length){
+                    let file = fileInput.files[0];
+                    let reader = new FileReader();
+                    reader.onload = function(e){
+                        code.value = e.target.result;
+                    };
+                    reader.readAsText(file);
+                    console.log(window.reader = reader);
+                } else {
+                    error("no file uploaded");
+                }
+            }
+        });
         let encountered = new Map([]);
         // vars.set("canvas", document.getElementById("canvas"));
         let pen = new Pen(canvas);
