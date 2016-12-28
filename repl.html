@@ -56,10 +56,16 @@
                         spn.appendChild(document.createTextNode(pp(e)));
                         outted.push(spn);
                     };
-                    inst.stack = replInfo.stack;
-                    inst.vars = replInfo.vars;
-                    inst.ops = replInfo.ops;
-                    inst.run();
+                    inst.stack = replInfo.stack.clone();
+                    inst.vars = replInfo.vars.clone();
+                    inst.ops = replInfo.ops.clone();
+                    try {
+                        inst.run();
+                    } catch(e){
+                        inst.stack = replInfo.stack;
+                        inst.vars = replInfo.vars;
+                        inst.ops = replInfo.ops;
+                    }
                     replInfo.stack = inst.stack;
                     replInfo.vars = inst.vars;
                     replInfo.ops = inst.ops;
