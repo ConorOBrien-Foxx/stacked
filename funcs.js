@@ -2,6 +2,30 @@ const VECTORABLE = Symbol("VECTORABLE");
 
 const isString = (s) => typeof s === "string";
 
+const ANY = [() => true];
+const ITERABLE = [(e) => typeof e[Symbol.iterator] !== "undefined"];
+
+function typed(typeMap){
+    return function(...args){
+        redo: for(let t of typeMap){
+            let [key, func] = t;
+            let i = 0;
+            for(let k of key){
+                if(!(k instanceof Array && k[0](args[i]) ||
+                        args[i] instanceof k ||
+                        args[i].constructor === k)){
+                    continue redo;
+                }
+                i++;
+            }
+            return func.bind(this)(...args);
+        }
+        error("no matching types for " +
+            args.map(e => e ? typeName(e.constructor) : "undefined")
+                .join(", "));
+    }
+}
+
 Array.prototype.reject = function(f){
 	return this.filter((...a) => !f(...a));
 }
@@ -625,6 +649,9 @@ const repr = (item) => {
     }
     else if(item instanceof Decimal){
         return item.toString().replace(/-/g, "_");
+    }
+    else if(item instanceof Func || item instanceof Lambda){
+        return item.toString();
     }
     else {
         console.warn("the following item has no repr:");

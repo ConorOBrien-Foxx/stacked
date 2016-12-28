@@ -7,6 +7,43 @@ const error = (err) => {
     throw new Error("haha have fun");
 };
 
+class StackedPseudoType {
+    constructor(f){
+        this.f = f;
+    }
+    
+    match(arg){
+        return this.f(arg);
+    }
+}
+
+// todo: integrate this into everything; throw warnings for all things that don't
+class StackedFunc {
+    constructor(typeMap, arity, options){
+        this.typeMap = new Map(typeMap);
+        this.options = options;
+    }
+    
+    match(types, dest = this){
+        redo: for(let t of this.typeMap){
+            let [key, func] = t;
+            let i = 0;
+            for(let k of key){
+                if(!(k instanceof StackedPseudoType && k.match(args[i]) ||
+                        args[i] instanceof k ||
+                        args[i].constructor === k)){
+                    continue redo;
+                }
+                i++;
+            }
+            return func.bind(dest)(...args);
+        }
+        error("no matching types for " +
+            args.map(e => e ? typeName(e.constructor) : "undefined")
+                .join(", "));
+    }
+}
+
 function func(f, merge = false, refs = [], arity = f.length){
     // this works for retaining the `this` instance.
     return function(){
@@ -61,30 +98,6 @@ function typedFunc(typeMap, arity = -1){
         [],
         arity
     );
-}
-
-const ANY = [() => true];
-const ITERABLE = [(e) => typeof e[Symbol.iterator] !== "undefined"];
-
-function typed(typeMap){
-    return function(...args){
-        redo: for(let t of typeMap){
-            let [key, func] = t;
-            let i = 0;
-            for(let k of key){
-                if(!(k instanceof Array && k[0](args[i]) ||
-                        args[i] instanceof k ||
-                        args[i].constructor === k)){
-                    continue redo;
-                }
-                i++;
-            }
-            return func.bind(this)(...args);
-        }
-        error("no matching types for " +
-            args.map(e => e ? typeName(e.constructor) : "undefined")
-                .join(", "));
-    }
 }
 
 const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
@@ -1481,8 +1494,13 @@ const tokenize = (str, keepWhiteSpace = false) => {
 };
 
 const parseNum = function(str){
-    // \d+n == -\d+
-    // for now, this will do
+    if(str.has("i")){
+        if(str.endsWith("i")){
+            return new Complex(Decimal(0), parseNum(str.slice(0, -1)));
+        }
+        let parts = str.split("i").map(parseNum);
+        return new Complex(...parts);
+    }
     str = str.replace(/(.+)n$/, "-$1").replace(/^_/, "-");
     try {
         return new Decimal(str);
@@ -1902,7 +1920,8 @@ const unsanatize = (ent) => {
 }
 
 // integrates a class into stacked
-const integrate = (klass, merge = false, ignore = [], methods = []) => {
+const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []) => {
+    ignore = ignore.concat(["map", "filter", "keys", "values", "forEach", "repr"]);
 	let props = Object.getOwnPropertyNames(klass.prototype);
 	ops.set(klass.name, function(){
 		let args = this.stack.splice(-klass.length);
@@ -1950,6 +1969,7 @@ const integrate = (klass, merge = false, ignore = [], methods = []) => {
             let types = [...Array(arity)];
             types.fill(ANY);
             types.push(klass);
+            if(vectors.length) console.log(vectors, prop, vectors.has(prop));
             permute(types).forEach(typeArr => {
                 extendTyped(prop, typeArr, (...a) => {
                     let inst = a.find(e => e instanceof klass);
@@ -1958,7 +1978,7 @@ const integrate = (klass, merge = false, ignore = [], methods = []) => {
                     }
                     a.splice(a.indexOf(inst), 1);
                     return sanatize(inst[prop](...a));
-                }, arity + 1, false); 
+                }, arity + 1, vectors.has(prop)); 
             });
         } else {
             ops.set(dprop, body);
@@ -1996,11 +2016,6 @@ Element.ptable.forEach((v, k) => {
 Color.prototype["-"] = Color.prototype.sub;
 Color.prototype["="] = Color.prototype.equal;
 integrate(Color, true);
-
-// ["white", "silver", "gray", "grey", "black", "red", "maroon", "yellow", "olive",
- // "lime", "green", "aqua", "teal", "blue", "navy", "fuchsia", "purple"].forEach(c =>
-     // vars.set(c, Color.colorFromName(c))
-// );
 
 const aliasPrototype = (klass, alias, name) => {
     klass.prototype[alias] = klass.prototype[name];
@@ -2144,10 +2159,14 @@ class KeyArray {
 }
 
 // allow the default `map`, `filter`, etc. to be used
-integrate(KeyArray, true, ["map", "filter", "keys", "values", "forEach"]);
+integrate(KeyArray, true, []);
 
-integrate(AutomataRule, true, ["repr"]);
-integrate(CellularAutomata, true, ["repr"]);
+aliasPrototype(Complex, "+", "add");
+aliasPrototype(Complex, "-", "sub");
+integrate(Complex, true, [], [], ["add", "-", "sub", "+"]);
+
+integrate(AutomataRule, true, []);
+integrate(CellularAutomata, true, []);
 
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;

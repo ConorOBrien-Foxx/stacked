@@ -9,6 +9,7 @@
 	<script src="./element.js"></script>
 	<script src="./pen.min.js"></script>
 	<script src="./funcs.js"></script>
+	<script src="./complex.js"></script>
 	<script src="./automata.js"></script>
 	<script src="./stacked.js"></script>
 </head>
@@ -25,10 +26,14 @@
             stack: [],
             vars: vars.clone(),
             ops: ops.clone(),
+            history: [],
+            index: 0,
         };
         
         ops.set("cls", function(){
             repl.innerHTML = "";
+            replInfo.history = [];
+            replInfo.index = 0;
         });
         
         const replStep = () => {
@@ -44,7 +49,13 @@
             holder.appendChild(input);
             repl.appendChild(holder);
             input.addEventListener("keydown", (e) => {
-                if(e.key === "Enter"){
+                if(e.key === "ArrowUp"){
+                    if(replInfo.index > 0)
+                        setTimeout(() => input.value = replInfo.history[--replInfo.index], 0);
+                } else if(e.key === "ArrowDown"){
+                    if(replInfo.index + 1 < replInfo.history.length)
+                        setTimeout(() => input.value = replInfo.history[++replInfo.index], 0);
+                } else if(e.key === "Enter"){
                     let syntaxed = document.createElement("span");
                     syntaxed.innerHTML = highlight(input.value);
                     let result = document.createElement("div");
@@ -59,6 +70,8 @@
                     inst.stack = replInfo.stack.clone();
                     inst.vars = replInfo.vars.clone();
                     inst.ops = replInfo.ops.clone();
+                    replInfo.history.push(input.value);
+                    replInfo.index++;
                     try {
                         inst.run();
                     } catch(e){
