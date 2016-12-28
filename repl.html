@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>stacked</title>
+	<link href="style.css" rel="STYLESHEET" type="text/css">
+	<script src="./decimal.js"></script>
+	<script src="./color.js"></script>
+	<script src="./element.js"></script>
+	<script src="./pen.min.js"></script>
+	<script src="./funcs.js"></script>
+	<script src="./automata.js"></script>
+	<script src="./stacked.js"></script>
+</head>
+<body>
+    <header>
+        <h1>stacked repl <a href="./stacked.html">(interpreter)</a> <a href="https://github.com/ConorOBrien-Foxx/stacked">(github)</a></h1>
+    </header>
+    <div id="repl"></div>
+	<script>
+        const highlight = (prog) =>
+            tokenize(prog, true).map(e => "<span class=\"" + e.type + "\">" + e.raw.replace(/(.)'(.)/, "$1''$2") + "</span>").join("");
+        
+        let replInfo = {
+            stack: [],
+            vars: vars.clone(),
+            ops: ops.clone(),
+        };
+        
+        ops.set("cls", function(){
+            repl.innerHTML = "";
+        });
+        
+        const replStep = () => {
+            let holder = document.createElement("div");
+            holder.className = "current";
+            let ptr = document.createElement("span");
+            ptr.appendChild(document.createTextNode("> "));
+            ptr.className = "pointer";
+            holder.appendChild(ptr);
+            let input = document.createElement("input");
+            input.rows = "1";
+            input.className = "replStage";
+            holder.appendChild(input);
+            repl.appendChild(holder);
+            input.addEventListener("keydown", (e) => {
+                if(e.key === "Enter"){
+                    let syntaxed = document.createElement("span");
+                    syntaxed.innerHTML = highlight(input.value);
+                    let result = document.createElement("div");
+                    let inst = new Stacked(input.value);
+                    let outted = [];
+                    inst.output = (e) => {
+                        let spn = document.createElement("span");
+                        spn.className = "output";
+                        spn.appendChild(document.createTextNode(pp(e)));
+                        outted.push(spn);
+                    };
+                    inst.stack = replInfo.stack;
+                    inst.vars = replInfo.vars;
+                    inst.ops = replInfo.ops;
+                    inst.run();
+                    replInfo.stack = inst.stack;
+                    replInfo.vars = inst.vars;
+                    replInfo.ops = inst.ops;
+                    result.innerHTML = highlight(repr(replInfo.stack));
+                    result.className = "result";
+                    holder.removeChild(input);
+                    holder.appendChild(syntaxed);
+                    if(outted.length)
+                        holder.appendChild(document.createElement("br"));
+                    outted.forEach(el => holder.appendChild(el));
+                    holder.appendChild(result);
+                    holder.className = "finished";
+                    replStep();
+                } else if(e.key === "Escape"){
+                    setTimeout(() => input.value = "", 0)
+                }
+            });
+            input.focus();
+        };
+        replStep();
+        let encountered = new Map([]);
+
+        const before = () => {
+            let c = code.value;
+            let res = encountered.has(c) ? encountered.get(c) : Decimal(0);
+            vars.set("execCounter", res);
+            encountered.set(c, res.add(1));
+        }
+	</script>
+</body>
+</html>
