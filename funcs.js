@@ -52,6 +52,18 @@ Map.prototype.toString = function(){
     str += " }";
     return str;
 }
+
+Map.prototype.repr = function(){
+    // subject to change
+    let str = "{ ";
+    this.forEach((v, k) => {
+        str += repr(k) + ": " + repr(v) + ", ";
+    });
+    str = str.slice(0, -2);
+    str += " }";
+    return str;
+}
+
 Array.prototype.get = String.prototype.get = function(i){
     i = +i;
     if(isDefined(this[i]))
@@ -596,6 +608,28 @@ function download(data, filename, type) {
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);  
         }, 0); 
+    }
+}
+
+const repr = (item) => {
+    if(!isDefined(item)){
+        return "UNDEFINED!!";
+    }
+    if(isDefined(item.repr)){
+        return item.repr();
+    }
+    if(isArray(item))
+        return "(" + item.map(repr).join(" ") + ")";
+    else if(isString(item)){
+        return "'" + item.replace(/'/g, "''") + "'";
+    }
+    else if(item instanceof Decimal){
+        return item.toString().replace(/-/g, "_");
+    }
+    else {
+        console.warn("the following item has no repr:");
+        console.warn(item);
+        return item.toString();
     }
 }
 

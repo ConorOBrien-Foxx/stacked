@@ -1524,7 +1524,7 @@ class Stacked {
         this.output = document ?
             document.getElementById("stacked-output") ?
                 e => document.getElementById("stacked-output").appendChild(
-                    document.createTextNode(pp(e || ""))
+                    document.createTextNode(pp(e || ""))    //todo: is this necessary?
                 )
                 : e => alert(e)
             : e => console.log(e);
@@ -1552,6 +1552,7 @@ class Stacked {
             this.index++;
             let ref = this.toks[this.index].raw;
             let e = this.stack.pop();
+            // todo: make proper stack
             this.stack.push(e[ref]);
         } else if(cur.type === "quoteFunc"){
             let k = new Func(cur.value);
@@ -1566,6 +1567,8 @@ class Stacked {
             if(this.ops.has(cur.value)){
                 error("reserved identifier `" + cur.value + "`");
             }
+            if(!this.stack.length)
+                error("popping from an empty stack");
             this.vars.set(cur.value, this.stack.pop());
         } else if(cur.type === "setfunc"){
             if(!this.stack.length)

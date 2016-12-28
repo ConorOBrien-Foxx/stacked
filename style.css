@@ -5,37 +5,35 @@ html {
     color: #CCC;
 }
 
-a {
-    color: #AAA;
-}
-
-a:hover {
-    color: #EEE;
-}
-
-header {
-    display: block;
-    height: 3em;
-}
-
-header > h1 {
-    float: left;
-    display: inline;
-}
-
-header > h1 > a {
-    font-size: 0.5em;
-}
-
-h1, h2, h3, h4, h5, h6 { margin: 5px; }
-
 canvas {
     background: #333;
     margin: 10px;
 	border: 1px solid;
 }
 
-#stacked-output, textarea {
+#repl, .current, .replStage {
+	font-family: "Consolas", monospace;
+    color: #CCC;
+    font-size: 18px;
+}
+
+.pointer {
+    color: #777;
+}
+
+.result, .output {
+    white-space: pre-wrap;
+}
+
+.replStage {
+    background: none;
+    border: none;
+    height: 1.3em;
+    resize: none;
+    width: 90%;
+}
+
+#stacked-output, #code {
     color: #CCC;
     font-size: 18px;
     margin: 10px;
@@ -51,6 +49,13 @@ canvas {
 #stacked-output {
     min-height: 1.3em;
 }
+
+a { color: #AAA; }
+a:hover { color: #EEE; }
+header { display: block; height: 3em; }
+header > h1 { float: left; display: inline; }
+header > h1 > a { font-size: 0.5em; }
+h1, h2, h3, h4, h5, h6 { margin: 5px; }
 
 button, input[type="file"] {
     font-size: 18px;
@@ -68,38 +73,15 @@ button:hover {
 }
 
 /* for syntax highlighting */
-.number {
-    color: rgb(255, 205, 54);
-}
-
-.setfunc, .setvar {
-    color: rgb(147, 199, 99);
-}
-
-.lambdaStart, .lambdaEnd, .funcStart, .funcEnd {
-    font-weight: bold;
-}
-
-.op {
-    color: rgb(232, 226, 183);
-}
-
-.quoteFunc {
-    color: rgb(182, 176, 133);
-}
-
-.word {
-    color: rgb(204, 204, 204);
-}
-
-.string {
-    color: rgb(236, 118, 0);
-}
-
-.charString {
-    color: rgb(255, 132, 9);
-}
-
+.number { color: rgb(255, 205, 54); }
+.setfunc, .setvar { color: rgb(147, 199, 99); }
+.arrayStart, .arrayEnd { color: rgb(150, 200, 150); }
+.lambdaStart, .lambdaEnd, .funcStart, .funcEnd { font-weight: bold; }
+.op { color: rgb(232, 226, 183); }
+.quoteFunc { color: rgb(182, 176, 133); }
+.word { color: rgb(204, 204, 204); }
+.string { color: rgb(236, 118, 0); }
+.charString { color: rgb(255, 132, 9); }
 .comment, .commentStart, .commentEnd {
     color: rgb(102, 116, 123);
     font-style: italic;

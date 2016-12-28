@@ -17,8 +17,16 @@ class Element {
         return [this.atomic, this.sym, this.name, this.weight];
     }
     
+    allStats(){
+        return [this.atomic, this.sym, this.name, this.weight, this.group, this.period, this.block, this.econf];
+    }
+    
     extEconf(){
         return this.econf.replace(/\[(.+?)\]/g, (_, e) => Element.ptable.get(e).econf + " ");
+    }
+    
+    repr(){
+        return repr(this.allStats()) + " Element";
     }
     
     toString(){

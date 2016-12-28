@@ -85,8 +85,10 @@ class Color {
     }
     
     static colorFromString(str){
+        // if(str === "")   
         // extract function type
         let funcType = str.match(/^(.+?)\(/);
+        
         if(!funcType)
             throw new Error("invalid string '" + str + "': no leading identifier");
         // the name itself
@@ -160,7 +162,8 @@ class Color {
 // absolute equality
 Color.tolerance = 0;
 
+// darnit chrome, with color form name not working
 ["white", "silver", "gray", "grey", "black", "red", "maroon", "yellow", "olive",
  "lime", "green", "aqua", "teal", "blue", "navy", "fuchsia", "purple"].forEach(c =>
-     Color[c] = Color.colorFromName(c)
+    Color[c] = Color.colorFromName(c)
 );
