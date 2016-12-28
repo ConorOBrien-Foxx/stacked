@@ -11,6 +11,9 @@ function func(f, merge = false, refs = [], arity = f.length){
     // this works for retaining the `this` instance.
     return function(){
         let args = arity ? this.stack.splice(-arity) : [];
+        if(args.length !== arity){
+            error("popping from an empty stack");
+        }
         if(args.some(e => typeof e === "undefined"))
             error("popping from empty stack");
         args = args.map((e, i) =>
@@ -1438,8 +1441,6 @@ const tokenize = (str, keepWhiteSpace = false) => {
         // 9. tokenize an operator, if avaialable
         else {
             for(let name of opNames){
-                if(window.DEBUG)
-                    console.log(name);
                 if(needle(name)){
                     advance(name.length);
                     toks.push(name);
@@ -1513,6 +1514,7 @@ class Stacked {
         this.toks = tokenize(code) || [];
         this.index = 0;
         this.stack = [];
+        // todo: fix popping from an empty stack
         this.slow = slow;
         this.reg = new Decimal(0);
         this.vars = vars;
