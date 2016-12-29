@@ -17,14 +17,20 @@ class StackedPseudoType {
     }
 }
 
+const ANY = new StackedPseudoType(() => true);
+const ITERABLE = new StackedPseudoType((e) => isDefined(e[Symbol.iterator]));
+
 // todo: integrate this into everything; throw warnings for all things that don't
 class StackedFunc {
-    constructor(typeMap, arity, options){
-        this.typeMap = new Map(typeMap);
+    constructor(typeMap, arity = -1, options = {}){
+        this.typeMap = typeMap;
         this.options = options;
+        if(arity < 0)
+            error("invalid arity `" + arity + "`");
+        this.arity = arity;
     }
     
-    match(types, dest = this){
+    match(...args){
         redo: for(let t of this.typeMap){
             let [key, func] = t;
             let i = 0;
@@ -36,15 +42,39 @@ class StackedFunc {
                 }
                 i++;
             }
-            return func.bind(dest)(...args);
+            return func.bind(this.dest)(...args);
         }
         error("no matching types for " +
             args.map(e => e ? typeName(e.constructor) : "undefined")
                 .join(", "));
     }
+    
+    exec(dest){
+        // get arguments
+        let args;
+        if(this.arity)
+            if(dest.stack.length < this.arity)
+                error("popping from an empty stack");
+            else
+                args = dest.stack.splice(-this.arity);
+        else
+            args = [];
+        let res;
+        if(this.options.vectorize){
+            res = (this.options.vectorize === "right" ? vectorizeRight : vectorize)((...a) => this.match(...a), this.arity)(...args);
+        } else {
+            res = this.match(...args);
+        }
+        dest.stack.push(res);
+    }
+    
+    unbind(){
+        this.dest = null;
+    }
 }
 
 function func(f, merge = false, refs = [], arity = f.length){
+    // console.warn("func is deprecated.");
     // this works for retaining the `this` instance.
     return function(){
         let args = arity ? this.stack.splice(-arity) : [];
@@ -240,7 +270,7 @@ class Func {
         // let's do some scoping. only update variables,
         // do not merge variables made inside the func
         
-        // fuck scoping
+        // #### scoping
         // idea: make argument scoping different
         // nevermind, just have degrees of scoping
         if(scoping === 1){
@@ -327,7 +357,7 @@ class Lambda {
         
         // scoping, as per above
         
-        // fuck scoping
+        // #### scoping
         // idea: make argument scoping different
         // nevermind, just have degrees of scoping
         if(scoping === 1){
@@ -371,10 +401,10 @@ const range = (a, b) => {
 }
 
 const ops = new Map([
-    ["+", vectorTyped([
-        [[Decimal, Decimal],     (a, b) => a.add(b)],
-        [[String, String],       (a, b) => a + b],
-        [[Func, Func],           function(f, g){
+    ["+", new StackedFunc([
+        [[Decimal, Decimal], (a, b) => a.add(b)],
+        [[String, String], (a, b) => a + b],
+        [[Func, Func], function(f, g){
             let k = new Func(f + "+" + g);
             k.exec = function(inst){
                 [g, f].forEach(e => {
@@ -384,20 +414,20 @@ const ops = new Map([
             }
             return k;
         }],
-    ], 2)],
-    ["++", func(typed(new Map([
+    ], 2, { vectorize: true })],
+    ["++", new StackedFunc([
         [[Array, ANY], (a, b) => a.concat(b)],
-    ])), false, [], 2)],
-    ["-", vectorTyped([
+    ], 2)],
+    ["-", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.sub(b)],
-    ], 2)],
-    ["/", vectorTyped([
+    ], 2, { vectorize: true })],
+    ["/", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.div(b)],
-    ], 2)],
-    ["^", vectorTyped([
+    ], 2, { vectorize: true })],
+    ["^", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.pow(b)],
-    ], 2)],
-    ["*", vectorTyped([
+    ], 2, { vectorize: true })],
+    ["*", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.mul(b)],
         [[Decimal, String],  (a, b) => b.repeat(+a)],
         [[String, Decimal],  (a, b) => a.repeat(+b)],
@@ -408,22 +438,22 @@ const ops = new Map([
                 f.exec(this);
             }
         }]
-    ], 2)],
-    ["rep", typedFunc([
+    ], 2, { vectorize: true })],
+    ["rep", new StackedFunc([
         [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
     ], 2)],
     // todo: make this work with fold(r?)
     [",", func((a, b) => [...(a instanceof Array ? a : [a]), ...(b instanceof Array ? b : [b])])],
     ["pair", func((a, b) => [a, b])],
-    ["%", vectorTyped([
+    ["%", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.mod(b)],
-    ], 2)],
-    ["mod", vectorTyped([
+    ], 2, { vectorize: true })],
+    ["mod", new StackedFunc([
         [[Decimal, Decimal], (a, b) => {
             var c = a.mod(b);
             return c.lt(0) ? c.add(b) : c;
         }],
-    ], 2)],
+    ], 2, { vectorize: true })],
     // given a function, returns a function that
     // finds the nth integer after 0 for which
     // that functon yields a truthy value
@@ -446,9 +476,9 @@ const ops = new Map([
         }
         this.stack.push(k);
     }],
-    ["prime", vectorTyped([
+    ["prime", new StackedFunc([
         [[Decimal], isPrime]
-    ], 1)],
+    ], 1, { vectorize: true })],
     ["get", func(vectorizeRight((a, b) => {
         if(isDefined(a.get)){
             return a.get(b);
@@ -456,6 +486,13 @@ const ops = new Map([
             return a[b];
         }
     }))],
+    // ["get", func(vectorizeRight((a, b) => {
+        // if(isDefined(a.get)){
+            // return a.get(b);
+        // } else {
+            // return a[b];
+        // }
+    // }))],
     ["stack", function(){
         this.stack.push(this.stack.clone());
     }],
@@ -1605,7 +1642,11 @@ class Stacked {
             });
         } else if(cur.type === "op"){
             // execute command
-            cur.func.bind(this)();
+            if(cur.func instanceof StackedFunc){
+                cur.func.exec(this);
+            } else {
+                cur.func.bind(this)();
+            }
         } else if(this.ops.has(cur.value || cur.raw)/* && cur.type === "word"*/){
             this.ops.get(cur.value || cur.raw).bind(this)();
         } else if(cur.type === "funcStart"){
@@ -1891,13 +1932,17 @@ Array.toString = function(){ return "[type Array]"; }
 // extends a current operation for typed-ness
 const extendTypedLocale = (locale, opName, newTypeArr, resultFunc, arity = -1, vectorized = true) => {
     let pfunc = locale.get(opName);
-    locale.set(opName, (vectorized ? vectorTyped : typedFunc)([
-        [newTypeArr, resultFunc],
-        [newTypeArr.map(() => ANY), function(...args){
-            this.stack = this.stack.concat(args);
-            pfunc.bind(this)();
-        }],
-    ], arity));
+    if(pfunc instanceof StackedFunc){
+        pfunc.typeMap.push([newTypeArr, resultFunc]);
+    } else {
+        locale.set(opName, (vectorized ? vectorTyped : typedFunc)([
+            [newTypeArr, resultFunc],
+            [newTypeArr.map(() => ANY), function(...args){
+                this.stack = this.stack.concat(args);
+                pfunc.bind(this)();
+            }],
+        ], arity));
+    }
 }
 const extendTyped = (...a) => {
     extendTypedLocale(ops, ...a);
@@ -2075,6 +2120,10 @@ class CharString {
             error("dimension error");
         }
         return [...this].map((e, i) => e == c.get(i));
+    }
+    
+    repr(){
+        return "$'" + pp(this.members).replace(/'/g, "''") + "'";
     }
     
     toString(){

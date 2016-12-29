@@ -20,7 +20,13 @@
     <div id="repl"></div>
 	<script>
         const highlight = (prog) =>
-            tokenize(prog, true).map(e => "<span class=\"" + e.type + "\">" + e.raw.replace(/(.)'(.)/, "$1''$2") + "</span>").join("");
+            tokenize(prog, true).map(e => {
+                let s = e.raw;
+                if(e.type === "string" || e.type === "charString"){
+                    s = repr(e.value);
+                }
+                return "<span class=\"" + e.type + "\">" + s + "</span>";
+            }).join("");
         
         let replInfo = {
             stack: [],
@@ -59,6 +65,7 @@
                     let syntaxed = document.createElement("span");
                     syntaxed.innerHTML = highlight(input.value);
                     let result = document.createElement("div");
+                    result.className = "result";
                     let inst = new Stacked(input.value);
                     let outted = [];
                     inst.output = (e) => {
@@ -78,12 +85,14 @@
                         inst.stack = replInfo.stack;
                         inst.vars = replInfo.vars;
                         inst.ops = replInfo.ops;
+                        result.className = "result error";
                     }
                     replInfo.stack = inst.stack;
                     replInfo.vars = inst.vars;
                     replInfo.ops = inst.ops;
-                    result.innerHTML = highlight(repr(replInfo.stack));
-                    result.className = "result";
+                    let repstack = repr(replInfo.stack);
+                    // console.log(repstack);
+                    result.innerHTML = highlight(repstack);
                     holder.removeChild(input);
                     holder.appendChild(syntaxed);
                     if(outted.length)

@@ -2,9 +2,6 @@ const VECTORABLE = Symbol("VECTORABLE");
 
 const isString = (s) => typeof s === "string";
 
-const ANY = [() => true];
-const ITERABLE = [(e) => typeof e[Symbol.iterator] !== "undefined"];
-
 function typed(typeMap){
     return function(...args){
         redo: for(let t of typeMap){
@@ -648,7 +645,7 @@ const repr = (item) => {
         return "'" + item.replace(/'/g, "''") + "'";
     }
     else if(item instanceof Decimal){
-        return item.toString().replace(/-/g, "_");
+        return item.toFixed().replace(/-/g, "_");
     }
     else if(item instanceof Func || item instanceof Lambda){
         return item.toString();
