@@ -22,11 +22,17 @@
         const highlight = (prog) =>
             tokenize(prog, true).map(e => {
                 let s = e.raw;
-                if(e.type === "string" || e.type === "charString"){
-                    s = repr(e.value);
-                }
+                //if(e.type === "string" || e.type === "charString"){
+                //    s = repr(e.value);
+                //}
                 return "<span class=\"" + e.type + "\">" + s + "</span>";
             }).join("");
+        
+        let lastError = "";
+        
+        error = (e) => {
+            throw new Error(e);
+        }
         
         let replInfo = {
             stack: [],
@@ -65,12 +71,12 @@
                     let syntaxed = document.createElement("span");
                     syntaxed.innerHTML = highlight(input.value);
                     let result = document.createElement("div");
-                    result.className = "result";
+                    result.classList.add("result");
                     let inst = new Stacked(input.value);
                     let outted = [];
                     inst.output = (e) => {
                         let spn = document.createElement("span");
-                        spn.className = "output";
+                        spn.classList.add("output");
                         spn.appendChild(document.createTextNode(pp(e)));
                         outted.push(spn);
                     };
@@ -78,14 +84,18 @@
                     inst.vars = replInfo.vars.clone();
                     inst.ops = replInfo.ops.clone();
                     replInfo.history.push(input.value);
-                    replInfo.index++;
+                    replInfo.index = replInfo.history.length;
+                    let errEl;
                     try {
                         inst.run();
                     } catch(e){
                         inst.stack = replInfo.stack;
                         inst.vars = replInfo.vars;
                         inst.ops = replInfo.ops;
-                        result.className = "result error";
+                        holder.classList.add("error");
+                        let message = e.message ? "error: " + e.message : e.toString();
+                        errEl = document.createElement("div");
+                        errEl.appendChild(document.createTextNode(message));
                     }
                     replInfo.stack = inst.stack;
                     replInfo.vars = inst.vars;
@@ -98,8 +108,11 @@
                     if(outted.length)
                         holder.appendChild(document.createElement("br"));
                     outted.forEach(el => holder.appendChild(el));
+                    if(errEl)
+                        holder.appendChild(errEl);
                     holder.appendChild(result);
-                    holder.className = "finished";
+                    holder.classList.remove("current");
+                    holder.classList.add("finished");
                     replStep();
                 } else if(e.key === "Escape"){
                     setTimeout(() => input.value = "", 0)

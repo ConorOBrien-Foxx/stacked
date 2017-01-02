@@ -608,9 +608,9 @@ const depthOf = (arr, d = 0) => {
 	}
 }
 
-const flatten = (arr) =>
+const flatten = (arr, n = Infinity) =>
 	arr instanceof Array
-		? arr.map(flatten).reduce((p, c) => p.concat(c), [])
+		? arr.map((e) => n > 1 ? flatten(e, n - 1) : e).reduce((p, c) => p.concat(c), [])
 		: arr;
 
 // from http://stackoverflow.com/a/30832210/4119004

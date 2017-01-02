@@ -33,6 +33,8 @@ canvas {
     width: 90%;
 }
 
+.error *, .error { color: red !important; }
+
 #stacked-output, #code {
     color: #CCC;
     font-size: 18px;
@@ -86,3 +88,4 @@ button:hover {
     color: rgb(102, 116, 123);
     font-style: italic;
 }
+.whitespace { white-space: pre; }
