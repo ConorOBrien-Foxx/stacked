@@ -1069,11 +1069,11 @@ const ops = new Map([
     ], 1)],
     ["tofunc", func((s) => new Func(s))],
 	["rot", func((a, n) => rotate(a, n))],
-	["index", rightVectorTyped([
+	["index", new StackedFunc([
         [[ITERABLE, ANY], (ent, n) => {
             return new Decimal([...ent].newIndexOf(n))
         }],
-    ], 2)],
+    ], 2, { vectorize: "right" })],
 	["execeach", function(){
 		let funcArr = this.stack.pop();
         if(!funcArr.every(FUNC_LIKE))
@@ -1178,7 +1178,7 @@ const ops = new Map([
         [[String], a => a.toLowerCase()]
     ], 1)],
     ["wrap", func((a) => [a])],
-    ["flat", typedFunc([
+    ["flat", new StackedFunc([
         [[Array], flatten],
         [[ANY], e => e]
     ], 2)],
@@ -1188,10 +1188,10 @@ const ops = new Map([
     ["deepmap", typedFunc([
         [[Array, [FUNC_LIKE]], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
     ], 2)],
-    ["has", typedFunc([
+    ["has", new StackedFunc([
         [[String, ANY],    (a, b) => sanatize(!!a.find(e => equal(e, b)))],
         [[ITERABLE, ANY],  (a, b) => sanatize(!!a.find(e => equal(e, b)))],
-    ], 2)],
+    ], 2, { vectorize: "right" })],
     ["intersection", typedFunc([
         [[ITERABLE, ITERABLE], intersection],
     ], 2)],
@@ -1208,12 +1208,12 @@ const ops = new Map([
         [[String], s => unique(s).join("")],
         [[ITERABLE], unique],
     ], 1)],
-    ["periodloop", typedFunc([
+    ["periodloop", new StackedFunc([
         [[ANY, [FUNC_LIKE]], function(o, f){
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).result;
         }],
     ], 2)],
-    ["periodsteps", typedFunc([
+    ["periodsteps", new StackedFunc([
         [[ANY, [FUNC_LIKE]], function(o, f){
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).steps;
         }],
@@ -1224,7 +1224,7 @@ const ops = new Map([
     ["fixshape", typedFunc([
         [[Array], e => sanatize(fixShape(e))],
     ], 1)],
-    ["nfixshape", typedFunc([
+    ["nfixshape", new StackedFunc([
         [[Array, ANY], (e, x) => sanatize(fixShape(e, x))],
     ], 2)],
     ["compose", typedFunc([
@@ -1286,7 +1286,7 @@ const ops = new Map([
     }],
     ["cls", () => document.getElementById("stacked-output").innerHTML = ""],
     ["alert", func(e => alert(e))],
-    ["download", typedFunc([
+    ["download", new StackedFunc([
         [
             [ANY, ANY, String],
             (content, name, type) => download(content.toString(), name.toString(), type)
