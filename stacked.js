@@ -1193,6 +1193,9 @@ const ops = new Map([
     ["intersection", typedFunc([
         [[ITERABLE, ITERABLE], intersection],
     ], 2)],
+    ["union", typedFunc([
+        [[ITERABLE, ITERABLE], union],
+    ], 2)],
     ["partition", typedFunc([
         [[ITERABLE, ITERABLE], partition],
     ], 2)],
