@@ -1401,6 +1401,8 @@ new Map([
     ["rep", "×"],
     ["!=", "≠"],
     ["merge", "..."],
+    ["ord", "#."],
+    ["chr", "#:"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
