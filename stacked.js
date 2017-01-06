@@ -184,7 +184,7 @@ class Token {
                 this.value = this.value.slice(1);
                 this.type = "setfunc";
             }
-        } else if(str.match(/^[A-Za-z_]/) || str[0] === "`"){
+        } else if(str.match(/^[A-Za-z_]/) || vars.has(str)){
             this.value = str;
             this.type = "word";
         } else if(str === "["){
@@ -692,8 +692,6 @@ const ops = new Map([
         k.exec(this);
     }],
     ["not", new StackedFunc(a => Decimal(+falsey(a)), 1, { untyped: true })],
-        // return new Decimal(+falsey(this.stack.pop()));
-    // }],
     ["ord", new StackedFunc([
         [[String], a => Decimal(a.charCodeAt())]
     ], 1, { vectorize: true })],
@@ -1317,6 +1315,9 @@ const ops = new Map([
             }
         }
     }],
+    ["retest", new StackedFunc([
+        [[String, String], (a, b) => new Decimal(+new RegExp(b).test(a))],
+    ], 2)],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1369,6 +1370,8 @@ let arityOverides = new Map([
 
 const makeAlias = (k, v) => {
     let n = ops.get(k);
+    if(!n)
+        console.error("no func `" + k + "`");
     if(v.forEach)
         v.forEach(e => ops.set(e, n));
     else
@@ -1387,7 +1390,6 @@ new Map([
     ["sqrt", "√"],
     ["filter", "accept"],
     ["neg", "_"],
-    ["square", "²"],
     ["mod", "%%"],
 	["execeach", "#!"],
     ["powerset", ["\u2119", "P"]],
@@ -1414,6 +1416,10 @@ const tokenize = (str, keepWhiteSpace = false) => {
     // let toks = str.match(reg);
     
     let opNames = [...ops.keys()]
+        // sort by lengths
+        .sort((x, y) => y.length - x.length);
+    
+    let varNames = [...vars.keys()]
         // sort by lengths
         .sort((x, y) => y.length - x.length);
     
@@ -1535,6 +1541,13 @@ const tokenize = (str, keepWhiteSpace = false) => {
         // 9. tokenize an operator, if avaialable
         else {
             for(let name of opNames){
+                if(needle(name)){
+                    advance(name.length);
+                    toks.push(name);
+                    continue tokenizeLoop;
+                }
+            }
+            for(let name of varNames){
                 if(needle(name)){
                     advance(name.length);
                     toks.push(name);
@@ -1972,6 +1985,7 @@ $(- - +) { x . : x sign } agenda @:decrease
 `);
 
 makeAlias("prod", "\u220f");
+makeAlias("square", "²");
 makeAlias("iszero", "is0");
 
 vars.set("typeDecimal", Decimal);
