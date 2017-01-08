@@ -915,6 +915,9 @@ const ops = new Map([
     ["pad", new StackedFunc([
         [[STP(e => isDefined(e.padStart)), ANY, Decimal], (a, f, len) => a.padStart(len, f)],
     ], 3)],
+    ["rpad", new StackedFunc([
+        [[STP(e => isDefined(e.padEnd)), ANY, Decimal], (a, f, len) => a.padEnd(len, f)],
+    ], 3)],
     ["dpad", new StackedFunc([
         [[STP(e => isDefined(e.padStart)), Decimal],
             (arr, len) => arr.padStart(len, isString(flatten(arr)[0]) ? " " : 0)],
@@ -2033,13 +2036,20 @@ const unsanatize = (ent) => {
         return +ent;
     else if(ent instanceof Array)
         return ent.map(unsanatize);
+    else if(ent instanceof Func || ent instanceof Lambda)
+        return (...a) => ent.over(...a.map(sanatize));
     else
         return ent;
 }
 
 // integrates a class into stacked
-const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []) => {
-    ignore = ignore.concat(["map", "filter", "keys", "values", "forEach", "repr"]);
+const integrate = (klass, opts = {}) => {
+    opts.merge = opts.merge || false;
+    opts.ignore = opts.ignore || [];
+    opts.methods = opts.methods || [];
+    opts.vectors = opts.vectors || [];
+    opts.ignore = opts.ignore.concat(["map", "filter", "keys", "values", "forEach", "repr"]);
+    opts.sanatize = opts.sanatize || false;
 	let props = Object.getOwnPropertyNames(klass.prototype);
 	ops.set(klass.name, function(){
 		let args = this.stack.splice(-klass.length);
@@ -2049,12 +2059,12 @@ const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []
     vars.set("type" + kname, klass);
     klass.toString = function(){ return "[type " + kname + "]"; }
 	let kdispname = kname;
-	for(let nme of methods){
+	for(let nme of opts.methods){
 		// so that scoping of `nme` persists
 		let prop = nme;
 		let dprop = prop;
 		if(["constructor", "toString"].indexOf(prop) >= 0
-            || ignore.indexOf(prop) >= 0
+            || opts.ignore.indexOf(prop) >= 0
             || prop.constructor === Symbol) continue;
 		if(ops.has(prop)){
 			// todo: overload
@@ -2070,24 +2080,25 @@ const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []
 		let prop = nme;
 		let dprop = prop;
 		if(["constructor", "toString", "length"].indexOf(prop) >= 0
-            || ignore.indexOf(prop) >= 0) continue;
+            || opts.ignore.indexOf(prop) >= 0) continue;
         let arity = klass.prototype[prop].length;
         let body = function(){
             let instance = this.stack.pop();
             assureTyped(instance, klass);
             let args = this.stack.splice(-arity);
+            if(opts.sanatize) args = args.map(unsanatize);
             this.stack.push(sanatize(instance[prop](...args)));
         };
-		if(ops.has(prop) && !merge){
+		if(ops.has(prop) && !opts.merge){
             console.warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
             dprop = kdispname + dprop;
             ops.set(dprop, body);
-		} else if(ops.has(prop) && merge){
+		} else if(ops.has(prop) && opts.merge){
             // construct type
             let types = [...Array(arity)];
             types.fill(ANY);
             types.push(klass);
-            if(vectors.length) console.log(vectors, prop, vectors.has(prop));
+            if(opts.vectors.length) console.log(opts.vectors, prop, opts.vectors.has(prop));
             permute(types).forEach(typeArr => {
                 extendTyped(prop, typeArr, (...a) => {
                     let inst = a.find(e => e instanceof klass);
@@ -2095,8 +2106,9 @@ const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []
                         error("no instance of `" + kname + "` found in arguments (`" + prop + "`)")
                     }
                     a.splice(a.indexOf(inst), 1);
+                    if(opts.sanatize) a = a.map(unsanatize);
                     return sanatize(inst[prop](...a));
-                }, arity + 1, vectors.has(prop)); 
+                }, arity + 1, opts.vectors.has(prop)); 
             });
         } else {
             ops.set(dprop, body);
@@ -2116,6 +2128,7 @@ const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []
             ops.set(dstaticProp, function(){
                 let ar = -klass[staticProp].length;
                 let args = ar ? this.stack.splice(ar) : [];
+                if(opts.sanatize) args = args.map(unsanatize);
                 this.stack.push(sanatize(klass[staticProp](...args)));
             });
         } else {
@@ -2124,7 +2137,7 @@ const integrate = (klass, merge = false, ignore = [], methods = [], vectors = []
 	}
 }
 
-integrate(Element, false, [], ["atomic", "sym", "name", "weight"]);
+integrate(Element, { merge: false, methods: ["atomic", "sym", "name", "weight"] });
 
 Element.ptable.forEach((v, k) => {
 	vars.set("E" + k, v);
@@ -2133,7 +2146,7 @@ Element.ptable.forEach((v, k) => {
 // color
 Color.prototype["-"] = Color.prototype.sub;
 Color.prototype["="] = Color.prototype.equal;
-integrate(Color, true);
+integrate(Color, { merge: true });
 
 const aliasPrototype = (klass, alias, name) => {
     klass.prototype[alias] = klass.prototype[name];
@@ -2212,11 +2225,10 @@ CharString.prototype[VECTORABLE] = true;
 
 aliasPrototype(CharString, "+", "add");
 
-integrate(CharString, true);
+integrate(CharString, { merge: true });
 
 makeAlias("CharString", "CS");
 
-// 
 class KeyArray {
     constructor(arr){
         this.kmap = arr;
@@ -2285,14 +2297,16 @@ class KeyArray {
 }
 
 // allow the default `map`, `filter`, etc. to be used
-integrate(KeyArray, true, []);
+integrate(KeyArray, { merge: true });
 
 aliasPrototype(Complex, "+", "add");
 aliasPrototype(Complex, "-", "sub");
-integrate(Complex, true, [], ["re", "im"], ["add", "-", "sub", "+"]);
+integrate(Complex, { merge: true, methods: ["re", "im"], vectors: ["add", "-", "sub", "+"] });
 
-integrate(AutomataRule, true, []);
-integrate(CellularAutomata, true, []);
+integrate(AutomataRule, { merge: true });
+integrate(CellularAutomata, { merge: true });
+
+integrate(Table, { sanatize: true });
 
 if(typeof module !== "undefined"){
     module.exports = exports.default = stacked;
