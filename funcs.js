@@ -1,4 +1,13 @@
 const VECTORABLE = Symbol("VECTORABLE");
+const REFORM = Symbol("REFORM");
+
+String.prototype[REFORM] = function(s){
+    return s.constructor === String ? s : s.join ? s.join("") : s[Symbol.iterator] ? [...s].join("") : [s].join("");
+}
+
+Array.prototype[REFORM] = function(a){
+    return [...a];
+}
 
 const isString = (s) => typeof s === "string";
 
@@ -151,10 +160,10 @@ const fixShape = (arr, fill = 0) => {
     return recur(arr);
 }
 
-const union = (a, b) => [...a, ...b];
+const union = (a, b) => unique([...a, ...b]);
 
 const intersection = (a, b) =>
-    union(a, b).filter(e => a.indexOf(e) >= 0 && b.indexOf(e) >= 0);
+    unique(union(a, b).filter(e => a.indexOf(e) >= 0 && b.indexOf(e) >= 0));
 
 const partition = (a, b) => {
     b = flatten([...b]);
@@ -177,11 +186,13 @@ const partition = (a, b) => {
 function periodLoop(o, f){
     let it = o;
     let steps = [];
-    while(unique(steps).length === steps.length){
+    while(intersection(steps, steps.concat(it)).length === steps.length){
         steps.push(it);
         it = f(it);
     }
     steps.pop();    // remove dup. entry
+    if(steps.length === 2 && equal(steps[0], steps[1]))
+        steps.pop();
     return {
         result: it,
         steps: steps
@@ -609,7 +620,7 @@ function vectorizeRight(f, arity = f.length){
 
 const depthOf = (arr, d = 0) => {
 	if(arr instanceof Array){
-		return Math.max(...arr.map(e => depthOf(e, d + 1)));
+		return Math.max(...arr.map(e => depthOf(e, d + 1)), d);
 	} else {
 		return d;
 	}
@@ -664,6 +675,19 @@ const repr = (item) => {
     }
 }
 
+const chunk = (arr, len) => {
+	len = +len;
+	let res = [];
+	for(let i = 0; i < arr.length; i += len){
+		res.push(arr.slice(i, i + len));
+	}
+	return res;
+}
+
+const table = (a, b, f) => {
+	return a.map(x => b.map(y => f(x, y)));
+};
+
 const joinArray = (item) => {
 	let trav = (arr, depth = depthOf(arr)) => {
         if(!isDefined(arr)) return "undefined";
@@ -682,20 +706,6 @@ const joinArray = (item) => {
 	return trav(item);
 };
 
-const chunk = (arr, len) => {
-	len = +len;
-	let res = [];
-	for(let i = 0; i < arr.length; i += len){
-		res.push(arr.slice(i, i + len));
-	}
-	return res;
-}
-
-// proper name?
-const table = (a, b, f) => {
-	return a.map(x => b.map(y => f(x, y)));
-};
-
 const joinGrid = (item) => {
 	let trav = (arr, depth = depthOf(arr)) => {
 		if(arr instanceof Array)
@@ -707,8 +717,12 @@ const joinGrid = (item) => {
 		else
 			return arr.toString();
 	};
-	return trav(item);
+    return trav(item);
 };
+
+const disp = (item) => {
+    return repr(item);
+}
 
 const pp = (item) => {
 	let ident = flatten(item);
@@ -722,7 +736,7 @@ const pp = (item) => {
 	}
 };
 
-const disp = (x) =>
+const dispJS = (x) =>
 	x === undefined ? "undefined" :
 	x.map ?
 		x.map(disp).join(" ") :
@@ -733,6 +747,12 @@ const disp = (x) =>
 
 const factorial = (dec) => {
 	return dec.lt(2) ? Decimal(1) : factorial(dec.sub(1)).mul(dec);
+}
+
+const takeWhile = (list, f) => {
+    let i = 0;
+    while(f(list[i]) && i < list.length) i++;
+    return list.slice(0, i);
 }
 
 const assureTyped = (obj, type) => {

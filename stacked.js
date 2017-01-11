@@ -3,7 +3,11 @@ if(typeof require !== "undefined") require("decimal.js");
 const DELAY = 200;
 
 let error = (err) => {
-    new Stacked("").output("error: " + err)
+    try {
+        new Stacked("").output("error: " + err)
+    } catch(e){
+        throw new Error(err);
+    }
     throw new Error("haha have fun");
 };
 
@@ -21,6 +25,7 @@ const STP = (f) => new StackedPseudoType(f);
 const STP_HAS = (prop) => STP(e => isDefined(e[prop]));
 const ANY = STP(() => true);
 const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]));
+const REFORMABLE = STP_HAS(REFORM);
 
 // todo: integrate this into everything; throw warnings for all things that don't
 class StackedFunc {
@@ -232,7 +237,7 @@ class Nil {
 class Func {
     constructor(body){
         this.body = body;
-        this.arity = null;
+        this.arity = body.arity || null;
     }
     
     over(...args){
@@ -610,7 +615,7 @@ const ops = new Map([
         [[String, String, String],
             (orig, target, sub) =>
                 orig.replace(new RegExp(target, "g"), sub)],
-        [[String, String, [FUNC_LIKE]], function(orig, target, sub){
+        [[String, String, STP(FUNC_LIKE)], function(orig, target, sub){
             return orig.replace(new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a))
         }],
     ], 3)],
@@ -629,7 +634,7 @@ const ops = new Map([
     ["nsgroup", function(){
         this.stack.push(this.stack.splice(-this.stack.pop()));
     }],
-    ["debug", new StackedFunc(e => console.log(disp(e)), 1, { untyped: true })],
+    ["debug", new StackedFunc(e => console.log(dispJS(e)), 1, { untyped: true })],
     ["put", new StackedFunc(
         function(e){  this.output(e);  },
         1,
@@ -659,6 +664,9 @@ const ops = new Map([
         1,
         { result: false, untyped: true }
     )],
+    ["disp", new StackedFunc(function(e){
+        this.output(disp(e));
+    }, 1, { untyped: true })],
     ["repr", new StackedFunc(repr, 1, { untyped: true })],
     ["dup", func(e => [e, e], true)],
     ["swap", func((x, y) => [y, x], true)],
@@ -755,7 +763,7 @@ const ops = new Map([
         [[Array], joinGrid],
     ], 1)],
     ["DEBUG", function(){
-        console.log(disp(this.stack));
+        console.log(dispJS(this.stack));
         console.log(this.stack);
     }],
     // todo: take from a textarea, maybe
@@ -941,11 +949,11 @@ const ops = new Map([
     ["BOR", func((a, b) => new Decimal(+a | +b))],
     ["BXOR", func((a, b) => new Decimal(+a ^ +b))],
     // ["table", typedFunc([
-        // [[Object, Object, [FUNC_LIKE]],
+        // [[Object, Object, STP(FUNC_LIKE)],
             // (a, b, f) => table(a, b, (...args) => f.over(...args))],
     // ], 3)],
     ["filter", typedFunc([
-        [[[(e) => isDefined(e.filter)], [FUNC_LIKE]], function(a, f){
+        [[[(e) => isDefined(e.filter)], STP(FUNC_LIKE)], function(a, f){
             return a.filter((...args) => {
                 let r = f.overWith(this, ...args.map(sanatize));
                 // console.log(pp(r), ";", pp(args));
@@ -954,7 +962,7 @@ const ops = new Map([
         }],
     ], 2)],
     ["reject", typedFunc([
-        [[[(e) => isDefined(e.filter)], [FUNC_LIKE]], function(a, f){
+        [[[(e) => isDefined(e.filter)], STP(FUNC_LIKE)], function(a, f){
             return a.filter((...args) => falsey(f.overWith(this, ...args)));
         }],
     ], 2)],
@@ -1095,12 +1103,12 @@ const ops = new Map([
 	], 1)],
 	["chunk", func((a, b) => chunk(a, b))],
     ["chunkby", typedFunc([
-        [[ITERABLE, [FUNC_LIKE]], function(a, f){
+        [[ITERABLE, STP(FUNC_LIKE)], function(a, f){
             return chunkBy(a, (...args) => unsanatize(f.overWith(this, ...args.map(sanatize))));
         }],
     ], 2)],
     ["runsof", typedFunc([
-        [[[e => e instanceof Array || typeof e === "string"], [FUNC_LIKE]], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
+        [[[e => e instanceof Array || typeof e === "string"], STP(FUNC_LIKE)], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
     ], 2)],
     ["eval", function(){
         let t = this.stack.pop();
@@ -1121,7 +1129,7 @@ const ops = new Map([
         [[Decimal, Decimal, Decimal], (a, min, max) => a.add(max).mod(min).sub(min)],
     ], 3)],
     ["animate", typedFunc([
-        [[[FUNC_LIKE], Decimal, Decimal, Decimal], function(f, min, max, delay){
+        [[STP(FUNC_LIKE), Decimal, Decimal, Decimal], function(f, min, max, delay){
             let msDelay = +delay.mul(1000);
             let rec = (i) => {
                 f.overWith(this, i);
@@ -1132,7 +1140,7 @@ const ops = new Map([
         }]
     ], 4)],
     ["animation", typedFunc([
-        [[[FUNC_LIKE], Decimal], function(f, d){
+        [[STP(FUNC_LIKE), Decimal], function(f, d){
             let n = +d.mul(1000);
             f.exec(this);
             let i = setInterval(() => f.exec(this), n);
@@ -1159,17 +1167,16 @@ const ops = new Map([
         [[Array], betterSort],
     ], 1)],
     ["sortby", typedFunc([
-        [[Array, [FUNC_LIKE]], function(a, f){
+        [[Array, STP(FUNC_LIKE)], function(a, f){
             return a.sort((l, r) => f.overWith(this, l, r));
         }],
     ], 2)],
     ["transpose", typedFunc([
         [[Array], transpose],
     ], 1)],
-	["prefix", rightVectorTyped([
-		[[Array, Decimal], (a, d) => prefix(a, d)],
-		[[String, Decimal], (a, d) => prefix(a, d)],
-	], 2)],
+	["prefix", new StackedFunc([
+		[[STP_HAS("slice"), Decimal], (a, d) => prefix(a, d)],
+	], 2, { vectorize: "right" })],
     ["keys", func((a) => sanatize([...a.keys()]))],
     ["values", func((a) => sanatize([...a.values()]))],
     ["lower", vectorTyped([
@@ -1182,16 +1189,20 @@ const ops = new Map([
     ["flat", new StackedFunc([
         [[Array], flatten],
         [[ANY], e => e]
-    ], 2)],
+    ], 1)],
+    ["enflat", new StackedFunc([
+        [[Array, Decimal], (a, b) => flatten(a, +b)],
+        [[ANY, Decimal], e => e]
+    ], 2, { vectorize: "right" })],
     ["cellmap", typedFunc([
-        [[Array, [FUNC_LIKE]], function(a, f){ return cellMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
+        [[Array, STP(FUNC_LIKE)], function(a, f){ return cellMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
     ], 2)],
     ["deepmap", typedFunc([
-        [[Array, [FUNC_LIKE]], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
+        [[Array, STP(FUNC_LIKE)], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
     ], 2)],
     ["has", new StackedFunc([
         [[String, ANY],    (a, b) => sanatize(!!a.find(e => equal(e, b)))],
-        [[ITERABLE, ANY],  (a, b) => sanatize(!!a.find(e => equal(e, b)))],
+        [[ITERABLE, ANY],  (a, b) => sanatize(!![...a].find(e => equal(e, b)))],
     ], 2, { vectorize: "right" })],
     ["intersection", typedFunc([
         [[ITERABLE, ITERABLE], intersection],
@@ -1213,12 +1224,12 @@ const ops = new Map([
         [[ITERABLE], unique],
     ], 1)],
     ["periodloop", new StackedFunc([
-        [[ANY, [FUNC_LIKE]], function(o, f){
+        [[ANY, STP(FUNC_LIKE)], function(o, f){
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).result;
         }],
     ], 2)],
     ["periodsteps", new StackedFunc([
-        [[ANY, [FUNC_LIKE]], function(o, f){
+        [[ANY, STP(FUNC_LIKE)], function(o, f){
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).steps;
         }],
     ], 2)],
@@ -1324,6 +1335,13 @@ const ops = new Map([
     ["retest", new StackedFunc([
         [[String, String], (a, b) => new Decimal(+new RegExp(b).test(a))],
     ], 2)],
+    ["takewhile", new StackedFunc([
+        [[REFORMABLE, STP(FUNC_LIKE)], function(a, b){
+            return sanatize(a[REFORM](takeWhile([...a], (...e) => {
+                return unsanatize(b.overWith(this, ...sanatize(e)));
+            })));
+        }]
+    ], 2)],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1411,6 +1429,8 @@ new Map([
     ["merge", "..."],
     ["ord", "#."],
     ["chr", "#:"],
+    ["pair", "#,"],
+    // ["prefix", "inits"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
@@ -1692,7 +1712,8 @@ class Stacked {
             let k = new Func(cur.value);
             k.toString = function(){ return cur.raw; }
             k.exec = function(inst){
-                inst.execOp(inst.ops.get(cur.value));
+                let toExec = inst.ops.get(cur.value);
+                inst.execOp(toExec);
             }
             this.stack.push(k);
         } else if(["number", "string", "nil", "charString"].includes(cur.type)){
@@ -1855,7 +1876,9 @@ const bootstrap = (code) => {
 bootstrap(`
 [sgroup tail merge] @:isolate
 [: *] @:square
-{ f : { n : n f! n = } bind } @:invariant
+[map flat] @:flatmap
+(* Until I fix scoping *)
+(* { f : { n : n f! n = } bind } @:invariant *)
 [0 >] @:ispos
 [0 <] @:isneg
 [0 eq] @:iszero
@@ -1884,6 +1907,8 @@ $or  bitwise @:bor
 $xpr bitwise @:bxor
 [2 /] @:halve
 [2 *] @:double
+[1 +] @:inc
+[1 -] @:dec
 { e f : e [f apply] map } @:clmn
 [0 get] @:first
 [_1 get] @:last
@@ -1988,11 +2013,20 @@ $(- - +) { x . : x sign } agenda @:decrease
 [Conway '' CellularAutomata] @:conway
 
 { c : c repr out [cls c step repr out] 1 animation } @:cellani
+
+[#/ !] @:doinsert
 `);
 
 makeAlias("prod", "\u220f");
 makeAlias("square", "²");
 makeAlias("iszero", "is0");
+makeAlias("doinsert", "#\\");
+
+// ---stealing--- adapting some of Haskell's Data.List stuff
+bootstrap(`
+{ list el : list [el pair] map $++ #\\ betail } @:intersperse
+[intersperse flat] @:intercalate
+`);
 
 vars.set("typeDecimal", Decimal);
 Decimal.toString = function(){ return "[type Decimal]"; }
