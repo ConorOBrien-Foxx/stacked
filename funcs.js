@@ -1,12 +1,45 @@
 const VECTORABLE = Symbol("VECTORABLE");
 const REFORM = Symbol("REFORM");
 
+const isDefined = (a) => typeof a !== "undefined";
+const defined = (...a) => a.find(isDefined);
+
 String.prototype[REFORM] = function(s){
     return s.constructor === String ? s : s.join ? s.join("") : s[Symbol.iterator] ? [...s].join("") : [s].join("");
 }
 
 Array.prototype[REFORM] = function(a){
     return [...a];
+}
+
+// from http://stackoverflow.com/a/38580140/4119004 (my question! :D)
+const Generator = Object.getPrototypeOf(function* () {});
+const GeneratorFunction = Generator.constructor;
+
+Generator.prototype.exhaust = function(callback){
+    let collect = isDefined(callback) ? this : [];
+    callback = defined(callback, (e) => collect.push(e));
+    for(let x of this)
+        callback(x);
+    
+    return collect;
+}
+
+function* cartProd(...arrs){
+    arrs.reverse();
+    let count = arrs.reduce((p, c) => p * c.length, 1);
+    let indToItem = (ind) => {
+        return arrs.map((arr) => {
+            let e = arr[ind % arr.length];
+            ind = ind / arr.length | 0;
+            return e;
+        }).reverse();
+    };
+    let start = 0;
+    let stop = count;
+    for(let i = start; i < stop; i++){
+        yield indToItem(i);
+    }
 }
 
 const isString = (s) => typeof s === "string";
@@ -419,9 +452,6 @@ const isPrime = (n) => {
 		return TRUE;
 	}
 }
-
-const isDefined = (a) => typeof a !== "undefined";
-const defined = (...a) => a.find(isDefined);
 
 const DECIMAL_DEFAULT_PRECISION = 20;
 Decimal.set({ precision: DECIMAL_DEFAULT_PRECISION });

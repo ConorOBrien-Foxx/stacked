@@ -1342,6 +1342,15 @@ const ops = new Map([
             })));
         }]
     ], 2)],
+    ["cartprod", new StackedFunc([
+        [[REFORMABLE, REFORMABLE], (a, b) =>
+            cartProd([...a], [...b]).exhaust().map(e => a[REFORM](e))
+        ]
+    ], 2)],
+    ["multicartprod", new StackedFunc([
+        [[Array], (a) =>
+            cartProd(...a).exhaust()]
+    ], 1)],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1630,16 +1639,22 @@ const parseNum = function(str){
 }
 
 const vars = new Map([
-	["LF",     "\n"],
-	["CR",     "\r"],
-	["CRLF",   "\r\n"],
-	["PI",     Decimal.PI],
-	["TAU",    Decimal.PI.mul(2)],
-	["PAU",    Decimal.PI.mul(1.5)],
-	["E",      Decimal(1).exp()],
-	["alpha",  "abcdefghijklmnopqrstuvwxyz"],
-	["ALPHA",  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
-    ["\u2205", []],
+	["LF",         "\n"],
+	["CR",         "\r"],
+	["CRLF",       "\r\n"],
+	["PI",         Decimal.PI],
+	["TAU",        Decimal.PI.mul(2)],
+	["PAU",        Decimal.PI.mul(1.5)],
+	["E",          Decimal(1).exp()],
+	["alpha",      "abcdefghijklmnopqrstuvwxyz"],
+	["ALPHA",      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+    ["vowels",     "aeiouy"],
+    ["VOWELS",     "AEIOUY"],
+    ["consonants", "bcdfghjklmnpqrstvwxz"],
+    ["CONSONANTS", "BCDFGHJKLMNPQRSTVWXZ"],
+    ["qwerty",     ["qwertyuiop", "asdfghjkl", "zxcvbnm"]],
+    ["QWERTY",     ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]],
+    ["\u2205",     []],
 ]);
 
 vars.set("π", vars.get("PI"));
@@ -1654,6 +1669,8 @@ class Stacked {
         this.stack = [];
         // todo: fix popping from an empty stack
         this.slow = slow;
+        if(slow)
+            console.warn("slow mode is buggy.");
         this.reg = new Decimal(0);
         this.vars = vars;
         
