@@ -947,10 +947,10 @@ const ops = new Map([
     ["BAND", func((a, b) => new Decimal(+a & +b))],
     ["BOR", func((a, b) => new Decimal(+a | +b))],
     ["BXOR", func((a, b) => new Decimal(+a ^ +b))],
-    // ["table", typedFunc([
-        // [[Object, Object, STP(FUNC_LIKE)],
-            // (a, b, f) => table(a, b, (...args) => f.over(...args))],
-    // ], 3)],
+    ["table", typedFunc([
+        [[Object, Object, STP(FUNC_LIKE)],
+            (a, b, f) => table(a, b, (...args) => f.over(...args))],
+    ], 3)],
     ["filter", typedFunc([
         [[[(e) => isDefined(e.filter)], STP(FUNC_LIKE)], function(a, f){
             return a.filter((...args) => {
