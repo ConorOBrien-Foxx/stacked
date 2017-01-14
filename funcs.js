@@ -164,7 +164,8 @@ const surround = (s, f) => {
     s = fixShape(s);
     let height = s.length;
     let width = s[0].length;
-    if(width === 0 && height <= 1)
+    console.log(width, height);
+    if(width <= 1 && height <= 1)
         return [[f, f], [f, f]];
     s = s.map(a => [].concat(f, a, f));
     s.unshift(makeArray(width + 2, f));
