@@ -159,7 +159,6 @@ const makeArray = (len, fill) => [...Array(len)].map(() => fill);
 
 const surround = (s, f) => {
     if(isString(s)) return ungridify(surround(gridify(s), f));
-    console.log(s);
     if(!isDefined(s[0][0]))
         s = [s];
     s = fixShape(s);
