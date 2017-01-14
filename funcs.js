@@ -158,10 +158,12 @@ const betterSort = (arr) => {
 const makeArray = (len, fill) => [...Array(len)].map(() => fill);
 
 const surround = (s, f) => {
-    if(isString(s)) return gridify(surround(ungridify(s), f));
+    if(isString(s)) return ungridify(surround(gridify(s), f));
     s = fixShape(s);
     let height = s.length;
     let width = s[0].length;
+    if(width === 0 && height <= 1)
+        return [[f, f], [f, f]];
     s = s.map(a => [f, ...a, f]);
     s.unshift(makeArray(width + 2, f));
     s.push(makeArray(width + 2, f));

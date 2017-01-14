@@ -48,6 +48,7 @@ class StackedFunc {
     }
     
     match(...args){
+        // console.log(args);
         redo: for(let t of this.typeMap){
             let [key, func] = t;
             let i = 0;
@@ -83,7 +84,10 @@ class StackedFunc {
         let res;
         this.dest = dest;   // for `match`
         if(this.options.vectorize){
-            res = (this.options.vectorize === "right" ? vectorizeRight : vectorize)((...a) => this.match(...a), this.arity)(...args);
+            res = (this.options.vectorize === "right" ? vectorizeRight : vectorize)((...a) => {
+                // console.log(a, args, this.arity);
+                return this.match(...a);
+            }, this.arity)(...args);
         } else {
             res = this.match(...args);
         }
@@ -248,6 +252,8 @@ class Func {
     }
     
     overWith(inst, ...args){
+        if(!(inst instanceof Stacked))
+            throw new Error(inst, " is not a Stacked instance.");
         let t = new Stacked("");
         t.vars = inst.vars;
         t.ops = inst.ops;
@@ -338,7 +344,7 @@ class Lambda {
         let t = new Stacked("");
         t.vars = inst.vars;
         t.ops = inst.ops;
-        t.stack = args.slice(0, this.args.length);
+        t.stack = this.arity ? args.slice(0, this.arity) : args;
         this.exec(t);
         return defined(t.stack.pop(), new Nil);
     }
@@ -350,6 +356,7 @@ class Lambda {
     
     exec(inst, scoping = 1){
         let temp = new Stacked(this.body);
+        // console.log(inst);
         temp.ops = inst.ops.clone();
         temp.reg = inst.reg;
         temp.output = inst.output;
@@ -421,6 +428,7 @@ const range = (a, b) => {
 }
 
 const ops = new Map([
+    // todo: fix with charstring
     ["+", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.add(b)],
         [[String, String], (a, b) => a + b],
@@ -833,16 +841,7 @@ const ops = new Map([
         let f = this.stack.pop();
         let arr = this.stack.pop();
         if(f instanceof Lambda){
-            this.stack.push(arr.map((e, i) => {
-                switch(f.args.length){
-                    case 1:
-                        return f.overWith(this, e);
-                    case 2:
-                        return f.overWith(this, e, Decimal(i));
-                    default:
-                        error("unsupported function arity `" + f.args.length + "` for `map`");    
-                }
-            }));
+            this.stack.push(arr.map((e, i) => f.overWith(this, e, Decimal(i))));
         } else if(f instanceof Func){
             this.stack.push(arr.map(e => {
                 let t = new Stacked("");
@@ -861,7 +860,7 @@ const ops = new Map([
         ops.get("map").bind(this)();
         this.stack = this.stack.pop();
     }],
-    ["fold", function(){
+    ["sfold", function(){
         let f = this.stack.pop();
         if(this.stack.length === 1) return;
         this.stack = [this.stack.reduce((p, c) => {
@@ -871,7 +870,7 @@ const ops = new Map([
             return t.stack.pop();
         })].reject(falsey);
     }],
-    ["foldr", function(){
+    ["sfoldr", function(){
         let f = this.stack.pop();
         if(this.stack.length === 1) return;
         this.stack = [this.stack.reverse().reduce((p, c) => {
@@ -938,7 +937,7 @@ const ops = new Map([
 			if(!(ent instanceof Array))
 				error(typeName(ent.constructor) + " is not insertable");
 			
-			inst.stack.push(ent.length <= 1 ? ent[0] : ent.reduce((p, c) => func.over(p, c)));
+			inst.stack.push(ent.length <= 1 ? ent[0] : ent.reduce((p, c) => func.overWith(inst, p, c)));
 		}
 		this.stack.push(k);
     }],
@@ -1351,6 +1350,10 @@ const ops = new Map([
         [[Array], (a) =>
             cartProd(...a).exhaust()]
     ], 1)],
+    ["surround", new StackedFunc([
+        [[String, ANY], surround],
+        [[Array, ANY], surround],
+    ], 2)],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1524,6 +1527,10 @@ const tokenize = (str, keepWhiteSpace = false) => {
             advance();
             toks.push(build + "'");
         }
+        // // 3c. or a data string
+        // else if(needle("`")){
+            
+        // }
         // 4. match a comment start symbol, if available
         // 5. match a function array start, if available (`$(`)
         else if(needle("(*")){
@@ -1654,11 +1661,14 @@ const vars = new Map([
     ["CONSONANTS", "BCDFGHJKLMNPQRSTVWXZ"],
     ["qwerty",     ["qwertyuiop", "asdfghjkl", "zxcvbnm"]],
     ["QWERTY",     ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]],
-    ["\u2205",     []],
+    ["EPA",        []],
+    ["EPS",        ""]
 ]);
 
-vars.set("π", vars.get("PI"));
-vars.set("τ", vars.get("TAU"));
+vars.set("π",      vars.get("PI"));
+vars.set("τ",      vars.get("TAU"));
+vars.set("\u2205", vars.get("EPA"));
+vars.set("ε",      vars.get("EPS"));
 
 class Stacked {
     constructor(code, slow = false){
@@ -1685,6 +1695,7 @@ class Stacked {
                 )
                 : e => alert(e)
             : e => console.log(e);
+        // console.log(this, this.vars.get("a"), this.vars.get("b"));
     }
     
     inherit(instance){
@@ -1891,6 +1902,10 @@ const bootstrap = (code) => {
     }
 }
 bootstrap(`
+{ init arr func :
+  arr toarr @arr
+  init arr, func doinsert
+} @:fold
 [sgroup tail merge] @:isolate
 [: *] @:square
 [map flat] @:flatmap
@@ -1921,7 +1936,7 @@ $(ipart , fpart) fork @:ifpart
 ['txt' download] @:savetxt
 $and bitwise @:band
 $or  bitwise @:bor
-$xpr bitwise @:bxor
+$xor bitwise @:bxor
 [2 /] @:halve
 [2 *] @:double
 [1 +] @:inc
@@ -2225,12 +2240,19 @@ class CharString {
     }
     
     add(c){
+        // return this.concat(c);
         assureTyped(c, CharString);
         return new CharString([...this, ...c]);
     }
     
     concat(c){
-        return new CharString([...this].concat(c));
+        let resArr = [...this];
+        if(c[Symbol.iterator]){
+            for(let k of c)
+                resArr.push(k);
+        } else
+            resArr.push(c);
+        return new CharString(resArr);
     }
     
     get(ind){
