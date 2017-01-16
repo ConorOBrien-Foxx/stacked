@@ -1,4 +1,4 @@
-/*
+/**
  * THE ICON FORMAT
  * ==================
  * The purpose of this format is provide a human-readable and human-writeable format
@@ -42,9 +42,13 @@
 class Icon {
     /**
      * Create an icon.
-     * 
+     * @param {mixed} entity Entity can be any of the following:
+     * <dl>
+     *      <dt>string</dt> <dd>A string in the icon format.</dd>
+     *      <dt>array</dt> <dd>An array of RGB triplets, from 0 to 255, each.</dd>
+     * </dl>
      */
-    constructor(){
+    constructor(entity){
         
     }
 }

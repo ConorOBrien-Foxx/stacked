@@ -1,5 +1,10 @@
+/** Class representing a table. */
 class Table {
     // assumes CSV
+    /**
+     * Creates a table.
+     * @param {string} content A CSV table.
+     */
     constructor(content){
         this.data = Table.parseCSV(content);
     }

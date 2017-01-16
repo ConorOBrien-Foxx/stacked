@@ -12,12 +12,6 @@ Array.prototype[REFORM] = function(a){
     return [...a];
 }
 
-class Icon {
-    constructor(imageData){
-        
-    }
-}
-
 // from http://stackoverflow.com/a/38580140/4119004 (my question! :D)
 const Generator = Object.getPrototypeOf(function* () {});
 const GeneratorFunction = Generator.constructor;
