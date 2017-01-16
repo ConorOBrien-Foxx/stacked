@@ -470,8 +470,6 @@ const ops = new Map([
     ["rep", new StackedFunc([
         [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
     ], 2)],
-    // todo: make this work with fold(r?)
-    // [",", func((a, b) => [...(a instanceof Array ? a : [a]), ...(b instanceof Array ? b : [b])])],
     [",", new StackedFunc((a, b) => flatten([a, b], 1), 2, { untyped: true })],
     ["pair", func((a, b) => [a, b])],
     ["%", new StackedFunc([
@@ -947,7 +945,7 @@ const ops = new Map([
     ["BAND", func((a, b) => new Decimal(+a & +b))],
     ["BOR", func((a, b) => new Decimal(+a | +b))],
     ["BXOR", func((a, b) => new Decimal(+a ^ +b))],
-    ["table", typedFunc([
+    ["table", new StackedFunc([
         [[Object, Object, STP(FUNC_LIKE)],
             (a, b, f) => table(a, b, (...args) => f.over(...args))],
     ], 3)],
