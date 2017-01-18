@@ -16,6 +16,11 @@ if(typeof require !== "undefined"){
 	CellularAutomata = require("./automata.js");
     AutomataRule = CellularAutomata.AutomataRule;
 	// require("./stacked.js");
+    
+    // waiting for that glorious synchronous stdin!
+    // prompt = require("syncprompt");
+    
+    
     readLineSync = require("readline-sync");
     prompt = (message = "") => readLineSync.question(message);
 }
