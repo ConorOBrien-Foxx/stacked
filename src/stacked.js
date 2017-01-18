@@ -789,6 +789,11 @@ const ops = new Map([
         } else {
             while(true){
                 f.exec(this);
+                let k = this.stack.pop();
+                if(falsey(k)){
+                    this.stack.push(k);
+                    break;
+                }
             }
         }
     }],
@@ -805,8 +810,9 @@ const ops = new Map([
         }
     }],
     ["while", function(){
-        let effect = this.stack.pop();
         let cond = this.stack.pop();
+        let effect = this.stack.pop();
+        // console.log(cond, cond+[]);
         while(true){
             cond.exec(this);
             let e = this.stack.pop();
@@ -1422,7 +1428,7 @@ const ops = new Map([
 ]);
 
 ops.set("cls", isNode
-    ? () => process.stdout.write("\e[2J")
+    ? () => cls()
     : () => document.getElementById("stacked-output").innerHTML = "");
 
 if(isNode){
@@ -1690,6 +1696,7 @@ const tokenize = (str, keepWhiteSpace = false) => {
 };
 
 const parseNum = function(str){
+    str = str.replace(/\s/g, "");
     if(str.has("i")){
         if(str.endsWith("i")){
             return new Complex(Decimal(0), parseNum(str.slice(0, -1)));

@@ -824,6 +824,23 @@ if(isNode){
         typeName: typeName,
         pp: pp,
         disp: disp,
+        falsey: falsey,
+        assureTyped: assureTyped,
+        // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
+        cls: function cls(){
+            let windows = process.platform.indexOf("win") === 0;
+            let stdout = "";
+            if(!windows){
+                stdout += "\x1B[2J";
+            } else {
+                lines = process.stdout.getWindowSize()[1];
+                for(let i = 0; i < lines; i++)
+                    stdout += "\r\n";
+            }
+            stdout += "\x1B[0f";
+            
+            process.stdout.write(stdout);
+        }
         //##insert
     };
 }
