@@ -1,3 +1,8 @@
+let isNode = typeof require !== "undefined";
+
+if(isNode)
+	var Decimal = require("./decimal.js");
+
 class Element {
     constructor(atomic, sym, name, weight,
                 group, period, block, econf){
@@ -93,3 +98,6 @@ const SCANDIUM   = new Element(21, "Sc", "Scandium", "44.95591",
 
 // todo: add more
 // todo: add ptable disp
+
+if(isNode)
+    module.exports = exports.default = Element;

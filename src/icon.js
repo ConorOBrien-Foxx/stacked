@@ -1,15 +1,21 @@
+let isNode = typeof require !== "undefined";
+
+if(isNode)
+	var Decimal = require("./color.js");
+
 /**
- * THE ICON FORMAT
+ * @description
+ * THE HUMICON FORMAT
  * ==================
  * The purpose of this format is provide a human-readable and human-writeable format
  * for images. It's goal is not efficiency but readability and processability; this
  * is not to say, however, it is always readable and inefficient. Since it is true
- * that writeability is subjective, there are different modes for writing an icon
+ * that writeability is subjective, there are different modes for writing a humicon
  * file.
  * 
  * Description of Format
  * ---------------------
- * The icon format is signified by a `.icon` extension. The actual file is structured
+ * The humicon format is signified by a `.hic` extension. The actual file is structured
  * generally as such:
  * 
  *     <type>
@@ -38,17 +44,62 @@
  * If no type can be identified, the type is assumed to be null.
  */
 
-/** Class representing an icon. */
+/** Class representing an awesome icon. */
 class Icon {
     /**
-     * Create an icon.
-     * @param {mixed} entity Entity can be any of the following:
-     * <dl>
-     *      <dt>string</dt> <dd>A string in the icon format.</dd>
-     *      <dt>array</dt> <dd>An array of RGB triplets, from 0 to 255, each.</dd>
-     * </dl>
+     * Creates an icon from an RGB array.
+     * @type {Array.<Array.<Number>>}
+     * @param {Array.<Array.<Number>>} rgbArray An array of RGB triplets.
      */
-    constructor(entity){
+    constructor(rgbArray){
+        this.array = array.map(row => row.map(cell => new Color(cell)));
+    }
+    
+    writeToCanvas(canvas){
         
     }
+    
+    /**
+     * Parses a humicon data string into an icon.
+     * @param {String} A valid humicon string.
+     * @return {Icon} An icon representing this string.
+     */
+    static parseHIC(str){
+        let lines = str.split("\n");
+        // parse out the type
+        let type = lines.shift();
+        let bwMatch = type.match(/^bw(?::(.)(.))?/i);
+        let res = [];
+        let build = [];
+        let readChunk;  // function to read the information for a pixel
+        let toRGB;      // function to convert the chunk to RGB
+        if(bwMatch){
+            bwMatch.shift();
+            let [black, white] = bwMatch.map((e, i) => e || i.toString());
+            readChunk = (line) => [line.shift(), line];
+            toRGB = (chunk) => {
+                if(chunk !== white && chunk !== black){
+                    throw new Error("Expected `" + white + "` or `" + black + "`, got `" + chunk + "`");
+                }
+                return [0, 0, 0].fill(255 * (chunk === white));
+            }
+        } else {
+            throw new Error("Nope.");
+        }
+        while(lines.length){
+            let line = [...lines.shift()];
+            while(line.length){                
+                let chunk;
+                [chunk, line] = readChunk(line);
+                let triplet = toRGB(chunk);
+                build.push(triplet);
+            }
+            res.push(build);
+            build = [];
+        }
+        return res;
+    }
 }
+
+if(isNode)
+    module.exports = exports.default = Icon;

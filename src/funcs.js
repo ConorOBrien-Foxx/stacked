@@ -1,3 +1,9 @@
+let isNode = typeof require !== "undefined";
+
+if(isNode){
+	var Decimal = require("./decimal.js");
+}
+
 const VECTORABLE = Symbol("VECTORABLE");
 const REFORM = Symbol("REFORM");
 
@@ -802,4 +808,14 @@ const assureTyped = (obj, type) => {
 	error("type conflict; expected " + typeName(type) +
 		", received `" + obj + "`, which is of type " +
 		typeName(obj.constructor));
+}
+
+if(isNode){
+    module.exports = {
+        REFORM: REFORM,
+        defined: defined,
+        isPrime: isPrime,
+        repr: repr,
+        //##insert
+    };
 }

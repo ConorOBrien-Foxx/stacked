@@ -1,4 +1,22 @@
-if(typeof require !== "undefined") require("decimal.js");
+let isNode = false;
+let childProcess;
+if(typeof require !== "undefined"){
+    isNode = true;
+	var Decimal = require("./decimal.js");
+    childProcess = require("child_process");
+	require("./color.js");
+	require("./icon.js");
+	require("./table.js");
+	require("./element.js");
+	require("./turtle.js");
+	let toMerge = require("./funcs.js");
+    for(let k of Object.getOwnPropertyNames(toMerge)){
+        global[k] = toMerge[k];
+    }
+	require("./complex.js");
+	require("./automata.js");
+	require("./stacked.js");
+}
 
 const DELAY = 200;
 
@@ -1296,7 +1314,6 @@ const ops = new Map([
         console.log(k);
         this.stack.push(k);
     }],
-    ["cls", () => document.getElementById("stacked-output").innerHTML = ""],
     ["alert", func(e => alert(e))],
     ["download", new StackedFunc([
         [
@@ -1367,6 +1384,10 @@ const ops = new Map([
         // // this.ops.set(name, ops.get("name"));
     // }],
 ]);
+
+ops.set("cls", isNode
+    ? () => process.stdout.write("\e[2J")
+    : () => document.getElementById("stacked-output").innerHTML = "");
 
 // math functions
 let arityOverides = new Map([
@@ -2379,6 +2400,8 @@ integrate(CellularAutomata, { merge: true });
 
 integrate(Table, { sanatize: true });
 
-if(typeof module !== "undefined"){
+integrate(Icon, { sanatize: true, ignore: ["writeToCanvas"] });
+
+if(isNode){
     module.exports = exports.default = stacked;
 }

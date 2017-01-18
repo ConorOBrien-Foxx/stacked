@@ -1,3 +1,5 @@
+let isNode = typeof require !== "undefined";
+
 // I looked on the internet for a class-based color implementation, but
 // nothing was quite what I was looking for. Therefore, I have made my
 // own. yaaay I get to do some research
@@ -16,7 +18,7 @@ class Color {
     // internal representation is rgba
     constructor(entity = [0]){
         if(entity instanceof String){
-            
+            throw new Error("unsupported color format `STring`");
         } else {
             if(entity[Symbol.iterator])
                 entity = [...entity];
@@ -79,6 +81,7 @@ class Color {
     }
     
     static colorFromName(name){
+        if(isNode) return null;
         let temp = document.createElement("div");
         temp.style.color = name;
         return Color.colorFromString(window.getComputedStyle(temp).color);
@@ -154,8 +157,18 @@ class Color {
         return Color.fromCMYK(res);
     }
     
-    toString(){
-        return "rgba(" + this.getRGBA().join(", ") + ")";
+    toString(mode = "hex"){
+        switch(mode.toLowerCase()){
+            case "hex":
+                return "#" + [...this].slice(0, 3).map(e =>
+                    ("00" + e.toString(16)).slice(-2)
+                ).join("").toUpperCase();
+            case "rgb":
+            case "rgba":
+                return "rgba(" + this.getRGBA().join(", ") + ")";
+            default:
+                throw new Error("no matching mode `" + mode + "` for color stringification.");
+        }
     }
 }
 
@@ -163,7 +176,12 @@ class Color {
 Color.tolerance = 0;
 
 // darnit chrome, with color form name not working
-["white", "silver", "gray", "grey", "black", "red", "maroon", "yellow", "olive",
- "lime", "green", "aqua", "teal", "blue", "navy", "fuchsia", "purple"].forEach(c =>
-    Color[c] = Color.colorFromName(c)
-);
+if(!isNode)
+    ["white", "silver", "gray", "grey", "black", "red", "maroon", "yellow", "olive",
+     "lime", "green", "aqua", "teal", "blue", "navy", "fuchsia", "purple"].forEach(c =>
+        Color[c] = Color.colorFromName(c)
+    );
+
+if(typeof require !== "undefined"){
+    module.exports = exports.default = Color;
+}
