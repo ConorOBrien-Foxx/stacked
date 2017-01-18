@@ -1,7 +1,15 @@
-let isNode = typeof require !== "undefined";
+var isNode = typeof require !== "undefined";
 
 if(isNode){
 	var Decimal = require("./decimal.js");
+}
+
+class Nil {
+    constructor(){};
+    
+    toString(){
+        return "nil";
+    }
 }
 
 const VECTORABLE = Symbol("VECTORABLE");
@@ -49,34 +57,6 @@ function* cartProd(...arrs){
 }
 
 const isString = (s) => typeof s === "string";
-
-// todo: burninate this evil thingy
-function typed(typeMap){
-    return function(...args){
-        redo: for(let t of typeMap){
-            let [key, func] = t;
-            let i = 0;
-            for(let k of key){                
-                let matched = true;
-                if(k instanceof StackedPseudoType)
-                    matched = k.match(args[i]);
-                else if(k instanceof Array)
-                    matched = k[0](args[i]);
-                else
-                    matched = args[i] instanceof k || args[i].constructor === k;
-                
-                if(!matched)
-                    continue redo;
-                
-                i++;
-            }
-            return func.bind(this)(...args);
-        }
-        error("no matching types for " +
-            args.map(e => e ? typeName(e.constructor) : "undefined")
-                .join(", "));
-    }
-}
 
 Array.prototype.reject = function(f){
 	return this.filter((...a) => !f(...a));
@@ -567,7 +547,8 @@ const equal = (x, y) => {
 }
 
 const warn = (err) => {
-	(console.warn || console.log)("warning: " + err);
+    if(typeof DEBUG !== "undefined" && DEBUG)
+        (console.warn || console.log)("warning: " + err);
 }
 
 const typeName = (type) =>
@@ -816,6 +797,26 @@ if(isNode){
         defined: defined,
         isPrime: isPrime,
         repr: repr,
+        joinGrid: joinGrid,
+        vectorize: vectorize,
+        hcat: hcat,
+        permute: permute,
+        powerSet: powerSet,
+        betterSort: betterSort,
+        transpose: transpose,
+        flatten: flatten,
+        intersection: intersection,
+        union: union,
+        partition: partition,
+        verticalRepeat: verticalRepeat,
+        horizontalRepeat: horizontalRepeat,
+        unique: unique,
+        surround: surround,
+        DECIMAL_DEFAULT_PRECISION: DECIMAL_DEFAULT_PRECISION,
+        isArray: isArray,
+        isDefined: isDefined,
+        VECTORABLE: VECTORABLE,
+        warn: warn
         //##insert
     };
 }

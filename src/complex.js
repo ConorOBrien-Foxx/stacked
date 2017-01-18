@@ -1,3 +1,8 @@
+var isNode = typeof require !== "undefined";
+
+if(isNode)
+	var Decimal = require("./decimal.js");
+
 class Complex {
     constructor(re, im){
         this.re = Decimal(re);
@@ -39,3 +44,6 @@ class Complex {
         return this.repr();
     }
 }
+
+if(isNode)
+    module.exports = exports.default = Complex;

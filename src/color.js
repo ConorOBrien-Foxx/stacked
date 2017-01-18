@@ -1,4 +1,4 @@
-let isNode = typeof require !== "undefined";
+var isNode = typeof require !== "undefined";
 
 // I looked on the internet for a class-based color implementation, but
 // nothing was quite what I was looking for. Therefore, I have made my
@@ -182,6 +182,6 @@ if(!isNode)
         Color[c] = Color.colorFromName(c)
     );
 
-if(typeof require !== "undefined"){
+if(isNode){
     module.exports = exports.default = Color;
 }

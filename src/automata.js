@@ -1,3 +1,5 @@
+var isNode = typeof require !== "undefined";
+
 class AutomataRule {
     // born, survive, display, options
     // display: [deadNumeric, liveNumeric, deadString, liveString]
@@ -105,4 +107,9 @@ class CellularAutomata {
     static Conway(){
         return new AutomataRule([3], [2, 3], [0, 1, " ", "#"], "");
     }
+}
+CellularAutomata.AutomataRule = AutomataRule;
+
+if(isNode){
+    module.exports = exports.default = CellularAutomata;
 }

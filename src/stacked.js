@@ -1,21 +1,23 @@
-let isNode = false;
-let childProcess;
+var isNode = false;
+var DEBUG = false;
 if(typeof require !== "undefined"){
     isNode = true;
-	var Decimal = require("./decimal.js");
-    childProcess = require("child_process");
-	require("./color.js");
-	require("./icon.js");
-	require("./table.js");
-	require("./element.js");
+	Decimal = require("./decimal.js");
+	Color = require("./color.js");
+	Icon = require("./icon.js");
+	Table = require("./table.js");
+	Element = require("./element.js");
 	require("./turtle.js");
 	let toMerge = require("./funcs.js");
     for(let k of Object.getOwnPropertyNames(toMerge)){
         global[k] = toMerge[k];
     }
-	require("./complex.js");
-	require("./automata.js");
-	require("./stacked.js");
+	Complex = require("./complex.js");
+	CellularAutomata = require("./automata.js");
+    AutomataRule = CellularAutomata.AutomataRule;
+	// require("./stacked.js");
+    readLineSync = require("readline-sync");
+    prompt = (message = "") => readLineSync.question(message);
 }
 
 const DELAY = 200;
@@ -28,6 +30,34 @@ let error = (err) => {
     }
     throw new Error("haha have fun");
 };
+
+// todo: burninate this evil thingy
+function typed(typeMap){
+    return function(...args){
+        redo: for(let t of typeMap){
+            let [key, func] = t;
+            let i = 0;
+            for(let k of key){                
+                let matched = true;
+                if(k instanceof StackedPseudoType)
+                    matched = k.match(args[i]);
+                else if(k instanceof Array)
+                    matched = k[0](args[i]);
+                else
+                    matched = args[i] instanceof k || args[i].constructor === k;
+                
+                if(!matched)
+                    continue redo;
+                
+                i++;
+            }
+            return func.bind(this)(...args);
+        }
+        error("no matching types for " +
+            args.map(e => e ? typeName(e.constructor) : "undefined")
+                .join(", "));
+    }
+}
 
 class StackedPseudoType {
     constructor(f){
@@ -116,7 +146,7 @@ class StackedFunc {
 }
 
 function func(f, merge = false, refs = [], arity = f.length){
-    // console.warn("func is deprecated.");
+    // warn("func is deprecated.");
     // this works for retaining the `this` instance.
     return function(){
         let args = arity ? this.stack.splice(-arity) : [];
@@ -245,14 +275,6 @@ class Token {
     
     toString(){
         return "{" + this.type + ":" + (this.value || this.name || this.raw || "") + "}";
-    }
-}
-
-class Nil {
-    constructor(){};
-    
-    toString(){
-        return "nil";
     }
 }
 
@@ -794,6 +816,8 @@ const ops = new Map([
     // or make another command for that
     ["input", func(() => parseNum(prompt()))],
     ["prompt", func(() => prompt())],
+    ["INPUT", func((e) => parseNum(prompt(e)))],
+    ["PROMPT", func((e) => prompt(e))],
     ["for", function(){
         let [f, min, max] = this.stack.splice(-3);
         // console.log(f, min, max);
@@ -1699,7 +1723,7 @@ class Stacked {
         // todo: fix popping from an empty stack
         this.slow = slow;
         if(slow)
-            console.warn("slow mode is buggy.");
+            warn("slow mode is buggy.");
         this.reg = new Decimal(0);
         this.vars = vars;
         
@@ -1707,13 +1731,13 @@ class Stacked {
         this.vars.set("program", this.raw);
         
         this.running = true;
-        this.output = document ?
+        this.output = !isNode ?
             document.getElementById("stacked-output") ?
                 e => document.getElementById("stacked-output").appendChild(
                     document.createTextNode(pp(e || ""))    //todo: is this necessary?
                 )
                 : e => alert(e)
-            : e => console.log(e);
+            : e => process.stdout.write(e.toString());
         // console.log(this, this.vars.get("a"), this.vars.get("b"));
     }
     
@@ -1907,6 +1931,8 @@ const stacked = (...args) => {
     inst.run();
     return inst;
 }
+
+stacked.Stacked = Stacked;
 
 // code to be executed before program start
 // looks for all vars not in the default scope
@@ -2153,7 +2179,7 @@ const integrate = (klass, opts = {}) => {
             || prop.constructor === Symbol) continue;
 		if(ops.has(prop)){
 			// todo: overload
-			console.warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
+			warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
 			dprop = kdispname + dprop; 
 		}
 		ops.set(dprop, typedFunc([
@@ -2175,7 +2201,7 @@ const integrate = (klass, opts = {}) => {
             this.stack.push(sanatize(instance[prop](...args)));
         };
 		if(ops.has(prop) && !opts.merge){
-            console.warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
+            warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
             dprop = kdispname + dprop;
             ops.set(dprop, body);
 		} else if(ops.has(prop) && opts.merge){
@@ -2183,7 +2209,7 @@ const integrate = (klass, opts = {}) => {
             let types = [...Array(arity)];
             types.fill(ANY);
             types.push(klass);
-            if(opts.vectors.length) console.log(opts.vectors, prop, opts.vectors.has(prop));
+            // if(opts.vectors.length) console.log(opts.vectors, prop, opts.vectors.has(prop));
             permute(types).forEach(typeArr => {
                 extendTyped(prop, typeArr, (...a) => {
                     let inst = a.find(e => e instanceof klass);
@@ -2202,11 +2228,12 @@ const integrate = (klass, opts = {}) => {
 	let staticProps = Object.getOwnPropertyNames(klass);
 	for(let nme of staticProps){
 		let staticProp = nme;
-		if(["name", "length", "prototype", "toString"].indexOf(staticProp) >= 0) continue;
+		if(["name", "length", "prototype", "toString", ...opts.ignore]
+            .indexOf(staticProp) >= 0) continue;
 		let dstaticProp = staticProp;
 		if(ops.has(staticProp)){
 			// todo: overload
-			console.warn("name conflict under static `" + dstaticProp + "` of `" + kname + "`; renaming to `" + kdispname + dstaticProp + "`");
+			warn("name conflict under static `" + dstaticProp + "` of `" + kname + "`; renaming to `" + kdispname + dstaticProp + "`");
 			dstaticProp = kdispname + dstaticProp; 
 		}
         if(klass[staticProp] instanceof Function){
@@ -2396,7 +2423,7 @@ aliasPrototype(Complex, "-", "sub");
 integrate(Complex, { merge: true, methods: ["re", "im"], vectors: ["add", "-", "sub", "+"] });
 
 integrate(AutomataRule, { merge: true });
-integrate(CellularAutomata, { merge: true });
+integrate(CellularAutomata, { merge: true, ignore: ["AutomataRule"] });
 
 integrate(Table, { sanatize: true });
 

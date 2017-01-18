@@ -1,3 +1,5 @@
+var isNode = typeof require !== "undefined";
+
 /** Class representing a table. */
 class Table {
     // assumes CSV
@@ -186,3 +188,6 @@ Table.conf = {
     padf: Table.center,
     pretty: true,
 }
+
+if(isNode)
+    module.exports = exports.default = Table;

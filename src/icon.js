@@ -1,7 +1,8 @@
-let isNode = typeof require !== "undefined";
+var isNode = typeof require !== "undefined";
 
-if(isNode)
-	var Decimal = require("./color.js");
+if(isNode){
+	Color = require("./color.js");
+}
 
 /**
  * @description

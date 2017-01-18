@@ -1,4 +1,4 @@
-let isNode = typeof require !== "undefined";
+var isNode = typeof require !== "undefined";
 
 if(isNode)
 	var Decimal = require("./decimal.js");
