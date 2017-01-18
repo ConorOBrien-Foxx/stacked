@@ -29,12 +29,18 @@ const DELAY = 200;
 
 let error = (err) => {
     try {
-        new Stacked("").output("error: " + err)
+        new Stacked("").output("error: " + err);
     } catch(e){
         throw new Error(err);
     }
     throw new Error("haha have fun");
 };
+
+if(isNode)
+    error = (err) => {
+        process.stderr.write("error: " + err + "\n");
+        process.exit(1);
+    }
 
 // todo: burninate this evil thingy
 function typed(typeMap){
@@ -717,6 +723,7 @@ const ops = new Map([
     )],
     ["disp", new StackedFunc(function(e){
         this.output(disp(e));
+        this.output("\n");
     }, 1, { untyped: true })],
     ["repr", new StackedFunc(repr, 1, { untyped: true })],
     ["dup", func(e => [e, e], true)],
@@ -1418,6 +1425,11 @@ ops.set("cls", isNode
     ? () => process.stdout.write("\e[2J")
     : () => document.getElementById("stacked-output").innerHTML = "");
 
+if(isNode){
+    // node specific functions
+    ops.set("argv", func(() => process.argv));
+}
+
 // math functions
 let arityOverides = new Map([
     ["max", 2],
@@ -1742,7 +1754,7 @@ class Stacked {
                     document.createTextNode(pp(e || ""))    //todo: is this necessary?
                 )
                 : e => alert(e)
-            : e => process.stdout.write(e.toString());
+            : e => process.stdout.write(pp(e));
         // console.log(this, this.vars.get("a"), this.vars.get("b"));
     }
     

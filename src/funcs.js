@@ -816,7 +816,14 @@ if(isNode){
         isArray: isArray,
         isDefined: isDefined,
         VECTORABLE: VECTORABLE,
-        warn: warn
+        warn: warn,
+        toBase: toBase,
+        vectorizeRight: vectorizeRight,
+        isString: isString,
+        Nil: Nil,
+        typeName: typeName,
+        pp: pp,
+        disp: disp,
         //##insert
     };
 }
