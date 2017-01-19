@@ -753,10 +753,6 @@ const ops = new Map([
         [[String], (e) => [...e].reverse().join("")],
         [[ITERABLE], (e) => [...e].reverse()],
     ], 1)],
-        //func(typed([
-        // [[Array],  a => a.clone().reverse()],
-        // [[String], a => [...a].reverse().join("")],
-    // ]), false, [], 1)],
     ["behead", new StackedFunc([
         [[STP_HAS("slice")], e => e.slice(1)],
     ], 1)],
@@ -893,17 +889,29 @@ const ops = new Map([
         let [f, ent] = this.stack.splice(-2);
         if(!FUNC_LIKE(f))
             error("type conflict; expected a function-like, received `" + f + "`, which is of type " + typeName(f.constructor));
-        if(truthy(ent)) f.exec(this);
+        if(truthy(ent))
+            if(f.exec)
+                f.exec(this);
+            else
+                this.stack.push(f);
     }],
     ["unless", function(){
         let [ent, f] = this.stack.splice(-2);
-        if(falsey(ent)) f.exec(this);
+        if(falsey(ent))
+            if(f.exec)
+                f.exec(this);
+            else
+                this.stack.push(f);
     }],
     ["ifelse", function(){
         if(this.stack.length < 3)
             error("popping from an empty stack");
         let [f1, f2, ent] = this.stack.splice(-3);
-        (truthy(ent) ? f1 : f2).exec(this);
+        let f = truthy(ent) ? f1 : f2;
+        if(f.exec)
+            f.exec(this);
+        else
+            this.stack.push(f);
     }],
     ["len", function(){
         this.stack.push(Decimal(this.stack.length));
@@ -2039,7 +2047,7 @@ $xor bitwise @:bxor
 [_1 get] @:last
 [2 mod 1 eq] @:odd
 [2 mod 0 eq] @:even
-[0 or] @:truthy
+{ x : 1 0 x ifelse } @:truthy
 [truthy not] @:falsey
 $max #/ @:MAX
 $min #/ @:MIN
