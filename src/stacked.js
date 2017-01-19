@@ -2,6 +2,7 @@ var isNode = false;
 var DEBUG = false;
 if(typeof require !== "undefined"){
     isNode = true;
+    fs = require("fs");
 	Decimal = require("./decimal.js");
 	Color = require("./color.js");
 	Icon = require("./icon.js");
@@ -707,7 +708,7 @@ const ops = new Map([
     )],
     ["sout", new StackedFunc(
         function(){
-            this.output(pp(this.stack));
+            this.output(disp(this.stack));
             this.output("\n");
         },
         0,
@@ -728,10 +729,13 @@ const ops = new Map([
     ["repr", new StackedFunc(repr, 1, { untyped: true })],
     ["dup", func(e => [e, e], true)],
     ["swap", func((x, y) => [y, x], true)],
-    ["sdrop", function(){ this.stack.pop(); }],
+    ["spop", function(){ this.stack.pop(); }],
     ["drop", new StackedFunc([
-        [[STP_HAS("slice")], e => e.slice(1)]
-    ], 1)],
+        [[STP_HAS("slice"), Decimal], (a, b) => a.slice(+b)]
+    ], 2, { vectorize: "right" })],
+    ["take", new StackedFunc([
+        [[STP_HAS("slice"), Decimal], (a, b) => a.slice(0, +b)]
+    ], 2, { vectorize: "right" })],
     ["srev", function(){ this.stack.reverse(); }],
     ["rev", new StackedFunc([
         [[String], (e) => [...e].reverse().join("")],
@@ -1430,6 +1434,13 @@ const ops = new Map([
 ops.set("cls", isNode
     ? () => cls()
     : () => document.getElementById("stacked-output").innerHTML = "");
+
+// node specific functions
+if(isNode){
+    ops.set("read", new StackedFunc([
+        [[String], (e) => fs.readFileSync(e).toString()]
+    ], 1, { vectorize: true }));
+}
 
 // math functions
 let arityOverides = new Map([
