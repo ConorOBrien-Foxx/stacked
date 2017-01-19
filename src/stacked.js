@@ -218,6 +218,7 @@ const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
 
 class Token {
     constructor(str, isComment){
+        if(str instanceof Token) str = str.raw;
         if(isArray(str)){
             this.type = "op";
             this.func = str[0];
@@ -677,10 +678,21 @@ const ops = new Map([
             return orig.replace(new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a))
         }],
     ], 3)],
+    ["mrepl", new StackedFunc([
+        [[String, String, String],
+            (orig, target, sub) =>
+                orig.replace(new RegExp(target, "gm"), sub)],
+        [[String, String, STP(FUNC_LIKE)], function(orig, target, sub){
+            return orig.replace(new RegExp(target, "gm"), (...a) => sub.sanatized(this, ...a));
+        }],
+    ], 3)],
     ["recrepl", new StackedFunc([
         [[String, String, String], 
             (orig, target, sub) =>
-                recursiveRepl(orig, new RegExp(target, "g"), sub)]
+                recursiveRepl(orig, new RegExp(target, "g"), sub)],
+        [[String, String, STP(FUNC_LIKE)], function(orig, target, sub){
+            return recursiveRepl(orig, new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a));
+        }],
     ], 3)],
     ["merge", function(){
         let k = this.stack.pop();
@@ -1440,6 +1452,7 @@ if(isNode){
     ops.set("read", new StackedFunc([
         [[String], (e) => fs.readFileSync(e).toString()]
     ], 1, { vectorize: true }));
+    ops.set("exit", () => process.exit());
 }
 
 // math functions
@@ -1672,8 +1685,11 @@ const tokenize = (str, keepWhiteSpace = false) => {
             if(needle(".")){
                 toks.push(cur());
                 advance();
-            } else
-                error("`" + cur() + "` is an invalid character.");
+            } else {
+                // 11. make sure these error
+                toks.push(new Token(cur()));
+                advance();
+            }
         }
     }
     
@@ -1937,7 +1953,7 @@ class Stacked {
                 error("undefined variable `" + cur.raw + "`");
             }
         } else {
-            error("unhandled type `" + cur.type +"` of `" + cur.raw + "`");
+            error("Invalid character `" + cur.raw + "` (token type `" + cur.type + "`)");
         }
         this.index++;
     }

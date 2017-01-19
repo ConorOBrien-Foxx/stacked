@@ -826,6 +826,7 @@ if(isNode){
         disp: disp,
         falsey: falsey,
         assureTyped: assureTyped,
+        truthy: truthy,
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
             let windows = process.platform.indexOf("win") === 0;
