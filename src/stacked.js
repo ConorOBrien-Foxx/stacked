@@ -1431,11 +1431,6 @@ ops.set("cls", isNode
     ? () => cls()
     : () => document.getElementById("stacked-output").innerHTML = "");
 
-if(isNode){
-    // node specific functions
-    ops.set("argv", func(() => process.argv));
-}
-
 // math functions
 let arityOverides = new Map([
     ["max", 2],
@@ -1753,6 +1748,8 @@ class Stacked {
         
         // environment variables
         this.vars.set("program", this.raw);
+        if(isNode)
+            this.vars.set("argv", process.argv);
         
         this.running = true;
         this.output = !isNode ?
