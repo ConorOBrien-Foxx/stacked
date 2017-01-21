@@ -5,6 +5,7 @@
 	<title>stacked</title>
 	<link href="style.css" rel="STYLESHEET" type="text/css">
 	<script src="./src/decimal.js"></script>
+	<script src="./src/utf8.js"></script>
 	<script src="./src/color.js"></script>
 	<script src="./src/icon.js"></script>
 	<script src="./src/table.js"></script>
@@ -189,7 +190,7 @@
         });
         runSlow.addEventListener("click", function(e){
             before();
-            stacked(code.value, true);
+            stacked(code.value, { slow: true });
         });
         stylize.addEventListener("click", function(e){
             document.getElementById("stacked-output").innerHTML = highlight(code.value);

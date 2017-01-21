@@ -3,6 +3,7 @@ var DEBUG = false;
 if(typeof require !== "undefined"){
     isNode = true;
     fs = require("fs");
+    utf8 = require("./utf8.js");
 	Decimal = require("./decimal.js");
 	Color = require("./color.js");
 	Icon = require("./icon.js");
@@ -28,7 +29,7 @@ if(typeof require !== "undefined"){
 
 const DELAY = 200;
 
-let error = (err) => {
+error = (err) => {
     try {
         new Stacked("").output("error: " + err);
     } catch(e){
@@ -486,11 +487,12 @@ const ops = new Map([
         [[Decimal, Decimal], (a, b) => a.add(b)],
         [[String, String], (a, b) => a + b],
         [[Func, Func], function(f, g){
-            let k = new Func(f + " " + g);
+            let k = new Func((f.body + " " + g.body).replace(/ +/g, " "));
             k.exec = function(inst){
-                [g, f].forEach(e => {
+                [f, g].forEach(e => {
                     inst.stack.push(e);
-                    ops.get("!").bind(inst)();
+                    // console.log(disp(inst.stack));
+                    ops.get("!").exec(inst);
                 });
             }
             return k;
@@ -498,6 +500,16 @@ const ops = new Map([
     ], 2, { vectorize: true })],
     ["++", new StackedFunc([
         [[STP_HAS("concat"), ANY], (a, b) => a.concat(b)],
+        [[Func, Func], function(f, g){
+            let k = new Func((f.body + " " + g.body).replace(/ +/g, " "));
+            k.exec = function(inst){
+                [g, f].forEach(e => {
+                    inst.stack.push(e);
+                    ops.get("!").exec(inst);
+                });
+            }
+            return k;
+        }],
     ], 2)],
     ["-", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.sub(b)],
@@ -609,16 +621,22 @@ const ops = new Map([
         [[Decimal, Decimal], (a, b) => Decimal(+a.gte(b))],
         [[String, String], (a, b) => Decimal(+(a >= b))]
     ], 2, { vectorize: true })],
-    ["!", function(){
-        let obj = this.stack.pop();
-        if(obj instanceof Decimal || obj instanceof Array){
-            this.stack.push(vectorize(factorial)(obj));
-        } else if(obj instanceof Func || obj instanceof Lambda){
-            obj.exec(this);
-        } else {
-            error("unrecognized type `" + typeName(obj.constructor) + "` for `!`");
-        }
-    }],
+    ["!", new StackedFunc([
+        [[Decimal], (a) => factorial(a)],
+        [[STP(FUNC_LIKE)], function(f){
+            f.exec(this);
+        }],
+    ], 1, { vectorize: true })],
+    // ["!", function(){
+        // let obj = this.stack.pop();
+        // if(obj instanceof Decimal || obj instanceof Array){
+            // this.stack.push(vectorize(factorial)(obj));
+        // } else if(obj instanceof Func || obj instanceof Lambda){
+            // obj.exec(this);
+        // } else {
+            // error("unrecognized type `" + typeName(obj.constructor) + "` for `!`");
+        // }
+    // }],
     ["nexec", function(){
         console.log(pp(this.stack));
         let [k, n] = this.stack.splice(-2);
@@ -668,7 +686,7 @@ const ops = new Map([
     })],
     ["each", function(){
         ops.get("oneach").bind(this)();
-        ops.get("!").bind(this)();
+        ops.get("!").exec(this)();
     }],
     ["repl", new StackedFunc([
         [[String, String, String],
@@ -919,22 +937,22 @@ const ops = new Map([
     ["flush", function(){
         while(this.stack.length) this.stack.pop();
     }],
-    ["map", function(){
-        let f = this.stack.pop();
-        let arr = this.stack.pop();
-        if(f instanceof Lambda){
-            this.stack.push(arr.map((e, i) => f.overWith(this, e, Decimal(i))));
-        } else if(f instanceof Func){
-            this.stack.push(arr.map(e => {
-                let t = new Stacked("");
-                t.vars = this.vars;
-                t.ops = this.ops;
-                t.stack.push(e);
-                f.exec(t);
-                return defined(t.stack.pop(), new Nil);
-            }));
-        }
-    }],
+    ["map", new StackedFunc([
+        [[Array, STP(FUNC_LIKE)], function(arr, f){
+            if(f instanceof Lambda){
+                return arr.map((e, i) => f.overWith(this, e, Decimal(i)));
+            } else if(f instanceof Func){
+                return arr.map(e => {
+                    let t = new Stacked("");
+                    t.vars = this.vars;
+                    t.ops = this.ops;
+                    t.stack.push(e);
+                    f.exec(t);
+                    return defined(t.stack.pop(), new Nil);
+                });
+            }
+        }]
+    ], 2)],
     // map the stack
     ["smap", function(){
         let f = this.stack.pop();
@@ -1194,7 +1212,7 @@ const ops = new Map([
     ["eval", function(){
         let t = this.stack.pop();
         this.stack.push(new Func(t));
-        ops.get("!").bind(this)();
+        ops.get("!").exec(this)();
     }],
     // ["uneval", func(Stacked.uneval)],
     ["perm", typedFunc([
@@ -1435,6 +1453,9 @@ const ops = new Map([
         [[String, ANY], surround],
         [[Array, ANY], surround],
     ], 2)],
+    ["bytes", new StackedFunc([
+        [[String], (s) => sanatize(bytes(s))],
+    ], 1)],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1768,18 +1789,18 @@ vars.set("\u2205", vars.get("EPA"));
 vars.set("ε",      vars.get("EPS"));
 
 class Stacked {
-    constructor(code, slow = false){
+    constructor(code, opts = {}){
         this.raw = code;
-        this.ops = ops.clone();
+        this.ops = opts.ops || ops.clone();
         this.toks = tokenize(code) || [];
         this.index = 0;
         this.stack = [];
         // todo: fix popping from an empty stack
-        this.slow = slow;
-        if(slow)
+        this.slow = opts.slow || false;
+        if(this.slow)
             warn("slow mode is buggy.");
         this.reg = new Decimal(0);
-        this.vars = vars;
+        this.vars = opts.vars || vars;
         
         // environment variables
         this.vars.set("program", this.raw);
@@ -1787,14 +1808,15 @@ class Stacked {
             this.vars.set("argv", process.argv);
         
         this.running = true;
-        this.output = !isNode ?
+        this.output = opts.output;
+        if(!this.output) this.output = !isNode ?
             document.getElementById("stacked-output") ?
                 e => document.getElementById("stacked-output").appendChild(
                     document.createTextNode(pp(e || ""))    //todo: is this necessary?
                 )
                 : e => alert(e)
             : e => process.stdout.write(pp(e));
-        // console.log(this, this.vars.get("a"), this.vars.get("b"));
+        // todo: this.error
     }
     
     inherit(instance){
@@ -2055,7 +2077,7 @@ $* #/ @:prod
 $+ #/ @:sum
 $and #/ @:all
 $or #/ @:any
-$not $any + @:none
+$not $any ++ @:none
 [95 baserep] @:compnum
 [95 antibaserep] @:decompnum
 $(+ + -) { x . : x sign } agenda @:increase

@@ -1,24 +1,24 @@
 'Stacked REPL environment initialized.' out
 
 (* REPL functions *)
-[0 @dispStack] @:hideStack
-['There is no more help.' out hideStack] @:help
+[0 @disp_stack] @:hide_stack
+['There is no more help.' out hide_stack] @:help
 [
   'This repl was written entirely in stacked! '
   'This is the program''s source:' + out
   LF out
-  topProg '^' '    ' mrepl out
+  top_prog '^' '    ' mrepl out
   LF out
-  hideStack
+  hide_stack
 ] @:info
 
 (* REPL variables *)
-1 @dispStack        (* controls whether or not the stack is displayed after input *)
-program @topProg    (* this program, for `info` *)
+1 @disp_stack        (* controls whether or not the stack is displayed after input *)
+program @top_prog    (* this program, for `info` *)
 
 (* program loop *)
 [
   '> ' PROMPT eval
-  $sout dispStack if
-  1 @dispStack      (* make sure we prepare to display the stack next time *)
+  $sout disp_stack if
+  1 @disp_stack      (* make sure we prepare to display the _stack next time *)
 ] [1] while

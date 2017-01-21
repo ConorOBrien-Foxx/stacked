@@ -2,7 +2,11 @@ var isNode = typeof require !== "undefined";
 
 if(isNode){
 	var Decimal = require("./decimal.js");
+    utf8 = require("./utf8.js");
 }
+
+var error;
+error = error || ((e) => { throw new Error(e) });
 
 class Nil {
     constructor(){};
@@ -686,12 +690,9 @@ const repr = (item) => {
     else if(item instanceof Decimal){
         return item.toFixed().replace(/-/g, "_");
     }
-    else if(item instanceof Func || item instanceof Lambda){
-        return item.toString();
-    }
     else {
-        console.warn("the following item has no repr:");
-        console.warn(item);
+        warn("the following item has no repr:");
+        warn(item);
         return item.toString();
     }
 }
@@ -791,6 +792,10 @@ const assureTyped = (obj, type) => {
 		typeName(obj.constructor));
 }
 
+// http://stackoverflow.com/a/1242596/4119004
+const bytes = (str) =>
+    [...utf8.encode(str)].map(e => e.charCodeAt());
+
 if(isNode){
     module.exports = {
         REFORM: REFORM,
@@ -827,6 +832,14 @@ if(isNode){
         falsey: falsey,
         assureTyped: assureTyped,
         truthy: truthy,
+        chunkBy: chunkBy,
+        equal: equal,
+        bytes: bytes,
+        chunk: chunk,
+        dispJS: dispJS,
+        toBaseString: toBaseString,
+        factorial: factorial,
+        //##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
             let windows = process.platform.indexOf("win") === 0;
@@ -841,7 +854,6 @@ if(isNode){
             stdout += "\x1B[0f";
             
             process.stdout.write(stdout);
-        }
-        //##insert
+        },
     };
 }
