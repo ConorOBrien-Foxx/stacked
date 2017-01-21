@@ -368,6 +368,10 @@ class Func {
         }
     }
     
+    [EQUAL](y){
+        return this.body === y.body;
+    }
+    
     toString(){
         return "[" + (this.display || this.body).trim() + "]";
     }
@@ -461,6 +465,10 @@ class Lambda {
             // }
         // });
         // console.log(inst.vars);
+    }
+    
+    [EQUAL](y){
+        return equal(this.args, y.args) && equal(this.body, y.body);
     }
     
     toString(){
@@ -1561,7 +1569,7 @@ new Map([
     makeAlias(k, v);
 });
 
-const tokenize = (str, keepWhiteSpace = false) => {
+const tokenize = (str, keepWhiteSpace = false, ignoreError = false) => {
     if(str === "") return [];
 
     // // this is incredibly slow, but kept here in comments for historical purposes.
@@ -1743,7 +1751,19 @@ const tokenize = (str, keepWhiteSpace = false) => {
         }
     }
     
-    return toks.map((e, i) => new Token(e, commentInds[i]));
+    return toks.map((e, i) => {
+        try {
+            return new Token(e, commentInds[i])
+        } catch(E) {
+            if(ignoreError){
+                let t = new Token("");
+                t.raw = e;
+                return t;
+            }
+            else
+                throw E;
+        }
+    });
 };
 
 const parseNum = function(str){

@@ -18,6 +18,7 @@ class Nil {
 
 const VECTORABLE = Symbol("VECTORABLE");
 const REFORM = Symbol("REFORM");
+const EQUAL = Symbol("EQUAL");
 
 const isDefined = (a) => typeof a !== "undefined";
 const defined = (...a) => a.find(isDefined);
@@ -531,11 +532,14 @@ const equal = (x, y) => {
 		return x === y;
 	} else if(x instanceof Decimal){
 		return x.eq(y);
-	} else if(x instanceof Func){
-		return x.body === y.body;
+	} else if(isDefined(x[EQUAL])){
+		return x[EQUAL](y);
 	} else if(x.constructor === Number){
 		return x === y;
-	}
+	} else {
+        console.warn("no equal property for " + x);
+        return x == y;
+    }
 	
 	// they have same type and SHOULD have (and have same)
 	// iterator, if any
@@ -799,6 +803,7 @@ const bytes = (str) =>
 if(isNode){
     module.exports = {
         REFORM: REFORM,
+        EQUAL: EQUAL,
         defined: defined,
         isPrime: isPrime,
         repr: repr,

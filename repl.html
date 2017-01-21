@@ -22,7 +22,7 @@
     <div id="repl"></div>
 	<script>
         const highlight = (prog) =>
-            tokenize(prog, true).map(e => {
+            tokenize(prog, true, true).map(e => {
                 let s = e.raw;
                 //if(e.type === "string" || e.type === "charString"){
                 //    s = repr(e.value);
@@ -74,7 +74,30 @@
                     syntaxed.innerHTML = highlight(input.value);
                     let result = document.createElement("div");
                     result.classList.add("result");
-                    let inst = new Stacked(input.value);
+                    let makeError = (e) => {
+                        holder.classList.add("error");
+                        let message = e.message ? "error: " + e.message : e.toString();
+                        errEl = document.createElement("div");
+                        errEl.appendChild(document.createTextNode(message));
+                    }
+                    let inst;
+                    let errEl;
+                    try {
+                        inst = new Stacked(input.value);
+                    } catch(e){
+                        makeError(e);
+                        let repstack = repr(replInfo.stack);
+                        result.innerHTML = highlight(repstack);
+                        holder.removeChild(input);
+                        holder.appendChild(syntaxed);
+                        if(errEl)
+                            holder.appendChild(errEl);
+                        holder.appendChild(result);
+                        holder.classList.remove("current");
+                        holder.classList.add("finished");
+                        replStep();
+                        return;
+                    }
                     let outted = [];
                     inst.output = (e) => {
                         let spn = document.createElement("span");
@@ -87,23 +110,18 @@
                     inst.ops = replInfo.ops.clone();
                     replInfo.history.push(input.value);
                     replInfo.index = replInfo.history.length;
-                    let errEl;
                     try {
                         inst.run();
                     } catch(e){
                         inst.stack = replInfo.stack;
                         inst.vars = replInfo.vars;
                         inst.ops = replInfo.ops;
-                        holder.classList.add("error");
-                        let message = e.message ? "error: " + e.message : e.toString();
-                        errEl = document.createElement("div");
-                        errEl.appendChild(document.createTextNode(message));
+                        makeError(e);
                     }
                     replInfo.stack = inst.stack;
                     replInfo.vars = inst.vars;
                     replInfo.ops = inst.ops;
                     let repstack = repr(replInfo.stack);
-                    // console.log(repstack);
                     result.innerHTML = highlight(repstack);
                     holder.removeChild(input);
                     holder.appendChild(syntaxed);
