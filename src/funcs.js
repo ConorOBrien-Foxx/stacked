@@ -3,6 +3,7 @@ var isNode = typeof require !== "undefined";
 if(isNode){
 	var Decimal = require("./decimal.js");
     utf8 = require("./utf8.js");
+    cls = require("clear");
 }
 
 var error;
@@ -845,7 +846,7 @@ if(isNode){
         dispJS: dispJS,
         toBaseString: toBaseString,
         factorial: factorial,
-        //##insert
+        // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
             let windows = process.platform.indexOf("win") === 0;

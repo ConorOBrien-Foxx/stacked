@@ -198,6 +198,12 @@ tester.testCases = [
     ["3 3 |>", { top: [3].map(D) }],
     ["3 2 |>", { top: [] }],
     ["_2 2 |>", { top: [-2, -1, 0, 1, 2].map(D) }],
+    
+    ["3 4 ..", { top: [3].map(D) }],
+    ["3 6 ..", { top: [3, 4, 5].map(D) }],
+    ["3 3 ..", { top: [] }],
+    ["3 2 ..", { top: [] }],
+    ["_2 2 ..", { top: [-2, -1, 0, 1].map(D) }],
 ];
 tester.test = (info = true) => {
     let foundOps = [];
