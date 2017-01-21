@@ -42,7 +42,15 @@
             ops: ops.clone(),
             history: [],
             index: 0,
+            display: repr,
         };
+        
+        // todo: minimal repr
+        ops.set("setdisp", new StackedFunc([
+            [[STP(FUNC_LIKE)], function(f){
+                replInfo.display = (e) => f.overWith(this, e);
+            }],
+        ], 1));
         
         ops.set("cls", function(){
             repl.innerHTML = "";
@@ -121,7 +129,7 @@
                     replInfo.stack = inst.stack;
                     replInfo.vars = inst.vars;
                     replInfo.ops = inst.ops;
-                    let repstack = repr(replInfo.stack);
+                    let repstack = replInfo.display(replInfo.stack);
                     result.innerHTML = highlight(repstack);
                     holder.removeChild(input);
                     holder.appendChild(syntaxed);

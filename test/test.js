@@ -4,6 +4,11 @@ const equal   = require("./../src/funcs.js").equal;
 const defined = require("./../src/funcs.js").defined;
 const repr    = require("./../src/funcs.js").repr;
 
+const FALSE = Decimal(0);
+const TRUE  = Decimal(1);
+
+// wrapper for decimal for making testcases; usable in map, e.g.
+//   [1, 2].map(D);
 let D = (e) => new Decimal(e);
 
 let err = (msg) => {
@@ -31,6 +36,7 @@ let expect = (code, check) => {
     try {
         ent = stacked(code, { output: (e) => out += e });
     } catch(e){
+        // if(check.error)
         err(`When running \`${code}\`: Runtime error: ${e}`);
     }
     
@@ -41,17 +47,29 @@ let expect = (code, check) => {
     if(!equal(defined(check.stack, ent.stack), ent.stack)){
         tErr("stack", disp(check.stack), disp(ent.stack));
     }
+    
+    let etop = ent.stack[ent.stack.length - 1];
+    
+    if(!equal(defined(check.top, etop), etop)){
+        tErr("top of stack", disp(check.top), disp(etop));
+    } else {
+        if(ent.stack.length > 1){
+            console.warn("warning: in `" + code + "`: only checked top of stack, but there are still members on it.");
+        }
+    }
 }
 
 let tester = {};
 
 tester.testCases = [
+    ["'Hello, World!'", { top: "Hello, World!" }],
     ["'Hello, World!' put", { out: "Hello, World!" }],
     ["'Hello, World!' out", { out: "Hello, World!\n" }],
     ["'Hello, World!' disp", { out: "'Hello, World!'\n" }],
     ["'O''Brien' put", { out: "O'Brien" }],
     ["'''' put", { out: "'" }],
     ["[]", {}],
+    ["3 @a  a", { stack: [ D(3) ] }],
     ["[3 +]", {}],
     ["{ x : x }", {}],
     ["{! n }", {}],
@@ -81,15 +99,31 @@ tester.testCases = [
     ["1 2 ((3)),,", { stack: [ [D(1), D(2), [D(3)]] ] }],
     ["1 2 pair", { stack: [ [1, 2].map(D) ] }],
     ["1 (2) pair", { stack: [ [D(1), [D(2)]] ] }],
-    ["1 2 %", { stack: [ D(1) ] }],
-    ["3 2 %", { stack: [ D(1) ] }],
-    ["_1 2 %", { stack: [ D(-1) ] }],
-    ["_3 2 %", { stack: [ D(-1) ] }],
-    ["_3 2 mod", { stack: [ D(1) ] }],
-    ["3 2 mod", { stack: [ D(1) ] }],
-    ["42", { stack: [ D(42) ] }],
+    ["1 2 %", { top: D(1) }],
+    ["3 2 %", { top: D(1) }],
+    ["_1 2 %", { top: D(-1) }],
+    ["_3 2 %", { top: D(-1) }],
+    ["_3 2 mod", { top: D(1) }],
+    ["3 2 mod", { top: D(1) }],
+    ["42", { top: D(42) }],
     ["4 $even nth!", { stack: [ D(8) ] }],
     ["4 $prime nth!", { stack: [ D(11) ] }],
+    ["(4 5 12) 2 get", { stack: [ D(12) ] }],
+    ["(4 5 12) (0 2) get", { stack: [ [4, 12].map(D) ] }],
+    ["1 2 3 isolate", { stack: [ D(3) ] }],
+    ["1 2 3 stack isolate", { stack: [ [1, 2, 3].map(D) ] }],
+    
+    ["1 2 =", { top: FALSE }],
+    ["2 2 =", { top: TRUE }],
+    ["3 4 =", { top: FALSE }],
+    ["'a' 'a' =", { top: TRUE }],
+    ["'a' 'b' =", { top: FALSE }],
+    ["'a' 'ab' =", { top: FALSE }],
+    ["$'a' $'a' =", { top: TRUE }],
+    ["$'a' $'ab' =", { top: FALSE }],
+    ["$'foo' $'barbaz' =", { top: FALSE }],
+    ["(1 2) (1 2) =", { top: TRUE }],
+    ["(1 2) (4 2) =", { top: FALSE }],
 ];
 tester.test = (info = true) => {
     for(let [prog, out] of tester.testCases){

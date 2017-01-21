@@ -270,6 +270,8 @@ class Token {
             this.type = "arrayStart";
         } else if(str === "$("){
             this.type = "funcArrayStart";
+        } else if(str === "#("){
+            this.type = "groupStart";
         } else if(str.slice(0, 2) === "$'"){
             this.type = "charString";
             this.value = new CharString(str.slice(2, -1).replace(/''/g, "'"));
@@ -472,7 +474,11 @@ class Lambda {
     }
     
     toString(){
-        return "{" + this.args.join(" ") + ":" + this.body.trim() + "}";
+        return "{ " +
+            this.args.map(e => e === "" ? "." : e).join(" ") +
+            " : " +
+            this.body.trim()
+            + " }";
     }
 }
 
@@ -675,9 +681,13 @@ const ops = new Map([
     ["split", func((a, b) => a.split(b.toString()))],
     ["oneach", func((f) => {
         let k = new Func(f + "oneach");
+        k.toString = function(){
+            return f.toString() + " oneach";
+        }
         // dirty hack, todo: fix it
 		// dear past me: in your dreams.
         // dear past me's: you guys are so immature
+        // dear all of my past me's: I've fixed it. HAHA.
         if(f.arity && f.arity == 2){
             k.exec = function(inst){
                 let vec = vectorize((a, b) => f.overWith(inst, a, b));
@@ -886,26 +896,30 @@ const ops = new Map([
             f.exec(this);
         }
     }],
-    ["agenda", function(){
-        let agendaCond = this.stack.pop();  // function
-        let agenda = this.stack.pop();
-        let k = new Func("$(" + agenda.join(" ") + ") " + agendaCond + " agenda");
-        k.exec = function(inst){
-            let args = [];
-            args.push(inst.stack.pop());
-            if(agendaCond.arity && agendaCond.arity === 2){
-                args.unshift(inst.stack.pop());
+    ["agenda", new StackedFunc([
+        [[ANY, STP(FUNC_LIKE)], function(agenda, agendaCond){
+            let k = new Func(agenda + " agenda");
+            k.toString = function(){
+                return "#(" + disp(agenda) + " " + disp(agendaCond) + " agenda)";
             }
-            let selection = agendaCond.overWith(inst, ...args);
-            inst.stack.push(...args);
-            let todoNext = agenda.get(selection);
-            if(!isDefined(todoNext)){
-                error("no agenda item at position `" + selection + "`");
+            k.arity = agendaCond.arity;
+            k.exec = function(inst){
+                let args = [];
+                args.push(inst.stack.pop());
+                if(agendaCond.arity && agendaCond.arity === 2){
+                    args.unshift(inst.stack.pop());
+                }
+                let selection = agendaCond.overWith(inst, ...args);
+                inst.stack.push(...args);
+                let todoNext = agenda.get(selection);
+                if(!isDefined(todoNext)){
+                    error("no agenda item at position `" + selection + "`");
+                }
+                todoNext.exec(inst);
             }
-            todoNext.exec(inst);
-        }
-        this.stack.push(k);
-    }],
+            this.stack.push(k);
+        }]
+    ], 2)],
     ["size", new StackedFunc([
         [[Decimal], a => a.toFixed().length],
         [[STP_HAS("length")], a => new Decimal(a.length)]
@@ -1655,6 +1669,7 @@ const tokenize = (str, keepWhiteSpace = false, ignoreError = false) => {
         // }
         // 4. match a comment start symbol, if available
         // 5. match a function array start, if available (`$(`)
+        // 5b. match a grouping symbol
         else if(needle("(*")){
             toks.push(cur() + next());
             advance();
@@ -1665,7 +1680,7 @@ const tokenize = (str, keepWhiteSpace = false, ignoreError = false) => {
             advance();
             commentDepth--;
         }
-        else if(needle("$(")){
+        else if(needle("$(") || needle("#(")){
             toks.push(cur() + next());
             advance();
         }
@@ -1858,11 +1873,7 @@ class Stacked {
         // todo
     }
     
-    step(){
-        if(this.index >= this.toks.length || !this.running)
-            return this.running = false;
-        
-        let cur = this.toks[this.index];
+    readOp(cur){
         if(["comment", "commentStart", "commentEnd"].indexOf(cur.type) >= 0){
             // do nothing, it's a comment.
         } else if(cur.type === "accessor"){
@@ -1884,6 +1895,7 @@ class Stacked {
                 let toExec = inst.ops.get(cur.value);
                 inst.execOp(toExec);
             }
+            k.arity = (this.ops.get(cur.value) || { arity: null }).arity;
             this.stack.push(k);
         } else if(["number", "string", "nil", "charString"].includes(cur.type)){
             this.stack.push(cur.value);
@@ -1944,6 +1956,20 @@ class Stacked {
                 arr.forEach(e => e.exec(inst));
             }
             this.stack.push(arr);
+        } else if(cur.type === "groupStart"){
+            let stackCopy = this.stack.clone();
+            this.stack = [];
+            let depth = 1;
+            this.index++;
+            while(depth && this.index < this.toks.length){
+                let cur = this.toks[this.index];
+                if(cur.type === "groupStart") depth++;
+                if(cur.type === "arrayEnd") depth--;
+                if(!depth) break;
+                this.readOp(cur);
+                // this.index++;
+            }
+            this.stack = stackCopy.concat(this.stack);
         } else if(cur.type === "arrayStart"){
             let build = "";
             let depth = 1;
@@ -2006,6 +2032,14 @@ class Stacked {
             error("Invalid character `" + cur.raw + "` (token type `" + cur.type + "`)");
         }
         this.index++;
+    }
+    
+    step(){
+        if(this.index >= this.toks.length || !this.running)
+            return this.running = false;
+        
+        let cur = this.toks[this.index];
+        this.readOp(cur);
     }
     
     run(){
@@ -2367,6 +2401,11 @@ class CharString {
     constructor(a){
         this.members = [...a];
         // todo: shape
+    }
+    
+    [EQUAL](y){
+        assureTyped(y, CharString);
+        return equal(this.members, y.members);
     }
     
     *[Symbol.iterator](){
