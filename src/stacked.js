@@ -73,8 +73,9 @@ function typed(typeMap){
 }
 
 class StackedPseudoType {
-    constructor(f){
+    constructor(f, name){
         this.f = f;
+        this.name = name;
     }
     
     match(arg){
@@ -82,11 +83,14 @@ class StackedPseudoType {
     }
 }
 
-const STP = (f) => new StackedPseudoType(f);
+const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
+const STP = (...args) => new StackedPseudoType(...args);
 const STP_HAS = (prop) => STP(e => isDefined(e[prop]));
-const ANY = STP(() => true);
+const ANY = STP(() => true, "Any");
 const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]));
 const REFORMABLE = STP_HAS(REFORM);
+const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "Integer");
+const STP_FUNC_LIKE = STP(FUNC_LIKE, "Func-like");
 
 // todo: integrate this into everything; throw warnings for all things that don't
 class StackedFunc {
@@ -95,6 +99,8 @@ class StackedFunc {
             error("invalid arity `" + arity + "`");
         
         this.options = options;
+        
+        this.displayName = options.name || options.displayName;
         
         this.options.result = defined(this.options.result, true);
         
@@ -108,28 +114,46 @@ class StackedFunc {
         this.arity = arity;
     }
     
-    match(...args){
-        // console.log(args);
-        redo: for(let t of this.typeMap){
-            let [key, func] = t;
+    findMatch(...args){
+        redo: for(let typePair of this.typeMap){
+            let [key, func] = typePair;
             let i = 0;
-            for(let k of key){
+            for(let type of key){
                 let matched = true;
-                if(k instanceof StackedPseudoType)
-                    matched = k.match(args[i]);
+                if(type instanceof StackedPseudoType)
+                    matched = type.match(args[i]);
                 else
-                    matched = args[i] instanceof k || args[i].constructor === k;
+                    matched = args[i] instanceof type || args[i].constructor === type;
                 
                 if(!matched)
                     continue redo;
                 
                 i++;
             }
-            return func.bind(this.dest)(...args);
+            return func;
         }
-        error("no matching types for " +
-            args.map(e => isDefined(e) ? typeName(e.constructor) : "undefined")
-                .join(", "));
+        return StackedFunc.NO_MATCH;
+    }
+    
+    match(...args){
+        let fm = this.findMatch(...args);
+        let tpname = (e) => isDefined(e) ? typeName(e) : "undefined";
+        if(fm === StackedFunc.NO_MATCH){
+            let typeMapStr =
+                this.typeMap
+                    .map(e => e[0].map(tpname).join(", "))
+                    .join("\n")
+                    .replace(/^/gm, " - ");
+            error(
+                (this.displayName ? "(in `" + this.displayName + "`) " : "") +
+                "no matching types for " +
+                args.map(e => tpname(e.constructor))
+                    .join(", ") + "; " +
+                "expected one of:\n" + typeMapStr
+            );
+        }
+        let k = fm.bind(this.dest)(...args);
+        return k;
     }
     
     exec(dest){
@@ -156,7 +180,17 @@ class StackedFunc {
         if(this.options.result && isDefined(res))
             dest.stack.push(res);
     }
+    
+    static match(types, ...args){
+        return StackedFunc.NO_MATCH !== (new StackedFunc([[types, () => {}]], 1).findMatch(...args));
+    }
+    
+    static ofUnaryType(type){
+        return (n) => StackedFunc.match([type], n);
+    }
 }
+
+StackedFunc.NO_MATCH = Symbol("NO_MATCH");
 
 function func(f, merge = false, refs = [], arity = f.length){
     // warn("func is deprecated.");
@@ -214,8 +248,6 @@ function typedFunc(typeMap, arity = -1){
         arity
     );
 }
-
-const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
 
 class Token {
     constructor(str, isComment){
@@ -511,7 +543,7 @@ const ops = new Map([
             }
             return k;
         }],
-    ], 2, { vectorize: true })],
+    ], 2, { vectorize: true, name: "+" })],
     ["++", new StackedFunc([
         [[STP_HAS("concat"), ANY], (a, b) => a.concat(b)],
         [[Func, Func], function(f, g){
@@ -636,23 +668,14 @@ const ops = new Map([
         [[String, String], (a, b) => Decimal(+(a >= b))]
     ], 2, { vectorize: true })],
     ["!", new StackedFunc([
-        [[Decimal], (a) => factorial(a)],
-        [[STP(FUNC_LIKE)], function(f){
+        [[INTEGER], (a) => factorial(a)],
+        [[STP_FUNC_LIKE], function(f){
             f.exec(this);
         }],
     ], 1, { vectorize: true })],
-    // ["!", function(){
-        // let obj = this.stack.pop();
-        // if(obj instanceof Decimal || obj instanceof Array){
-            // this.stack.push(vectorize(factorial)(obj));
-        // } else if(obj instanceof Func || obj instanceof Lambda){
-            // obj.exec(this);
-        // } else {
-            // error("unrecognized type `" + typeName(obj.constructor) + "` for `!`");
-        // }
-    // }],
+    // volatile
     ["nexec", function(){
-        console.log(pp(this.stack));
+        console.warn(pp(this.stack));
         let [k, n] = this.stack.splice(-2);
         assureTyped(n, Decimal);
         k.exec(this, +n);
@@ -710,7 +733,7 @@ const ops = new Map([
         [[String, String, String],
             (orig, target, sub) =>
                 orig.replace(new RegExp(target, "g"), sub)],
-        [[String, String, STP(FUNC_LIKE)], function(orig, target, sub){
+        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
             return orig.replace(new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a))
         }],
     ], 3)],
@@ -718,7 +741,7 @@ const ops = new Map([
         [[String, String, String],
             (orig, target, sub) =>
                 orig.replace(new RegExp(target, "gm"), sub)],
-        [[String, String, STP(FUNC_LIKE)], function(orig, target, sub){
+        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
             return orig.replace(new RegExp(target, "gm"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
@@ -726,7 +749,7 @@ const ops = new Map([
         [[String, String, String], 
             (orig, target, sub) =>
                 recursiveRepl(orig, new RegExp(target, "g"), sub)],
-        [[String, String, STP(FUNC_LIKE)], function(orig, target, sub){
+        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
             return recursiveRepl(orig, new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
@@ -897,7 +920,7 @@ const ops = new Map([
         }
     }],
     ["agenda", new StackedFunc([
-        [[ANY, STP(FUNC_LIKE)], function(agenda, agendaCond){
+        [[ANY, STP_FUNC_LIKE], function(agenda, agendaCond){
             let k = new Func(agenda + " agenda");
             k.toString = function(){
                 return "#(" + disp(agenda) + " " + disp(agendaCond) + " agenda)";
@@ -917,7 +940,7 @@ const ops = new Map([
                 }
                 todoNext.exec(inst);
             }
-            this.stack.push(k);
+            return k;
         }]
     ], 2)],
     ["size", new StackedFunc([
@@ -960,7 +983,7 @@ const ops = new Map([
         while(this.stack.length) this.stack.pop();
     }],
     ["map", new StackedFunc([
-        [[Array, STP(FUNC_LIKE)], function(arr, f){
+        [[Array, STP_FUNC_LIKE], function(arr, f){
             if(f instanceof Lambda){
                 return arr.map((e, i) => f.overWith(this, e, Decimal(i)));
             } else if(f instanceof Func){
@@ -1070,11 +1093,11 @@ const ops = new Map([
     ["BOR", func((a, b) => new Decimal(+a | +b))],
     ["BXOR", func((a, b) => new Decimal(+a ^ +b))],
     ["table", new StackedFunc([
-        [[Object, Object, STP(FUNC_LIKE)],
+        [[Object, Object, STP_FUNC_LIKE],
             (a, b, f) => table(a, b, (...args) => f.over(...args))],
     ], 3)],
     ["filter", typedFunc([
-        [[[(e) => isDefined(e.filter)], STP(FUNC_LIKE)], function(a, f){
+        [[[(e) => isDefined(e.filter)], STP_FUNC_LIKE], function(a, f){
             return a.filter((...args) => {
                 let r = f.overWith(this, ...args.map(sanatize));
                 // console.log(pp(r), ";", pp(args));
@@ -1083,7 +1106,7 @@ const ops = new Map([
         }],
     ], 2)],
     ["reject", typedFunc([
-        [[[(e) => isDefined(e.filter)], STP(FUNC_LIKE)], function(a, f){
+        [[[(e) => isDefined(e.filter)], STP_FUNC_LIKE], function(a, f){
             return a.filter((...args) => falsey(f.overWith(this, ...args)));
         }],
     ], 2)],
@@ -1224,12 +1247,12 @@ const ops = new Map([
 	], 1)],
 	["chunk", func((a, b) => chunk(a, b))],
     ["chunkby", typedFunc([
-        [[ITERABLE, STP(FUNC_LIKE)], function(a, f){
+        [[ITERABLE, STP_FUNC_LIKE], function(a, f){
             return chunkBy(a, (...args) => unsanatize(f.overWith(this, ...args.map(sanatize))));
         }],
     ], 2)],
     ["runsof", typedFunc([
-        [[[e => e instanceof Array || typeof e === "string"], STP(FUNC_LIKE)], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
+        [[[e => e instanceof Array || typeof e === "string"], STP_FUNC_LIKE], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
     ], 2)],
     ["eval", function(){
         let t = this.stack.pop();
@@ -1250,7 +1273,7 @@ const ops = new Map([
         [[Decimal, Decimal, Decimal], (a, min, max) => a.add(max).mod(min).sub(min)],
     ], 3)],
     ["animate", typedFunc([
-        [[STP(FUNC_LIKE), Decimal, Decimal, Decimal], function(f, min, max, delay){
+        [[STP_FUNC_LIKE, Decimal, Decimal, Decimal], function(f, min, max, delay){
             let msDelay = +delay.mul(1000);
             let rec = (i) => {
                 f.overWith(this, i);
@@ -1261,7 +1284,7 @@ const ops = new Map([
         }]
     ], 4)],
     ["animation", typedFunc([
-        [[STP(FUNC_LIKE), Decimal], function(f, d){
+        [[STP_FUNC_LIKE, Decimal], function(f, d){
             let n = +d.mul(1000);
             f.exec(this);
             let i = setInterval(() => f.exec(this), n);
@@ -1288,7 +1311,7 @@ const ops = new Map([
         [[Array], betterSort],
     ], 1)],
     ["sortby", typedFunc([
-        [[Array, STP(FUNC_LIKE)], function(a, f){
+        [[Array, STP_FUNC_LIKE], function(a, f){
             return a.sort((l, r) => f.overWith(this, l, r));
         }],
     ], 2)],
@@ -1316,10 +1339,10 @@ const ops = new Map([
         [[ANY, Decimal], e => e]
     ], 2, { vectorize: "right" })],
     ["cellmap", typedFunc([
-        [[Array, STP(FUNC_LIKE)], function(a, f){ return cellMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
+        [[Array, STP_FUNC_LIKE], function(a, f){ return cellMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
     ], 2)],
     ["deepmap", typedFunc([
-        [[Array, STP(FUNC_LIKE)], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
+        [[Array, STP_FUNC_LIKE], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
     ], 2)],
     ["has", new StackedFunc([
         [[String, ANY],    (a, b) => sanatize(!!a.find(e => equal(e, b)))],
@@ -1345,12 +1368,12 @@ const ops = new Map([
         [[ITERABLE], unique],
     ], 1)],
     ["periodloop", new StackedFunc([
-        [[ANY, STP(FUNC_LIKE)], function(o, f){
+        [[ANY, STP_FUNC_LIKE], function(o, f){
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).result;
         }],
     ], 2)],
     ["periodsteps", new StackedFunc([
-        [[ANY, STP(FUNC_LIKE)], function(o, f){
+        [[ANY, STP_FUNC_LIKE], function(o, f){
             return periodLoop(o, (...a) => f.sanatized(this, ...a)).steps;
         }],
     ], 2)],
@@ -1456,7 +1479,7 @@ const ops = new Map([
         [[String, String], (a, b) => new Decimal(+new RegExp(b).test(a))],
     ], 2)],
     ["takewhile", new StackedFunc([
-        [[REFORMABLE, STP(FUNC_LIKE)], function(a, b){
+        [[REFORMABLE, STP_FUNC_LIKE], function(a, b){
             return sanatize(a[REFORM](takeWhile([...a], (...e) => {
                 return unsanatize(b.overWith(this, ...sanatize(e)));
             })));
@@ -1852,6 +1875,13 @@ class Stacked {
                 : e => alert(e)
             : e => process.stdout.write(pp(e));
         // todo: this.error
+        this.observeToken = opts.observeToken || null;
+    }
+    
+    static assignNames(){
+        for(let [opName, op] of ops){
+            op.displayName = op.displayName || opName;
+        }
     }
     
     inherit(instance){
@@ -1874,6 +1904,8 @@ class Stacked {
     }
     
     readOp(cur){
+        if(this.observeToken)
+            this.observeToken.bind(this)(cur);
         if(["comment", "commentStart", "commentEnd"].indexOf(cur.type) >= 0){
             // do nothing, it's a comment.
         } else if(cur.type === "accessor"){
@@ -2079,6 +2111,8 @@ const bootstrap = (code) => {
     }
 }
 bootstrap(`
+$(+ + -) { x . : x sign } agenda @:increase
+$(- - +) { x . : x sign } agenda @:decrease
 { init arr func :
   arr toarr @arr
   init arr, func doinsert
@@ -2134,8 +2168,6 @@ $or #/ @:any
 $not $any ++ @:none
 [95 baserep] @:compnum
 [95 antibaserep] @:decompnum
-$(+ + -) { x . : x sign } agenda @:increase
-$(- - +) { x . : x sign } agenda @:decrease
 { a b :
   [b 0 !=] [
     b @t
@@ -2224,6 +2256,8 @@ $(- - +) { x . : x sign } agenda @:decrease
 { c : c repr out [cls c step repr out] 1 animation } @:cellani
 
 [#/ !] @:doinsert
+
+[: _ \\ |>]" @:steps
 `);
 
 makeAlias("prod", "\u220f");
@@ -2565,6 +2599,9 @@ integrate(CellularAutomata, { merge: true, ignore: ["AutomataRule"] });
 integrate(Table, { sanatize: true });
 
 integrate(Icon, { sanatize: true, ignore: ["writeToCanvas"] });
+
+// finally, assign names to each op
+Stacked.assignNames();
 
 if(isNode){
     module.exports = exports.default = stacked;

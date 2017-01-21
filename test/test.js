@@ -27,14 +27,25 @@ ${got}
 \`\`\``);
 }
 
+let lookingForTypes = ["quoteFunc", "op"];
+
 let expect = (code, check) => {
     let out = "";
+    let foundOps = [];
     
     let tErr = expectationError(code);
     
     let ent;
     try {
-        ent = stacked(code, { output: (e) => out += e });
+        ent = stacked(code, {
+            output: (e) => out += e,
+            observeToken: (op) => {
+                // assumption: ES7's includes. Present in node.js
+                if(lookingForTypes.includes(op.type)){
+                    foundOps.push(op.value || op.name);
+                }
+            },
+        });
     } catch(e){
         // if(check.error)
         err(`When running \`${code}\`: Runtime error: ${e}`);
@@ -57,6 +68,7 @@ let expect = (code, check) => {
             console.warn("warning: in `" + code + "`: only checked top of stack, but there are still members on it.");
         }
     }
+    return foundOps;
 }
 
 let tester = {};
@@ -124,13 +136,82 @@ tester.testCases = [
     ["$'foo' $'barbaz' =", { top: FALSE }],
     ["(1 2) (1 2) =", { top: TRUE }],
     ["(1 2) (4 2) =", { top: FALSE }],
+    ["(1 2) (2) =", { top: FALSE }],
+    ["(1 2) (1 2 3 4) =", { top: FALSE }],
+    
+    ["1 2 !=", { top: TRUE }],
+    ["2 2 !=", { top: FALSE }],
+    ["3 4 !=", { top: TRUE }],
+    ["'a' 'a' !=", { top: FALSE }],
+    ["'a' 'b' !=", { top: TRUE }],
+    ["'a' 'ab' !=", { top: TRUE }],
+    ["$'a' $'a' !=", { top: FALSE }],
+    ["$'a' $'ab' !=", { top: TRUE }],
+    ["$'foo' $'barbaz' !=", { top: TRUE }],
+    ["(1 2) (1 2) !=", { top: FALSE }],
+    ["(1 2) (4 2) !=", { top: TRUE }],
+    ["(1 2) (2) !=", { top: TRUE }],
+    ["(1 2) (1 2 3 4) !=", { top: TRUE }],
+    
+    ["1 2 eq", { top: FALSE }],
+    ["2 2 eq", { top: TRUE }],
+    ["2 (1 2 3) eq", { top: [FALSE, TRUE, FALSE] }],
+    ["(3 2 1) (1 2 3) eq", { top: [FALSE, TRUE, FALSE] }],
+    
+    ["1 2 neq", { top: TRUE }],
+    ["2 2 neq", { top: FALSE }],
+    ["2 (1 2 3) neq", { top: [TRUE, FALSE, TRUE] }],
+    ["(3 2 1) (1 2 3) neq", { top: [TRUE, FALSE, TRUE] }],
+    
+    ["1 2 <", { top: TRUE }],
+    ["2 2 <", { top: FALSE }],
+    ["3 2 <", { top: FALSE }],
+    ["2 (1 2 3) <", { top: [FALSE, FALSE, TRUE] }],
+    ["(3 2 1) (1 2 3) <", { top: [FALSE, FALSE, TRUE] }],
+    
+    ["1 2 >", { top: FALSE }],
+    ["2 2 >", { top: FALSE }],
+    ["3 2 >", { top: TRUE }],
+    ["2 (1 2 3) >", { top: [TRUE, FALSE, FALSE] }],
+    ["(3 2 1) (1 2 3) >", { top: [TRUE, FALSE, FALSE] }],
+    
+    ["1 2 <=", { top: TRUE }],
+    ["2 2 <=", { top: TRUE }],
+    ["3 2 <=", { top: FALSE }],
+    ["2 (1 2 3) <=", { top: [FALSE, TRUE, TRUE] }],
+    ["(3 2 1) (1 2 3) <=", { top: [FALSE, TRUE, TRUE] }],
+    
+    ["1 2 >=", { top: FALSE }],
+    ["2 2 >=", { top: TRUE }],
+    ["3 2 >=", { top: TRUE }],
+    ["2 (1 2 3) >=", { top: [TRUE, TRUE, FALSE] }],
+    ["(3 2 1) (1 2 3) >=", { top: [TRUE, TRUE, FALSE] }],
+    
+    ["3!", { top: D(6) }],
+    ["4 [3 +]!", { top: D(7) }],
+    
+    ["3 4 |", { top: FALSE }],
+    ["4 4 |", { top: TRUE }],
+    
+    ["3 4 |>", { top: [3, 4].map(D) }],
+    ["3 6 |>", { top: [3, 4, 5, 6].map(D) }],
+    ["3 3 |>", { top: [3].map(D) }],
+    ["3 2 |>", { top: [] }],
+    ["_2 2 |>", { top: [-2, -1, 0, 1, 2].map(D) }],
 ];
 tester.test = (info = true) => {
+    let foundOps = [];
     for(let [prog, out] of tester.testCases){
-        expect(prog, out);
+        foundOps = foundOps.concat(expect(prog, out));
     }
-    if(info)
+    if(info){
         console.log(`All checks (${tester.testCases.length}) passed successfully`);
+        foundOps = new Set(foundOps);
+        let coveredOps = foundOps.size;
+        let totalOps = stacked("").ops.size;
+        let ratio = Math.ceil(coveredOps / totalOps * 10000) / 100;
+        console.log(`Number of ops tested: ${coveredOps} out of ${totalOps} = ${ratio}%`);
+    }
 }
 
 module.exports = tester;

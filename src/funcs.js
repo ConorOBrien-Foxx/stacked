@@ -560,7 +560,7 @@ const warn = (err) => {
 }
 
 const typeName = (type) =>
-	type.name.replace(/^e$/, "Decimal");
+	(type.name || type.toString()).replace(/^e$/, "Decimal");
 
 const falsey = (tp) =>
 	tp === "" ||
@@ -772,6 +772,7 @@ const dispJS = (x) =>
 						x.toString();
 
 const factorial = (dec) => {
+    if(!dec.eq(dec.floor())) error(`Expected ${dec} to be an integer.`);
 	return dec.lt(2) ? Decimal(1) : factorial(dec.sub(1)).mul(dec);
 }
 
