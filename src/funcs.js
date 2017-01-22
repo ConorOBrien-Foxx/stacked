@@ -68,8 +68,19 @@ Array.prototype.reject = function(f){
 	return this.filter((...a) => !f(...a));
 }
 
-Array.prototype.clone = function(){
-	return this.map(e => e.clone ? e.clone() : e);
+const clone = (x) => {
+    if(isDefined(x.clone)){
+        return x.clone();
+    } else if(isDefined(x.map)){
+        return x.map(clone);
+    } else if(x.constructor === Object){
+        return Object.assign({}, x);
+    } else if([Function, String, Number, Boolean, RegExp].has(x.constructor)){
+        return x;
+    } else {
+        // console.warn(x + " is not cloneable");
+        return x;
+    }
 }
 
 Array.prototype[VECTORABLE] = true;
@@ -537,9 +548,11 @@ const equal = (x, y) => {
 		return x[EQUAL](y);
 	} else if(x.constructor === Number){
 		return x === y;
-	} else {
+	} else if(x.constructor === Function){
+        return x === y;
+    }{
         console.warn("no equal property for " + x);
-        return x == y;
+        return x === y;
     }
 	
 	// they have same type and SHOULD have (and have same)
@@ -563,11 +576,15 @@ const warn = (err) => {
 const typeName = (type) =>
 	(type.name || type.toString()).replace(/^e$/, "Decimal");
 
-const falsey = (tp) =>
-	tp === "" ||
-	tp instanceof Decimal && tp.cmp(0) == 0 ||
-	typeof tp === "undefined" ||
-	tp.isNaN && tp.isNaN();
+const falsey = (tp) => {
+    let c = false;
+    c |= tp === "";
+    c |= tp instanceof Decimal && tp.cmp(0) == 0;
+    c |= !tp;
+    c |= typeof tp === "undefined";
+    c |= isNaN(tp);
+    return !!c;
+}
 
 const truthy = (tp) => !falsey(tp);
 
@@ -846,6 +863,9 @@ if(isNode){
         dispJS: dispJS,
         toBaseString: toBaseString,
         factorial: factorial,
+        recursiveRepl: recursiveRepl,
+        joinArray: joinArray,
+        clone: clone,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){

@@ -114,6 +114,10 @@ class StackedFunc {
         this.arity = arity;
     }
     
+    clone(){
+        return new StackedFunc(this.typeMap, this.arity, this.options);
+    }
+    
     findMatch(...args){
         redo: for(let typePair of this.typeMap){
             let [key, func] = typePair;
@@ -161,7 +165,10 @@ class StackedFunc {
         let args;
         if(this.arity)
             if(dest.stack.length < this.arity)
-                error("popping from an empty stack");
+                error(
+                    (this.displayName ? "(in `" + this.displayName + "`) " : "") +
+                    "popping from an empty stack"
+                );
             else
                 args = dest.stack.splice(-this.arity);
         else
@@ -363,13 +370,13 @@ class Func {
         let temp = new Stacked(this.body);
         temp.stack = inst.stack;
         temp.reg = inst.reg;
-        temp.ops = inst.ops.clone();
+        temp.ops = clone(inst.ops);
         temp.output = inst.output;
         temp.heldString = inst.heldString;
         temp.hold = inst.hold;
         temp.oldOut = inst.oldOut;
         temp.slow = inst.slow;
-        temp.vars = inst.vars.clone();
+        temp.vars = clone(inst.vars);
         
         temp.run();
         
@@ -394,7 +401,7 @@ class Func {
                 }
             }
         } else if(scoping === 2){
-            inst.vars = temp.vars.clone();
+            inst.vars = clone(temp.vars);
         } else if(scoping === 0){
             return;
         } else {
@@ -449,14 +456,14 @@ class Lambda {
     exec(inst, scoping = 1){
         let temp = new Stacked(this.body);
         // console.log(inst);
-        temp.ops = inst.ops.clone();
+        temp.ops = clone(inst.ops);
         temp.reg = inst.reg;
         temp.output = inst.output;
         temp.heldString = inst.heldString;
         temp.hold = inst.hold;
         temp.oldOut = inst.oldOut;
         temp.slow = inst.slow;
-        temp.vars = inst.vars.clone();
+        temp.vars = clone(inst.vars);
         
         // add the arguments
         let slice = inst.stack.splice(-this.args.length);
@@ -486,7 +493,7 @@ class Lambda {
                 }
             }
         } else if(scoping === 2){
-            inst.vars = temp.vars.clone();
+            inst.vars = clone(temp.vars);
         } else if(scoping === 0){
             return;
         } else {
@@ -625,7 +632,7 @@ const ops = new Map([
         }
     }, 2, { vectorize: "right", untyped: true })],
     ["stack", function(){
-        this.stack.push(this.stack.clone());
+        this.stack.push(clone(this.stack));
     }],
     ["=", new StackedFunc(
         (a, b) => Decimal(+equal(a, b)),
@@ -699,9 +706,12 @@ const ops = new Map([
     ["neg", new StackedFunc([
         [[Decimal], a => a.neg()],
     ], 1, { vectorize: true })],
-    // vectorize?
-    ["join", func((a, b) => a.join(b.toString()))],
-    ["split", func((a, b) => a.split(b.toString()))],
+    ["join", new StackedFunc([
+        [[ITERABLE, String], (a, b) => [...a].join(b)],
+    ], 2)],
+    ["split", new StackedFunc([
+        [[String, String], (a, b) => a.split(b)]
+    ], 2)],
     ["oneach", func((f) => {
         let k = new Func(f + "oneach");
         k.toString = function(){
@@ -727,7 +737,7 @@ const ops = new Map([
     })],
     ["each", function(){
         ops.get("oneach").bind(this)();
-        ops.get("!").exec(this)();
+        ops.get("!").exec(this);
     }],
     ["repl", new StackedFunc([
         [[String, String, String],
@@ -824,10 +834,11 @@ const ops = new Map([
     ["tail", new StackedFunc([
         [[STP_HAS("slice")],   a => a.slice(-1)],
     ], 1)],
-    ["exec", function(){
-        let k = this.stack.pop();
-        k.exec(this);
-    }],
+    ["exec", new StackedFunc([
+        [[STP_FUNC_LIKE], function(f){
+            f.exec(this);
+        }]
+    ], 1)],
     ["not", new StackedFunc(a => Decimal(+falsey(a)), 1, { untyped: true })],
     ["ord", new StackedFunc([
         [[String], a => Decimal(a.charCodeAt())]
@@ -846,40 +857,41 @@ const ops = new Map([
         this.stack.push(this.heldString);
         this.output = this.oldOut;
     }],
-    ["loop", function(){
-        let f = this.stack.pop();
-        if(this.slow){
-            let k = (f, t) => {
-                f.exec(t);
-                let tp = t.stack[t.stack.length - 1];
-                if(falsey(tp))
-                    return;
-                return setTimeout(k, DELAY, f, t);
-            }
-            k(f, this);
-        } else {
-            while(true){
-                f.exec(this);
-                let k = this.stack.pop();
-                if(falsey(k)){
+    ["loop", new StackedFunc([
+        [[STP_FUNC_LIKE], function(f){
+            if(this.slow){
+                let k = (f, t) => {
+                    f.exec(t);
+                    let tp = t.stack[t.stack.length - 1];
+                    if(falsey(tp))
+                        return;
+                    return setTimeout(k, DELAY, f, t);
+                }
+                k(f, this);
+            } else {
+                while(true){
+                    f.exec(this);
+                    let k = this.stack.pop();
                     this.stack.push(k);
-                    break;
+                    if(falsey(k)){
+                        break;
+                    }
                 }
             }
-        }
-    }],
-    ["until", function(){
-        let cond = this.stack.pop();
-        let effect = this.stack.pop();
-        let ent = this.stack.pop();
-        while(true){
-            let r = effect.overWith(this, ent);
-            if(truthy(cond.overWith(this, r, ent))){
-                this.stack.push(r);
-                break;
+        }],
+    ], 1)],
+    ["until", new StackedFunc([
+        [[ANY, STP_FUNC_LIKE, STP_FUNC_LIKE], function(ent, effect, cond){
+            let r = ent;
+            while(true){
+                if(truthy(cond.overWith(this, r))){
+                    this.stack.push(r);
+                    break;
+                }
+                r = effect.overWith(this, r);
             }
-        }
-    }],
+        }],
+    ], 3)],
     ["while", function(){
         let cond = this.stack.pop();
         let effect = this.stack.pop();
@@ -1323,12 +1335,12 @@ const ops = new Map([
 	], 2, { vectorize: "right" })],
     ["keys", func((a) => sanatize([...a.keys()]))],
     ["values", func((a) => sanatize([...a.values()]))],
-    ["lower", vectorTyped([
+    ["lower", new StackedFunc([
         [[String], a => a.toLowerCase()]
-    ], 1)],
-    ["upper", vectorTyped([
-        [[String], a => a.toLowerCase()]
-    ], 1)],
+    ], 1, { vectorize: true })],
+    ["upper", new StackedFunc([
+        [[String], a => a.toUpperCase()]
+    ], 1, { vectorize: true })],
     ["wrap", func((a) => [a])],
     ["flat", new StackedFunc([
         [[Array], flatten],
@@ -1434,10 +1446,10 @@ const ops = new Map([
         k.exec = function(inst){
             let st = new Stacked("");
             st.raw = f.body;
-            st.toks = toks.clone();
-            st.stack = inst.stack.clone();
+            st.toks = clone(toks);
+            st.stack = clone(inst.stack);
             st.run();
-            inst.stack = st.stack.clone();
+            inst.stack = clone(st.stack);
         }
         console.log(k+[]);
         console.log(k);
@@ -1459,8 +1471,8 @@ const ops = new Map([
         } else if(nextTok.type === "word"){
             switch(nextTok.value){
                 case "all":
-                    this.vars = vars.clone();
-                    this.ops = ops.clone();
+                    this.vars = clone(vars);
+                    this.ops = clone(ops);
                     break;
                 case "about":
                     if(this.toks[this.index + 1].value === "it"
@@ -1564,7 +1576,7 @@ let arityOverides = new Map([
 });
 
 const makeAlias = (k, v) => {
-    let n = ops.get(k);
+    let n = clone(ops.get(k));
     if(!n)
         console.error("no func `" + k + "`");
     if(v.forEach)
@@ -1576,6 +1588,7 @@ const makeAlias = (k, v) => {
 // aliases
 new Map([
     ["oneach", '"'],
+    ["recrepl", "rrepl"],
     ["dup", ":"],
     ["swap", "\\"],
     ["get", "#"],
@@ -1849,7 +1862,7 @@ vars.set("ε",      vars.get("EPS"));
 class Stacked {
     constructor(code, opts = {}){
         this.raw = code;
-        this.ops = opts.ops || ops.clone();
+        this.ops = opts.ops || clone(ops);
         this.toks = tokenize(code) || [];
         this.index = 0;
         this.stack = [];
@@ -1989,7 +2002,7 @@ class Stacked {
             }
             this.stack.push(arr);
         } else if(cur.type === "groupStart"){
-            let stackCopy = this.stack.clone();
+            let stackCopy = clone(this.stack);
             this.stack = [];
             let depth = 1;
             this.index++;
@@ -2258,6 +2271,19 @@ $not $any ++ @:none
 [#/ !] @:doinsert
 
 [: _ \\ |>]" @:steps
+
+[: disp] @:show
+[: out] @:echo
+
+([3 * 1 +] $halve) $even agenda @:ulamstep
+{ x :
+  (x) @a
+  x { n :
+    n ulamstep
+    dup a swap , @a
+  } [1 =] until
+  a isolate
+} @:ulam
 `);
 
 makeAlias("prod", "\u220f");
@@ -2449,7 +2475,10 @@ class CharString {
     }
     
     map(f){
-        return new CharString([...this].map(f));
+        let res = [...this].map(f);
+        if(res.every(e => typeof e === "string"))
+            res = new CharString(res);
+        return res;
     }
     
     get length(){
@@ -2485,7 +2514,7 @@ class CharString {
     }
     
     exch(i, j){
-        let c = this.clone();
+        let c = clone(this);
         [c.members[i], c.members[j]] = [c.members[j], c.members[i]];
         return c;
     }

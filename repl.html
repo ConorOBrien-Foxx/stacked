@@ -38,8 +38,8 @@
         
         let replInfo = {
             stack: [],
-            vars: vars.clone(),
-            ops: ops.clone(),
+            vars: clone(vars),
+            ops: clone(ops),
             history: [],
             index: 0,
             display: repr,
@@ -113,9 +113,9 @@
                         spn.appendChild(document.createTextNode(pp(e)));
                         outted.push(spn);
                     };
-                    inst.stack = replInfo.stack.clone();
-                    inst.vars = replInfo.vars.clone();
-                    inst.ops = replInfo.ops.clone();
+                    inst.stack = clone(replInfo.stack);
+                    inst.vars = clone(replInfo.vars);
+                    inst.ops = clone(replInfo.ops);
                     replInfo.history.push(input.value);
                     replInfo.index = replInfo.history.length;
                     try {
