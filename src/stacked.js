@@ -1609,17 +1609,6 @@ ops.set("cls", isNode
     ? () => cls()
     : () => document.getElementById("stacked-output").innerHTML = "");
 
-// node specific functions
-if(isNode){
-    ops.set("read", new StackedFunc([
-        [[String], (e) => fs.readFileSync(e).toString()]
-    ], 1, { vectorize: true }));
-    ops.set("write", new StackedFunc([
-        [[String, String], (name, data) => fs.writeFileSync(name, data).toString()]
-    ], 2, { vectorize: true }));
-    ops.set("exit", () => process.exit());
-}
-
 // math functions
 let arityOverides = new Map([
     ["max", 2],
@@ -2232,6 +2221,19 @@ const bootstrap = (code) => {
         }
     }
 }
+
+// node specific functions
+if(isNode){
+    ops.set("read", new StackedFunc([
+        [[String], (e) => fs.readFileSync(e).toString()]
+    ], 1, { vectorize: true }));
+    ops.set("write", new StackedFunc([
+        [[String, String], (name, data) => fs.writeFileSync(name, data)]
+    ], 2, { vectorize: true }));
+    ops.set("exit", () => process.exit());
+    bootstrap("[argv 2 get] @:d0");
+}
+
 bootstrap(`
 $(+ + -) { x . : x sign } agenda @:increase
 $(- - +) { x . : x sign } agenda @:decrease
