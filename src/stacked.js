@@ -2228,7 +2228,7 @@ if(isNode){
         [[String], (e) => fs.readFileSync(e).toString()]
     ], 1, { vectorize: true }));
     ops.set("write", new StackedFunc([
-        [[String, String], (name, data) => fs.writeFileSync(name, data)]
+        [[String, String], (name, data) => { fs.writeFileSync(name, data) }]
     ], 2, { vectorize: true }));
     ops.set("exit", () => process.exit());
     bootstrap("[argv 2 get] @:d0");
