@@ -1356,9 +1356,13 @@ const ops = new Map([
         [[String, Array], (s, ar) => format(s, ...ar)]
     ], 2)],
     ["sorted", typedFunc([
+        [[REFORMABLE], (a) => a[REFORM](betterSort([...a]))],
         [[Array], betterSort],
     ], 1)],
     ["sortby", typedFunc([
+        [[REFORMABLE, STP_FUNC_LIKE], function(a, f){
+            return a[REFORM]([...a].sort((l, r) => f.overWith(this, l, r)));
+        }],
         [[Array, STP_FUNC_LIKE], function(a, f){
             return a.sort((l, r) => f.overWith(this, l, r));
         }],
@@ -1996,7 +2000,7 @@ class Stacked {
                 // or it's too unpredicatable
                 error("`" + repr(e) + "` has no property `" + ref + "`");
             }
-            this.stack.push(e[ref]);
+            this.stack.push(sanatize(e[ref]));
         } else if(cur.type === "quoteFunc"){
             let k = new Func(cur.value);
             k.toString = function(){ return cur.raw; }
@@ -2722,6 +2726,7 @@ class GeneratorFactory {
         } else
             res = new StackedGenerator(this.body);
         inst.stack.push(res);
+        return res;
     }
     
     static next(stackGen){
@@ -2759,6 +2764,7 @@ class StackedGenerator {
         }, 1, { untyped: true }));
         // queue of results to return
         this.queue = [];
+        this.done = false;
     }
     
     next(){
@@ -2769,9 +2775,15 @@ class StackedGenerator {
         this.inst.run();
         if(this.inst.running === StackedGenerator.YIELD_STOP){
             this.inst.running = true;
+        } else {
+            this.done = true;
+            return new Nil;
         }
+        
         if(this.queue.length)
             return this.queue.shift();
+        
+        this.done = true;
         return new Nil;
     }
     
@@ -2779,7 +2791,7 @@ class StackedGenerator {
         let res;
         do {
             res = this.next();
-            if(equal(res, new Nil)) break;
+            if(this.done) break;
             yield res;
         } while(true);
     }
