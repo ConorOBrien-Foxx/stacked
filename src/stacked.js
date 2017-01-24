@@ -397,7 +397,29 @@ class Func {
     // 0 - none         (nothing touched)
     // 1 - intelligent  (everything updated)
     // 2 - obnoxious    (everything integrated)
-    exec(inst, scoping = 1){
+    closeScope(inst, temp, scoping = 1){
+        // let's do some scoping. only update variables,
+        // do not merge variables made inside the func
+        
+        // #### scoping
+        // idea: make argument scoping different
+        // nevermind, just have degrees of scoping
+        if(scoping === 1){
+            for(let [key, val] of inst.vars){
+                if(temp.vars.has(key) && key !== "program"){
+                    inst.vars.set(key, temp.vars.get(key));
+                }
+            }
+        } else if(scoping === 2){
+            inst.vars = clone(temp.vars);
+        } else if(scoping === 0){
+            return;
+        } else {
+            error("invalid scoping degree `" + scoping + "`");
+        }
+    }
+    
+    exec(inst, scoping){
         let temp = new Stacked(this.body, inst.options);
         temp.stack = inst.stack;
         temp.reg = inst.reg;
@@ -419,25 +441,7 @@ class Func {
         if(temp.running === null)
             inst.running = false;
         
-        // let's do some scoping. only update variables,
-        // do not merge variables made inside the func
-        
-        // #### scoping
-        // idea: make argument scoping different
-        // nevermind, just have degrees of scoping
-        if(scoping === 1){
-            for(let [key, val] of inst.vars){
-                if(temp.vars.has(key)){
-                    inst.vars.set(key, temp.vars.get(key));
-                }
-            }
-        } else if(scoping === 2){
-            inst.vars = clone(temp.vars);
-        } else if(scoping === 0){
-            return;
-        } else {
-            error("invalid scoping degree `" + scoping + "`");
-        }
+        this.closeScope(inst, temp, scoping);
     }
     
     [EQUAL](y){
@@ -506,7 +510,7 @@ class Lambda {
         // nevermind, just have degrees of scoping
         if(scoping === 1){
             for(let [key, val] of inst.vars){
-                if(temp.vars.has(key)){
+                if(temp.vars.has(key) && key !== "program"){
                     inst.vars.set(key, temp.vars.get(key));
                 }
             }
@@ -783,12 +787,28 @@ const ops = new Map([
             return orig.replace(new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a))
         }],
     ], 3)],
+    ["irepl", new StackedFunc([
+        [[String, String, String],
+            (orig, target, sub) =>
+                orig.replace(new RegExp(target, "gi"), sub)],
+        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
+            return orig.replace(new RegExp(target, "gi"), (...a) => sub.sanatized(this, ...a))
+        }],
+    ], 3)],
     ["mrepl", new StackedFunc([
         [[String, String, String],
             (orig, target, sub) =>
                 orig.replace(new RegExp(target, "gm"), sub)],
         [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
             return orig.replace(new RegExp(target, "gm"), (...a) => sub.sanatized(this, ...a));
+        }],
+    ], 3)],
+    ["mirepl", new StackedFunc([
+        [[String, String, String],
+            (orig, target, sub) =>
+                orig.replace(new RegExp(target, "gmi"), sub)],
+        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
+            return orig.replace(new RegExp(target, "gmi"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
     ["recrepl", new StackedFunc([
@@ -1566,6 +1586,9 @@ const ops = new Map([
     ["eye", new StackedFunc([
         [[INTEGER], eye],
     ], 1, { vectorize: true })],
+    ["program", new StackedFunc([
+        [[], function(){ return this.raw; }],
+    ], 0)],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1591,6 +1614,9 @@ if(isNode){
     ops.set("read", new StackedFunc([
         [[String], (e) => fs.readFileSync(e).toString()]
     ], 1, { vectorize: true }));
+    ops.set("write", new StackedFunc([
+        [[String, String], (name, data) => fs.writeFileSync(name, data).toString()]
+    ], 2, { vectorize: true }));
     ops.set("exit", () => process.exit());
 }
 
@@ -1929,8 +1955,6 @@ class Stacked {
         // check whether or not the running status is valid
         this.runningCheck = defined(opts.runningCheck, (b) => !!b);
         
-        // environment variables
-        this.vars.set("program", this.raw);
         if(isNode)
             this.vars.set("argv", process.argv);
         
@@ -1953,9 +1977,9 @@ class Stacked {
         }
     }
     
-    static from(func){
+    // static from(func){
         
-    }
+    // }
     
     inherit(instance){
         this.ops = instance.ops;
