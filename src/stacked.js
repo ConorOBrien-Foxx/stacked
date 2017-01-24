@@ -2107,6 +2107,8 @@ class Stacked {
         } else if(cur.type === "lambdaStart"){
             let args = [];
             this.index++;
+            let isGenerator = this.toks[this.index].raw === "*";
+            this.index += isGenerator;
             if(this.toks[this.index].raw == "!"){
                 args.push("n");
             } else {
@@ -2137,7 +2139,10 @@ class Stacked {
             }
             this.index--;
             build = build.slice(0, -2); // remove trailing " }"
-            this.stack.push(new Lambda(args, build));
+            let res = new Lambda(args, build);
+            if(isGenerator)
+                res = new GeneratorFactory(res);
+            this.stack.push(res);
         } else if(cur.type === "word"){
             this.stack.push(this.getVar(cur.raw));
         } else {
