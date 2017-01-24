@@ -91,6 +91,7 @@ const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]));
 const REFORMABLE = STP_HAS(REFORM);
 const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "Integer");
 const STP_FUNC_LIKE = STP(FUNC_LIKE, "Func-like");
+const STP_EXECABLE = STP((e) => isDefined(e.exec), "Executable");
 
 // todo: integrate this into everything; throw warnings for all things that don't
 class StackedFunc {
@@ -332,6 +333,20 @@ class Token {
         }
     }
     
+    // given a Func, yields an op that performs that func
+    static from(func){
+        let k = new Token("");
+        k.raw = repr(func);
+        k.type = "op";
+        if(func instanceof Func)
+            k.func = function(){ func.exec(this); }
+        else if(func instanceof Lambda)
+            k.func = function(){ func.exec(this); }
+        else
+            error("bad type to Token.from");
+        return k;
+    }
+    
     toString(){
         return "{" + this.type + ":" + (this.value || this.name || this.raw || "") + "}";
     }
@@ -430,7 +445,7 @@ class Func {
     }
     
     toString(){
-        return "[" + (this.display || this.body).trim() + "]";
+        return "[" + (this.display || this.body || "<not displayable>").trim() + "]";
     }
 }
 
@@ -694,6 +709,9 @@ const ops = new Map([
         [[STP_FUNC_LIKE], function(f){
             f.exec(this);
         }],
+        [[STP_EXECABLE], function(f){
+            f.exec(this);
+        }],
     ], 1, { vectorize: true })],
     // volatile
     ["nexec", function(){
@@ -853,7 +871,7 @@ const ops = new Map([
         [[STP_HAS("slice")],   a => a.slice(-1)],
     ], 1)],
     ["exec", new StackedFunc([
-        [[STP_FUNC_LIKE], function(f){
+        [[STP_EXECABLE], function(f){
             f.exec(this);
         }]
     ], 1)],
@@ -1892,7 +1910,7 @@ vars.set("ε",      vars.get("EPS"));
 
 class Stacked {
     constructor(code, opts = {}){
-        this.raw = code;
+        this.raw = code.raw || code;
         this.ops = opts.ops || clone(ops);
         this.toks = tokenize(code) || [];
         this.index = 0;
@@ -1929,6 +1947,10 @@ class Stacked {
         for(let [opName, op] of ops){
             op.displayName = op.displayName || opName;
         }
+    }
+    
+    static from(func){
+        
     }
     
     inherit(instance){
@@ -2013,7 +2035,7 @@ class Stacked {
             // execute command
             this.execOp(cur.func);
         } else if(this.ops.has(cur.value || cur.raw)/* && cur.type === "word"*/){
-            this.ops.get(cur.value || cur.raw).bind(this)();
+            this.execOp(this.ops.get(cur.value || cur.raw));
         } else if(cur.type === "funcStart"){
             let depth = 1;
             let build = [];
@@ -2125,7 +2147,8 @@ class Stacked {
     }
     
     step(){
-        if(this.isRunning)
+        if(!this.isRunning)
+            return this.running;
         if(this.index >= this.toks.length)
             return this.running = false;
         
@@ -2145,6 +2168,13 @@ class Stacked {
         }
         return this.stack.filter(e => typeof e !== "undefined")
                     .map(e => e[e.toFixed ? "toFixed" : "toString"]());
+    }
+    
+    static getLastN(arr, n){
+        let r = [];
+        while(n --> 0)
+            r.unshift(arr.pop());
+        return r;
     }
 }
 
@@ -2679,43 +2709,89 @@ integrate(Table, { sanatize: true });
 
 integrate(Icon, { sanatize: true, ignore: ["writeToCanvas"] });
 
-class StackedGenerator {
+class GeneratorFactory {
     constructor(body){
-        this.index = 0;
         this.body = body;
-        this.inst = new Stacked(body, {
+    }
+    
+    exec(inst){
+        let res;
+        if(this.body instanceof Lambda){
+            let args = Stacked.getLastN(inst.stack, this.body.arity);
+            res = new StackedGenerator(this.body, args);
+        } else
+            res = new StackedGenerator(this.body);
+        inst.stack.push(res);
+    }
+    
+    static next(stackGen){
+        assureTyped(stackGen, StackedGenerator);
+        return stackGen.next();
+    }
+    
+    static exhaust(stackGen){
+        assureTyped(stackGen, StackedGenerator);
+        
+    }
+}
+
+class StackedGenerator {
+    constructor(body, args){
+        this.index = 0;
+        // might not work
+        this.body = FUNC_LIKE(body) ? body : new Func(body);
+        let prog = "";
+        // if(args){
+            // prog = args.map(e => e ? "@" + e : "sdrop").join(" ");
+        // }
+        this.inst = new Stacked(prog, {
             runningCheck: (running) => running !== StackedGenerator.YIELD_STOP
                                     && !!running,
-            
         });
-        let selfInst = this.inst;
-        this.inst.ops.set("yield", function(){
-            if(selfInst !== this){
-                // error("`yield` called in an authorized state.");
-            }
-            this.running = StackedGenerator.YIELD_STOP;
-        });
+        if(args){
+            this.inst.stack = args;
+        }
+        this.inst.toks = [Token.from(this.body)];
+        let self = this;
+        this.inst.ops.set("yield", new StackedFunc(function(a){
+            self.queue.push(a);
+            this.running = self.inst.running = StackedGenerator.YIELD_STOP;
+        }, 1, { untyped: true }));
+        // queue of results to return
+        this.queue = [];
     }
     
     next(){
+        // return results in queue until empty
+        if(this.queue.length)
+            return this.queue.shift();
         // run until StackedGenerator.YIELD_STOP or regular interrupt
         this.inst.run();
         if(this.inst.running === StackedGenerator.YIELD_STOP){
             this.inst.running = true;
-            return this.inst.stack.pop();
         }
+        if(this.queue.length)
+            return this.queue.shift();
         return new Nil;
     }
     
     *[Symbol.iterator](){
         let res;
         do {
-            yield res = this.next();
-        } while(res !== new Nil);
+            res = this.next();
+            if(equal(res, new Nil)) break;
+            yield res;
+        } while(true);
+    }
+    
+    toString(){
+        return "StackedGenerator " + this.body;
     }
 }
 
 StackedGenerator.YIELD_STOP = Symbol("YIELD_STOP");
+
+integrate(GeneratorFactory, { merge: true });
 
 // finally, assign names to each op
 Stacked.assignNames();
