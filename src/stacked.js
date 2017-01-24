@@ -100,7 +100,8 @@ class StackedFunc {
         
         this.options = options;
         
-        this.displayName = options.name || options.displayName;
+        this.options.typeMap = clone(typeMap);
+        this.displayName = options.displayName = options.name || options.displayName;
         
         this.options.result = defined(this.options.result, true);
         
@@ -110,6 +111,8 @@ class StackedFunc {
             ];
         else
             this.typeMap = typeMap;
+        
+        this.options.untyped = false;
         
         this.arity = arity;
     }
@@ -156,6 +159,7 @@ class StackedFunc {
                 "expected one of:\n" + typeMapStr
             );
         }
+        // console.log(fm);
         let k = fm.bind(this.dest)(...args);
         return k;
     }
@@ -339,6 +343,18 @@ class Func {
         this.arity = body.arity || null;
     }
     
+    static of(func, toStr){
+        let k = new Func("");
+        if(isDefined(toStr)){
+            if(typeof toStr === "function")
+                k.toString = toStr;
+            else
+                k.body = toStr;
+        }
+        k.exec = func;
+        return k;
+    }
+    
     over(...args){
         let t = new Stacked("");
         t.stack = args;
@@ -349,7 +365,7 @@ class Func {
     overWith(inst, ...args){
         if(!(inst instanceof Stacked))
             throw new Error(inst, " is not a Stacked instance.");
-        let t = new Stacked("");
+        let t = new Stacked("", inst.options);
         t.vars = inst.vars;
         t.ops = inst.ops;
         t.stack = this.arity ? args.slice(0, this.arity) : args;
@@ -367,7 +383,7 @@ class Func {
     // 1 - intelligent  (everything updated)
     // 2 - obnoxious    (everything integrated)
     exec(inst, scoping = 1){
-        let temp = new Stacked(this.body);
+        let temp = new Stacked(this.body, inst.options);
         temp.stack = inst.stack;
         temp.reg = inst.reg;
         temp.ops = clone(inst.ops);
@@ -428,6 +444,7 @@ class Lambda {
         return this.args.length;
     }
     
+    // non-settable property
     set arity(v){
         return this.arity;
     }
@@ -439,22 +456,8 @@ class Lambda {
         return defined(t.stack.pop(), new Nil);
     }
     
-    overWith(inst, ...args){
-        let t = new Stacked("");
-        t.vars = inst.vars;
-        t.ops = inst.ops;
-        t.stack = this.arity ? args.slice(0, this.arity) : args;
-        this.exec(t);
-        return defined(t.stack.pop(), new Nil);
-    }
-    
-    sanatized(inst, ...args){
-        let k = this.overWith(inst, ...args.map(sanatize));
-        return unsanatize(k);
-    }
-    
     exec(inst, scoping = 1){
-        let temp = new Stacked(this.body);
+        let temp = new Stacked(this.body, inst.options);
         // console.log(inst);
         temp.ops = clone(inst.ops);
         temp.reg = inst.reg;
@@ -521,6 +524,9 @@ class Lambda {
     }
 }
 
+Lambda.prototype.sanatized = Func.prototype.sanatized;
+Lambda.prototype.overWith = Func.prototype.overWith;
+
 const range = (a, b) => {
     let n = +b.sub(a);
     if(n !== ~~n)
@@ -539,17 +545,15 @@ const ops = new Map([
     ["+", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.add(b)],
         [[String, String], (a, b) => a + b],
-        [[Func, Func], function(f, g){
-            let k = new Func((f.body + " " + g.body).replace(/ +/g, " "));
-            k.exec = function(inst){
+        [[Func, Func], (f, g) => Func.of(
+            function(inst){
                 [f, g].forEach(e => {
                     inst.stack.push(e);
-                    // console.log(disp(inst.stack));
                     ops.get("!").exec(inst);
                 });
-            }
-            return k;
-        }],
+            },
+            (f.body + " " + g.body).replace(/ +/g, " ")
+        )],
     ], 2, { vectorize: true, name: "+" })],
     ["++", new StackedFunc([
         [[STP_HAS("concat"), ANY], (a, b) => a.concat(b)],
@@ -621,6 +625,14 @@ const ops = new Map([
         }
         this.stack.push(k);
     }],
+    // takes a condition P and a generation function F. Instead of iterating from
+    // x = 0... untll P(x), this iterates from x = f(0), f(1), ... until P(f(x)).
+    // yields a function that does this.
+    ["seqnth", new StackedFunc([
+        [[STP_FUNC_LIKE, STP_FUNC_LIKE], function(condition, gen){
+            Func.of();
+        }],
+    ], 2)],
     ["prime", new StackedFunc([
         [[Decimal], isPrime]
     ], 1, { vectorize: true })],
@@ -676,6 +688,9 @@ const ops = new Map([
     ], 2, { vectorize: true })],
     ["!", new StackedFunc([
         [[INTEGER], (a) => factorial(a)],
+        [[String],  function(a){
+            return a.replace(/%(\w+)/g, (total, varname) => this.getVar(varname));
+        }],
         [[STP_FUNC_LIKE], function(f){
             f.exec(this);
         }],
@@ -711,6 +726,9 @@ const ops = new Map([
     ], 2)],
     ["split", new StackedFunc([
         [[String, String], (a, b) => a.split(b)]
+    ], 2)],
+    ["rsplit", new StackedFunc([
+        [[String, String], (a, b) => a.split(new RegExp(b))]
     ], 2)],
     ["oneach", func((f) => {
         let k = new Func(f + "oneach");
@@ -1000,7 +1018,7 @@ const ops = new Map([
                 return arr.map((e, i) => f.overWith(this, e, Decimal(i)));
             } else if(f instanceof Func){
                 return arr.map(e => {
-                    let t = new Stacked("");
+                    let t = new Stacked("", this.options);
                     t.vars = this.vars;
                     t.ops = this.ops;
                     t.stack.push(e);
@@ -1021,7 +1039,7 @@ const ops = new Map([
         let f = this.stack.pop();
         if(this.stack.length === 1) return;
         this.stack = [this.stack.reduce((p, c) => {
-            let t = new Stacked("");
+            let t = new Stacked("", this.options);
             t.stack.push(p, c);
             f.exec(t);
             return t.stack.pop();
@@ -1031,7 +1049,7 @@ const ops = new Map([
         let f = this.stack.pop();
         if(this.stack.length === 1) return;
         this.stack = [this.stack.reverse().reduce((p, c) => {
-            let t = new Stacked("");
+            let t = new Stacked("", this.options);
             t.stack.push(p, c);
             f.exec(t);
             return t.stack.pop();
@@ -1040,7 +1058,7 @@ const ops = new Map([
     ["apply", function(){
         let [arr, f] = this.stack.splice(-2);
         let isString = typeof arr === "string";
-        let inst = new Stacked("");
+        let inst = new Stacked("", this.options);
         inst.stack = [...arr];
         inst.vars = this.vars;
         f.exec(inst);
@@ -1444,7 +1462,7 @@ const ops = new Map([
             toks.unshift(...[...f.args].reverse().map(e => new Token("@" + e)));
         }
         k.exec = function(inst){
-            let st = new Stacked("");
+            let st = new Stacked("", inst.options);
             st.raw = f.body;
             st.toks = clone(toks);
             st.stack = clone(inst.stack);
@@ -1513,6 +1531,19 @@ const ops = new Map([
     ["bytes", new StackedFunc([
         [[String], (s) => sanatize(bytes(s))],
     ], 1)],
+    ["fromshape", new StackedFunc([
+        [[Array, ANY], (shpe, f) => {
+            return deepMap(createArray(...shpe.map(e => +e)), () => f);
+        }],
+    ], 2)],
+    ["ofshape", new StackedFunc([
+        [[Array], (shpe) => {
+            return createArray(...shpe.map(e => +e));
+        }],
+    ], 1)],
+    ["eye", new StackedFunc([
+        [[INTEGER], eye],
+    ], 1, { vectorize: true })],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1873,6 +1904,9 @@ class Stacked {
         this.reg = new Decimal(0);
         this.vars = opts.vars || vars;
         
+        // check whether or not the running status is valid
+        this.runningCheck = defined(opts.runningCheck, (b) => !!b);
+        
         // environment variables
         this.vars.set("program", this.raw);
         if(isNode)
@@ -1916,9 +1950,17 @@ class Stacked {
         // todo
     }
     
+    getVar(name){
+        if(this.vars.has(name)){
+            return this.vars.get(name);
+        } else {
+            error("undefined variable `" + name + "`");
+        }
+    }
+    
     readOp(cur){
         if(this.observeToken)
-            this.observeToken.bind(this)(cur);
+            this.observeToken.bind(this)(cur, "readOp");
         if(["comment", "commentStart", "commentEnd"].indexOf(cur.type) >= 0){
             // do nothing, it's a comment.
         } else if(cur.type === "accessor"){
@@ -1957,13 +1999,16 @@ class Stacked {
             else if(ops.has(cur.value)){
                 error("reserved identifier `" + cur.value + "`");
             }
-            let next = this.stack.pop();
-            if(!FUNC_LIKE(next)){
-                error("invalid function-like `" + next.toString() + "`");
+            let funcToSet = this.stack.pop();
+            if(!FUNC_LIKE(funcToSet)){
+                error("invalid function-like `" + funcToSet.toString() + "`");
             }
-            this.ops.set(cur.value, function(){
-                next.exec(this);
-            });
+            let resultFunc = function(){
+                funcToSet.exec(this);
+            };
+            resultFunc.arity = funcToSet.arity;
+            // loses information about arity
+            this.ops.set(cur.value, resultFunc);
         } else if(cur.type === "op"){
             // execute command
             this.execOp(cur.func);
@@ -2029,7 +2074,7 @@ class Stacked {
             this.index--;
             build = build.slice(0, -2); // remove trailing " )"
             // execute it
-            let inst = new Stacked(build);
+            let inst = new Stacked(build, this.options);
             inst.inherit(this);
             inst.run(this);
             this.stack.push(inst.stack);
@@ -2068,19 +2113,20 @@ class Stacked {
             build = build.slice(0, -2); // remove trailing " }"
             this.stack.push(new Lambda(args, build));
         } else if(cur.type === "word"){
-            if(this.vars.has(cur.raw)){
-                this.stack.push(this.vars.get(cur.raw));
-            } else {
-                error("undefined variable `" + cur.raw + "`");
-            }
+            this.stack.push(this.getVar(cur.raw));
         } else {
             error("Invalid character `" + cur.raw + "` (token type `" + cur.type + "`)");
         }
         this.index++;
     }
     
+    get isRunning(){
+        return this.runningCheck(this.running);
+    }
+    
     step(){
-        if(this.index >= this.toks.length || !this.running)
+        if(this.isRunning)
+        if(this.index >= this.toks.length)
             return this.running = false;
         
         let cur = this.toks[this.index];
@@ -2090,11 +2136,11 @@ class Stacked {
     run(){
         if(this.slow){
             this.step();
-            if(this.running)
+            if(this.isRunning)
                 setTimeout(Stacked.prototype.run.bind(this), DELAY);
             return;
         }
-        while(this.running){
+        while(this.isRunning){
             this.step();
         }
         return this.stack.filter(e => typeof e !== "undefined")
@@ -2139,6 +2185,8 @@ $(- - +) { x . : x sign } agenda @:decrease
 [0 <] @:isneg
 [0 eq] @:iszero
 { x : x } @:id
+{ . x : x } @:sid
+{ . . x : x } @:tid
 [: floor -] @:fpart
 [: fpart -] @:ipart
 $(fpart , ipart) fork @:fipart
@@ -2284,6 +2332,8 @@ $not $any ++ @:none
   } [1 =] until
   a isolate
 } @:ulam
+
+[ofshape $tid deepmap] @:ints
 `);
 
 makeAlias("prod", "\u220f");
@@ -2628,6 +2678,44 @@ integrate(CellularAutomata, { merge: true, ignore: ["AutomataRule"] });
 integrate(Table, { sanatize: true });
 
 integrate(Icon, { sanatize: true, ignore: ["writeToCanvas"] });
+
+class StackedGenerator {
+    constructor(body){
+        this.index = 0;
+        this.body = body;
+        this.inst = new Stacked(body, {
+            runningCheck: (running) => running !== StackedGenerator.YIELD_STOP
+                                    && !!running,
+            
+        });
+        let selfInst = this.inst;
+        this.inst.ops.set("yield", function(){
+            if(selfInst !== this){
+                // error("`yield` called in an authorized state.");
+            }
+            this.running = StackedGenerator.YIELD_STOP;
+        });
+    }
+    
+    next(){
+        // run until StackedGenerator.YIELD_STOP or regular interrupt
+        this.inst.run();
+        if(this.inst.running === StackedGenerator.YIELD_STOP){
+            this.inst.running = true;
+            return this.inst.stack.pop();
+        }
+        return new Nil;
+    }
+    
+    *[Symbol.iterator](){
+        let res;
+        do {
+            yield res = this.next();
+        } while(res !== new Nil);
+    }
+}
+
+StackedGenerator.YIELD_STOP = Symbol("YIELD_STOP");
 
 // finally, assign names to each op
 Stacked.assignNames();

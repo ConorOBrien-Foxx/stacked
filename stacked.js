@@ -28,10 +28,13 @@ if(require.main === module){
         let fileName = args.f ? args.f : args._.shift();
         if(!fileName){
             err("no file passed");
-        } else if(!fs.exists(fileName)){
+        }
+        try {
+            prog = fs.readFileSync(fileName).toString();
+        } catch(e){
+            console.log(e);
             err("no such file `" + fileName + "`");
         }
-        prog = fs.readFileSync(fileName).toString();
     }
     let inst = new Stacked(prog);
     inst.vars.set("args", args._);

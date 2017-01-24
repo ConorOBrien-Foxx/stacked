@@ -71,12 +71,12 @@ Array.prototype.reject = function(f){
 const clone = (x) => {
     if(isDefined(x.clone)){
         return x.clone();
+    } else if([Function, String, Number, Boolean, RegExp].has(x.constructor)){
+        return x;
     } else if(isDefined(x.map)){
         return x.map(clone);
     } else if(x.constructor === Object){
         return Object.assign({}, x);
-    } else if([Function, String, Number, Boolean, RegExp].has(x.constructor)){
-        return x;
     } else {
         // console.warn(x + " is not cloneable");
         return x;
@@ -159,6 +159,24 @@ const betterSort = (arr) => {
 }
 
 const makeArray = (len, fill) => [...Array(len)].map(() => fill);
+
+// modified from http://stackoverflow.com/a/966938/4119004
+function createArray(length) {
+    var arr = new Array(length || 0),
+        i = length;
+
+    if (arguments.length > 1) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        while(i--) arr[length - 1 - i] = createArray.apply(this, args);
+    } else {
+        for(let i = 0; i < arr.length; i++){
+            arr[i] = 0;
+        }
+    }
+
+    return arr;
+}
+
 
 const surround = (s, f) => {
     if(isString(s)) return ungridify(surround(gridify(s), f));
@@ -349,11 +367,12 @@ const chunkBy = (arr, f) => {
 }
 
 const deepMap = (arr, f) => {
+    let i = 0;
     let trav = (arr, d = 0) => {
         if(arr instanceof Array){
-            return arr.map((e, i) => trav(e, d + 1));
+            return arr.map(e => trav(e, d + 1));
         } else {
-            return f(arr, d);
+            return f(arr, d, i++);
         }
     }
     return trav(arr);
@@ -477,6 +496,14 @@ let rotate = (a, n) => {
 		a.unshift(a.pop());
 	}
 	return a;
+}
+
+const eye = (size) => {
+    let d = [], i, j;
+    for(i = 0; i < size;i++)
+        for( d[i] = [], j = 0; j < size; j++)
+            d[i][j] = Decimal(+(j == i));
+    return d;
 }
 
 let gridify = (str) => fixShape(str.split(/\r?\n/).map(e => [...e]), " ");
@@ -866,6 +893,8 @@ if(isNode){
         recursiveRepl: recursiveRepl,
         joinArray: joinArray,
         clone: clone,
+        format: format,
+        createArray: createArray,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
