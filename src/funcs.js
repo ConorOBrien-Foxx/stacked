@@ -895,6 +895,7 @@ if(isNode){
         clone: clone,
         format: format,
         createArray: createArray,
+        eye: eye,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
