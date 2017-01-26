@@ -1589,6 +1589,9 @@ const ops = new Map([
     ["program", new StackedFunc([
         [[], function(){ return this.raw; }],
     ], 0)],
+    ["shape", new StackedFunc([
+        [[ANY], shape],
+    ], 1)],
     // ["upload", typedFunc([
         // [[]]
     // ])],

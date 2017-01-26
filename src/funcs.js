@@ -97,7 +97,7 @@ Array.prototype.has = String.prototype.has = function(a, index = 0){
 }
 
 Array.prototype.padStart = function(len, fill){
-	let k = this.clone();
+	let k = clone(this);
 	while(k.length < len){
 		k.unshift(fill);
 	}
@@ -105,7 +105,7 @@ Array.prototype.padStart = function(len, fill){
 }
 
 Array.prototype.padEnd = function(len, fill){
-	let k = this.clone();
+	let k = clone(this);
 	while(k.length < len){
 		k.push(fill);
 	}
@@ -506,6 +506,20 @@ const eye = (size) => {
     return d;
 }
 
+const shape = (arr) => {
+    let build = [];
+    let trav = (arr) => {
+        if(isDefined(arr[Symbol.iterator])){
+            let next = [...arr][0];
+            if(next === arr) return;
+            build.push(arr.length);
+            trav(next);
+        }
+    }
+    trav(fixShape(arr));
+    return build;
+}
+
 let gridify = (str) => fixShape(str.split(/\r?\n/).map(e => [...e]), " ");
 let ungridify = (arr) => arr.map(e => e.join("")).join("\n");
 
@@ -759,6 +773,31 @@ const table = (a, b, f) => {
 	return a.map(x => b.map(y => f(x, y)));
 };
 
+const display2d = (item, castToStr = (n) => n.toString()) => {
+    let nothing = Symbol("nothing");
+    item = fixShape(item, nothing);
+    // obtain widths for columns
+    let columnLens = deepMap(
+        transpose(item),
+        e => e === nothing ? 0 : castToStr(e).length
+    ).map(
+        e => Math.max(...e)
+    );
+    let lines = [];
+    let [height, width] = shape(item);
+    for(let i = 0; i < height; i++){
+        let res = "";
+        for(let j = 0; j < width; j++){
+            let cur = item[i][j];
+            if(cur === nothing) cur = "";
+            res += castToStr(cur).padStart(columnLens[j], " ");
+            if(j < width - 1) res += " ";
+        }
+        lines.push(res.trimRight() + ")");
+    }
+    return lines.join("\n").replace(/^/gm, " (").replace(/ /, "(") + ")";
+}
+
 const joinArray = (item) => {
 	let trav = (arr, depth = depthOf(arr)) => {
         if(!isDefined(arr)) return "undefined";
@@ -774,6 +813,9 @@ const joinArray = (item) => {
 		else
 			return arr.toString();
 	};
+    if(shape(item).length === 2){
+        return display2d(item);
+    }
 	return trav(item);
 };
 
@@ -792,6 +834,10 @@ const joinGrid = (item) => {
 };
 
 const disp = (item) => {
+    if(shape(item).length === 2){
+        return display2d(item, repr);
+        // return display2d(item, disp);
+    }
     return repr(item);
 }
 
@@ -897,6 +943,7 @@ if(isNode){
         createArray: createArray,
         eye: eye,
         antiBase: antiBase,
+        shape: shape,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
