@@ -896,6 +896,7 @@ if(isNode){
         format: format,
         createArray: createArray,
         eye: eye,
+        antiBase: antiBase,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
