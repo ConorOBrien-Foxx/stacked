@@ -1,0 +1,35 @@
+{
+  "name": "stacked",
+  "version": "1.0.0",
+  "description": "A concatenative language",
+  "main": "stacked.js",
+  "templates": {
+    "theme": "slate"
+  },
+  "scripts": {
+    "test": "node stacked.js -t"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ConorOBrien-Foxx/stacked.git"
+  },
+  "keywords": [
+    "stack",
+    "stacked",
+    "concatenative",
+    "programming",
+    "language"
+  ],
+  "author": "Conor O'Brien",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ConorOBrien-Foxx/stacked/issues"
+  },
+  "homepage": "https://github.com/ConorOBrien-Foxx/stacked#readme",
+  "dependencies": {
+    "syncprompt": "^1.0.1",
+    "clear": "^latest",
+    "readline-sync": "^latest",
+    "minimist": "^latest"
+  }
+}
