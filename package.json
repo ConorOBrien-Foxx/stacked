@@ -28,8 +28,8 @@
   "homepage": "https://github.com/ConorOBrien-Foxx/stacked#readme",
   "dependencies": {
     "syncprompt": "^1.0.1",
-    "clear": "^latest",
-    "readline-sync": "^latest",
-    "minimist": "^latest"
+    "clear": "latest",
+    "readline-sync": "latest",
+    "minimist": "latest"
   }
 }
