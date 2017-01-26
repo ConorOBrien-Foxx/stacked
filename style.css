@@ -1,5 +1,21 @@
+@import url('https://fonts.googleapis.com/css?family=Averia+Serif+Libre|Open+Sans|Source+Code+Pro');
+
+/* the entities which need the display font */
 html {
-	font-family: "Constantia", serif;
+	font-family: "Averia Serif Libre", "Constantia", serif;
+}
+
+/* the entities which need the body font */
+button {
+    font-family: "Open Sans", sans-serif;
+}
+/* the entities which need the monospace font */
+
+#stacked-output, #code, #repl, .current, .replStage {
+	font-family: "Source Code Pro", "Consolas", monospace;
+}
+
+html {
     background-color: #222;
     font-size: 20px;
     color: #CCC;
@@ -12,7 +28,6 @@ canvas {
 }
 
 #repl, .current, .replStage {
-	font-family: "Consolas", monospace;
     color: #CCC;
     font-size: 18px;
 }
@@ -42,7 +57,6 @@ canvas {
     background-color: #333;
 	white-space: pre-wrap;
 	width: 90%;
-	font-family: "Consolas", monospace;
 	border: 1px solid;
 	padding: 15px;
 	display: block;
