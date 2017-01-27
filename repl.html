@@ -22,7 +22,7 @@
     <div id="repl"></div>
 	<script>
         const highlight = (prog) =>
-            tokenize(prog, true, true).map(e => {
+            tokenize(prog, { keepWhiteSpace: true, ignoreError: true }).map(e => {
                 let s = e.raw;
                 //if(e.type === "string" || e.type === "charString"){
                 //    s = repr(e.value);

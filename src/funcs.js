@@ -112,6 +112,20 @@ Array.prototype.padEnd = function(len, fill){
 	return k;
 }
 
+String.prototype.padStart = function(len, fill = " "){
+	let str = this.toString();
+	while(str.length < len)
+		str = " " + str;
+	return str;
+}
+
+String.prototype.padEnd = function(len, fill = " "){
+	let str = this.toString();
+	while(str.length < len)
+		str += " ";
+	return str;
+}
+
 Map.prototype.clone = function(){
 	return new Map([...this]);
 }
@@ -312,8 +326,11 @@ function permute(inputArr) {
   return _permute(inputArr);
 }
 
-// http://stackoverflow.com/a/36164530/4119004
-const transpose = m => m[0].map((x,i) => m.map(x => x[i]));
+// modified from http://stackoverflow.com/a/36164530/4119004
+const transpose = (m) => {
+	m = [...m];
+	return [...m[0]].map((x, i) => m.map(x => x[i]));
+};
 
 // http://codereview.stackexchange.com/a/39747/81013
 function powerSet( list ){
@@ -509,7 +526,8 @@ const eye = (size) => {
 const shape = (arr) => {
     let build = [];
     let trav = (arr) => {
-        if(isDefined(arr[Symbol.iterator])){
+        // if(isDefined(arr[Symbol.iterator])){
+        if(isDefined(arr.map)){
             let next = [...arr][0];
             if(next === arr) return;
             build.push(arr.length);
@@ -773,13 +791,14 @@ const table = (a, b, f) => {
 	return a.map(x => b.map(y => f(x, y)));
 };
 
-const display2d = (item, castToStr = (n) => n.toString()) => {
+const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
     let nothing = Symbol("nothing");
     item = fixShape(item, nothing);
+	console.log(item);
     // obtain widths for columns
     let columnLens = deepMap(
         transpose(item),
-        e => e === nothing ? 0 : castToStr(e).length
+        e => (console.log(e), e === nothing ? 0 : castToStr(e).length)
     ).map(
         e => Math.max(...e)
     );
@@ -789,6 +808,7 @@ const display2d = (item, castToStr = (n) => n.toString()) => {
         let res = "";
         for(let j = 0; j < width; j++){
             let cur = item[i][j];
+			// console.log(cur);
             if(cur === nothing) cur = "";
             res += castToStr(cur).padStart(columnLens[j], " ");
             if(j < width - 1) res += " ";
@@ -892,6 +912,23 @@ const assureTyped = (obj, type) => {
 const bytes = (str) =>
     [...utf8.encode(str)].map(e => e.charCodeAt());
 
+const parseArr = (str) => {
+	let number = "(?:-?\\w+)";
+	let formats = [
+		[
+			new RegExp("^\\s*\\(?\\s*(?:" + number + "\\s*)*\\)?\\s*$"),
+			(e) => e.replace(/^\s*\(\s*|\s*\)\s*$/g, "").split(/\s+/).map(parseNum),
+		],
+		[
+			new RegExp("^\\s*\\[?\\s*(?:" + number + "\\s*,?\\s*)*\\s*\\]?\\s*$"),
+			(e) => e.replace(/^\s*\[\s*|\s*\]\s*$/g, "").split(/\s*,\s*/).map(parseNum),
+		],
+	];
+	let res = formats.find(e => e[0].test(str));
+	if(!res) error("unrecognized array `" + str + "`");
+	return res[1](str);
+}
+
 if(isNode){
     module.exports = {
         REFORM: REFORM,
@@ -944,6 +981,8 @@ if(isNode){
         eye: eye,
         antiBase: antiBase,
         shape: shape,
+        display2d: display2d,
+		parseArray: parseArray,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){

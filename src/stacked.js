@@ -1592,6 +1592,9 @@ const ops = new Map([
     ["shape", new StackedFunc([
         [[ANY], shape],
     ], 1)],
+	["arrparse", new StackedFunc([
+		[[String], parseArr],
+	], 1, { vectorize: true })],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1690,13 +1693,15 @@ new Map([
     makeAlias(k, v);
 });
 
-const tokenize = (str, keepWhiteSpace = false, ignoreError = false) => {
+const tokenize = (str, opts = {}) => {
     if(str === "") return [];
+	keepWhiteSpace = opts.keepWhiteSpace || false;
+	ignoreError = opts.ignoreError || false;
 
     // // this is incredibly slow, but kept here in comments for historical purposes.
     // let toks = str.match(reg);
     
-    let opNames = [...ops.keys()]
+    let opNames = [...(opts.ops || ops).keys()]
         // sort by lengths
         .sort((x, y) => y.length - x.length);
     
@@ -1933,8 +1938,8 @@ vars.set("ε",      vars.get("EPS"));
 class Stacked {
     constructor(code, opts = {}){
         this.raw = code.raw || code;
-        this.ops = opts.ops || clone(ops);
-        this.toks = tokenize(code) || [];
+        this.ops = clone(opts.ops || ops);
+        this.toks = tokenize(code, this.opts) || [];
         this.index = 0;
         this.stack = [];
         // todo: fix popping from an empty stack
@@ -2210,8 +2215,6 @@ const stacked = (...args) => {
     return inst;
 }
 
-stacked.Stacked = Stacked;
-
 // code to be executed before program start
 // looks for all vars not in the default scope
 const bootstrap = (code) => {
@@ -2223,6 +2226,24 @@ const bootstrap = (code) => {
             ops.set(key, func);
         }
     }
+}
+
+const bootstrapExp = (code) => {
+	let tOps = clone(ops);
+	tOps.set("export", function(){
+		let nextToken = this.toks[++this.index];
+		if(nextToken.type === "setvar")
+			vars.set(nextToken.value, this.getVar(nextToken.value));
+		else if(nextToken.type === "setfunc"){
+			let v = this.ops.get(nextToken.value);
+			if(!isDefined(v))
+				error("undefined function `" + nextToken.value + "`");
+			ops.set(nextToken.value, v);
+		} else {
+			error("invalid following token `" + nextToken.raw + "`");
+		}
+	});
+	let inst = stacked(code, { ops: tOps });
 }
 
 // node specific functions
@@ -2841,6 +2862,11 @@ integrate(GeneratorFactory, { merge: true });
 
 // finally, assign names to each op
 Stacked.assignNames();
+
+// options
+stacked.Stacked = Stacked;
+stacked.bootstrap = bootstrap;
+stacked.bootstrapExp = bootstrapExp;
 
 if(isNode){
     module.exports = exports.default = stacked;

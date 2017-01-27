@@ -1,11 +1,34 @@
 const stacked = require("./src/stacked.js");
 const fs = require("fs");
+const path = require("path");
 const Stacked = stacked.Stacked;
 
 let err = (msg) => {
     console.error(msg);
     process.exit(1);
-};
+}
+
+let readFile = (name) => {
+	if(!name){
+		err("no file passed");
+	}
+	try {
+		return fs.readFileSync(name).toString();
+	} catch(e){
+		// console.log(e);
+		err("no such file `" + name + "`");
+	}
+}
+
+let use = (filePath) => {
+	if(/^\.(?:stk|stacked)$/.test(filePath)){
+		stacked.bootstrapExp(readFile(filePath));
+	} else {
+		require(filePath)(stacked);
+	}
+}
+
+stacked.use = use;
 
 if(require.main === module){
     let args = require("minimist")(process.argv.slice(2), {
@@ -13,36 +36,35 @@ if(require.main === module){
             "t": "test",
             "p": "printLast",
             "P": "printStack", 
-            "e": "exec"
+            "e": "exec",
+			"c": "config",
+			"f": "file",
         },
         boolean: ["t", "p", "P"],
     });
     let prog;
+	let conf = JSON.parse(readFile(args.config || "stacked.config"));
+	
+	for(let p in conf){
+		args[p] = conf[p];
+	}
     if(args.t){
         require("./test/test.js").test();
         return;
     }
-    if(args.e){
-        prog = args.e.toString();
+    if(args.exec){
+        prog = args.exec.toString();
     } else {
-        let fileName = args.f ? args.f : args._.shift();
-        if(!fileName){
-            err("no file passed");
-        }
-        try {
-            prog = fs.readFileSync(fileName).toString();
-        } catch(e){
-            console.log(e);
-            err("no such file `" + fileName + "`");
-        }
+        let fileName = args.file ? args.file : args._.shift();
+		prog = readFile(fileName);
     }
     let inst = new Stacked(prog);
     inst.vars.set("args", args._);
     inst.run();
-    if(args.P){
+    if(args.printStack){
         console.log(disp(inst.stack));
     }
-    if(args.p){
+    if(args.printLast){
         let outInst = new Stacked("disp");
         outInst.stack.push(inst.stack.pop());
         outInst.run();
