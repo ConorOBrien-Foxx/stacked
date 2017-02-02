@@ -5,6 +5,8 @@ if(typeof require !== "undefined"){
     fs = require("fs");
     utf8 = require("./utf8.js");
 	Decimal = require("./decimal.js");
+    path = require("path");
+    winpath = path.win32;
 	Color = require("./color.js");
 	Icon = require("./icon.js");
 	Table = require("./table.js");
@@ -29,20 +31,18 @@ if(typeof require !== "undefined"){
 
 const DELAY = 200;
 
+silentError = false;
 error = (err) => {
-    try {
-        new Stacked("").output("error: " + err);
-    } catch(e){
-        throw new Error(err);
-    }
-    throw new Error("haha have fun");
+	if(!silentError){
+		try {
+			new Stacked("").output("error: " + err);
+		} catch(e){
+			throw new Error(err);
+		}
+		throw new Error("haha have fun");
+	} else
+		throw new Error("error: " + err);
 };
-
-if(isNode)
-    error = (err) => {
-        process.stderr.write("error: " + err + "\n");
-        process.exit(1);
-    }
 
 // todo: burninate this evil thingy
 function typed(typeMap){
@@ -546,19 +546,6 @@ class Lambda {
 Lambda.prototype.sanatized = Func.prototype.sanatized;
 Lambda.prototype.overWith = Func.prototype.overWith;
 
-const range = (a, b) => {
-    let n = +b.sub(a);
-    if(n !== ~~n)
-        error("expected integer, received `" + [a, b].find(e => !e.eq(e.floor())) + "`");
-    let c = Array();
-    while(b.gt(a)){
-        b = b.sub(1);
-        c[b.sub(a)] = b;
-    }
-    
-    return c;
-}
-
 const ops = new Map([
     // todo: fix with charstring
     ["+", new StackedFunc([
@@ -965,6 +952,12 @@ const ops = new Map([
     ["grid", new StackedFunc([
         [[Array], joinGrid],
     ], 1)],
+    ["togrid", new StackedFunc([
+        [[String], gridify],
+    ], 1)],
+    ["ungrid", new StackedFunc([
+        [[String], ungridify],
+    ], 1)],
     ["DEBUG", function(){
         console.log(dispJS(this.stack));
         console.log(this.stack);
@@ -1146,6 +1139,8 @@ const ops = new Map([
         let func = this.stack.pop();
 		let k = new Func(func+"insert");
 		k.exec = function(inst){
+            if(!inst.stack.length)
+                error("popping from an empty stack");
 			let ent = inst.stack.pop();
 			if(!(ent instanceof Array))
 				error(typeName(ent.constructor) + " is not insertable");
@@ -1271,20 +1266,25 @@ const ops = new Map([
 			return n.times(pow10).round().div(pow10);
 		}]
     ], 2)],
-	["todec", function(){
-		let t = this.stack.pop();
-		let res;
-		if(t.constructor === Decimal){
-			res = t;
-		} else if(t.constructor === String){
-			res = parseNum(t);
-		} else if(t.constructor === Array){
-			res = parseNum(flatten(t).join(""));
-		} else {
-			error("invalid type `" + t.constructor.name + "`");
-		}
-		this.stack.push(res);
-	}],
+	["todec", new StackedFunc([
+		[[Decimal], x => x],
+		[[String], parseNum],
+		[[Array], t => flatten(t).join("")],
+	], 1)],
+	// ["todec", function(){
+		// let t = this.stack.pop();
+		// let res;
+		// if(t.constructor === Decimal){
+			// res = t;
+		// } else if(t.constructor === String){
+			// res = parseNum(t);
+		// } else if(t.constructor === Array){
+			// res = parseNum(flatten(t).join(""));
+		// } else {
+			// error("invalid type `" + t.constructor.name + "`");
+		// }
+		// this.stack.push(res);
+	// }],
     ["toarr", new StackedFunc([
         [[ITERABLE], (e) => [...e]],
     ], 1)],
@@ -1325,8 +1325,23 @@ const ops = new Map([
     ["eval", function(){
         let t = this.stack.pop();
         this.stack.push(new Func(t));
-        ops.get("!").exec(this)();
+		let k = ops.get("!").exec(this);
+		if(k instanceof Function) k();
     }],
+	["evalp", new StackedFunc([
+		[[String], function(s){
+			let k = stacked.silentError;
+			stacked.silentError = true;
+			try {
+				let inst = stacked(s);
+				stacked.silentError = k;
+				return inst.stack;
+			} catch(e){
+				stacked.silentError = k;
+				return new Nil;
+			}
+		}],
+	], 1)],
     // ["uneval", func(Stacked.uneval)],
     ["perm", typedFunc([
         [[Array], permute],
@@ -1375,6 +1390,9 @@ const ops = new Map([
     ["format", typedFunc([
         [[String, Array], (s, ar) => format(s, ...ar)]
     ], 2)],
+	// ["grade", typedFunc([
+		// [[Array], id],
+	// ], 1)],
     ["sorted", typedFunc([
         [[REFORMABLE], (a) => a[REFORM](betterSort([...a]))],
         [[Array], betterSort],
@@ -1583,6 +1601,16 @@ const ops = new Map([
             return createArray(...shpe.map(e => +e));
         }],
     ], 1)],
+    ["shapef", new StackedFunc([
+        [[Array, STP_FUNC_LIKE], function(shpe, f){
+            return deepMap(
+                createArray(
+                    ...shpe.map(e => +e)
+                ),
+                (a, e, i) => f.sanatized(this, i)
+            );
+        }],
+    ], 2)],
     ["eye", new StackedFunc([
         [[INTEGER], eye],
     ], 1, { vectorize: true })],
@@ -1590,11 +1618,23 @@ const ops = new Map([
         [[], function(){ return this.raw; }],
     ], 0)],
     ["shape", new StackedFunc([
-        [[ANY], shape],
+        [[ANY], (a) => sanatize(shape(a))],
     ], 1)],
 	["arrparse", new StackedFunc([
 		[[String], parseArr],
 	], 1, { vectorize: true })],
+    ["trim", new StackedFunc([
+        [[String], (e) => e.trim()],
+    ], 1, { vectorize: true })],
+    ["rtrim", new StackedFunc([
+        [[String], (e) => e.trimRight()],
+    ], 1, { vectorize: true })],
+    ["ltrim", new StackedFunc([
+        [[String], (e) => e.trimLeft()],
+    ], 1, { vectorize: true })],
+    // ["typeof", new StackedFunc([
+        // [[ANY], (e) => e.constructor],
+    // ])],
     // ["upload", typedFunc([
         // [[]]
     // ])],
@@ -1892,23 +1932,6 @@ const tokenize = (str, opts = {}) => {
         }
     });
 };
-
-const parseNum = function(str){
-    str = str.replace(/\s/g, "");
-    if(str.has("i")){
-        if(str.endsWith("i")){
-            return new Complex(Decimal(0), parseNum(str.slice(0, -1)));
-        }
-        let parts = str.split("i").map(parseNum);
-        return new Complex(...parts);
-    }
-    str = str.replace(/(.+)n$/, "-$1").replace(/^_/, "-");
-    try {
-        return new Decimal(str);
-    } catch(e){
-        error("invalid number `" + str + "`");
-    }
-}
 
 const vars = new Map([
 	["LF",         "\n"],
@@ -2255,6 +2278,44 @@ if(isNode){
         [[String, String], (name, data) => { fs.writeFileSync(name, data) }]
     ], 2, { vectorize: true }));
     ops.set("exit", () => process.exit());
+    
+    ops.set("basename", new StackedFunc([
+        [[String], winpath.basename],
+    ], 1, { vectorize: true }));
+    ops.set("basenamext", new StackedFunc([
+        [[String, String], winpath.basename],
+    ], 2, { vectorize: true }));
+    ops.set("dirname", new StackedFunc([
+        [[String], path.dirname],
+    ], 1, { vectorize: true }));
+    ops.set("abspath", new StackedFunc([
+        [[String], path.isAbsolute],
+    ], 1, { vectorize: true }));
+    ops.set("joinpath", new StackedFunc([
+        [[Array], (arr) => path.join(...arr)],
+    ], 1));
+    ops.set("normpath", new StackedFunc([
+        [[String], path.normalize],
+    ], 1, { vectorize: true }));
+    ops.set("parsepath", new StackedFunc([
+        [[String], path.parse],
+    ], 1, { vectorize: true }));
+    ops.set("relativepath", new StackedFunc([
+        [[String, String], path.relative]
+    ], 2, { vectorize: true }));
+    ops.set("resolvepath", new StackedFunc([
+        [[Array], (e) => path.resolve(...e)],
+    ], 1));
+    ops.set("getpath", new StackedFunc(
+        () => process.env.PATH.split(path.delimiter),
+        0,
+        { untyped: true }
+    ));
+    vars.set("pathdelim", path.delimiter);
+    vars.set("pathsep", path.delimiter);
+    
+    // todo: add format
+    
     bootstrap("[argv 2 get] @:d0");
 }
 
@@ -2423,9 +2484,30 @@ $not $any ++ @:none
 } @:ulam
 
 [ofshape $tid deepmap] @:ints
+
+['' repl] @:del
+[CR del LF split] @:lines
+{ a b : #(a b >) #(a b <) - } @:cmp
+{ ent i :
+  ent i ent size mod #
+} @:modget
+{ shpe e F :
+  e flat @e_flat
+  shpe { i : e_flat i F! } shapef } @:FSHAPE
+{ shpe e F :
+  e flat @e_flat
+  shpe { i : e_flat i modget } shapef } @:SHAPE
+{ shpe ent pad_el : shpe ent { ent i :
+  [ent i #] [pad_el] i #(ent size) < ifelse
+} FSHAPE } @:PSHAPE
+[2 * 1 -] @:tmo
+[2 * 1 +] @:tpo
 `);
 
 makeAlias("prod", "\u220f");
+makeAlias("modget", "##");
+makeAlias("SHAPE", "#$");
+makeAlias("cmp", "<=>");
 makeAlias("square", "²");
 makeAlias("iszero", "is0");
 makeAlias("doinsert", "#\\");
@@ -2867,7 +2949,16 @@ Stacked.assignNames();
 stacked.Stacked = Stacked;
 stacked.bootstrap = bootstrap;
 stacked.bootstrapExp = bootstrapExp;
+stacked.silentError = false;
 
 if(isNode){
+	error = (e) => {
+		if(stacked.silentError)
+			throw new Error(e);
+		else {
+			console.error(e);
+			process.exit(1);
+		}
+	}
     module.exports = exports.default = stacked;
 }

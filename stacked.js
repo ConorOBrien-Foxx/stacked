@@ -58,7 +58,7 @@ if(require.main === module){
         let fileName = args.file ? args.file : args._.shift();
 		prog = readFile(fileName);
     }
-    let inst = new Stacked(prog);
+    let inst = new Stacked(prog.replace(/\r/g, ""));
     inst.vars.set("args", args._);
     inst.run();
     if(args.printStack){

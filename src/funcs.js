@@ -1,9 +1,40 @@
 var isNode = typeof require !== "undefined";
 
 if(isNode){
-	var Decimal = require("./decimal.js");
+    var Decimal = require("./decimal.js");
+    Complex = require("./complex.js");
     utf8 = require("./utf8.js");
     cls = require("clear");
+}
+
+const parseNum = function(str){
+    str = str.replace(/\s/g, "");
+    if(str.has("i")){
+        if(str.endsWith("i")){
+            return new Complex(Decimal(0), parseNum(str.slice(0, -1)));
+        }
+        let parts = str.split("i").map(parseNum);
+        return new Complex(...parts);
+    }
+    str = str.replace(/(.+)n$/, "-$1").replace(/^_/, "-");
+    try {
+        return new Decimal(str);
+    } catch(e){
+        error("invalid number `" + str + "`");
+    }
+}
+
+const range = (a, b) => {
+    let n = +b.sub(a);
+    if(n !== ~~n)	
+        error("expected integer, received `" + [a, b].find(e => !e.eq(e.floor())) + "`");
+    let c = Array();
+    while(b.gt(a)){
+        b = b.sub(1);
+        c[b.sub(a)] = b;
+    }
+    
+    return c;
 }
 
 var error;
@@ -65,10 +96,12 @@ function* cartProd(...arrs){
 const isString = (s) => typeof s === "string";
 
 Array.prototype.reject = function(f){
-	return this.filter((...a) => !f(...a));
+    return this.filter((...a) => !f(...a));
 }
 
 const clone = (x) => {
+    if(!isDefined(x))
+        return x;
     if(isDefined(x.clone)){
         return x.clone();
     } else if([Function, String, Number, Boolean, RegExp].has(x.constructor)){
@@ -97,37 +130,37 @@ Array.prototype.has = String.prototype.has = function(a, index = 0){
 }
 
 Array.prototype.padStart = function(len, fill){
-	let k = clone(this);
-	while(k.length < len){
-		k.unshift(fill);
-	}
-	return k;
+    let k = clone(this);
+    while(k.length < len){
+        k.unshift(fill);
+    }
+    return k;
 }
 
 Array.prototype.padEnd = function(len, fill){
-	let k = clone(this);
-	while(k.length < len){
-		k.push(fill);
-	}
-	return k;
+    let k = clone(this);
+    while(k.length < len){
+        k.push(fill);
+    }
+    return k;
 }
 
 String.prototype.padStart = function(len, fill = " "){
-	let str = this.toString();
-	while(str.length < len)
-		str = " " + str;
-	return str;
+    let str = this.toString();
+    while(str.length < len)
+        str = fill + str;
+    return str;
 }
 
 String.prototype.padEnd = function(len, fill = " "){
-	let str = this.toString();
-	while(str.length < len)
-		str += " ";
-	return str;
+    let str = this.toString();
+    while(str.length < len)
+        str += fill;
+    return str;
 }
 
 Map.prototype.clone = function(){
-	return new Map([...this]);
+    return new Map([...this]);
 }
 Map.prototype.toString = function(){
     // subject to change
@@ -157,19 +190,19 @@ Array.prototype.get = String.prototype.get = function(i){
         return this[i];
     else if(isDefined(this[i + this.length]))
         return this[i + this.length];
-    else error("index `" + i + "` out of bounds");
+    else error("index `" + i + "` out of bounds in `" + repr(this) + "`");
 }
 
 RegExp.escape = function(str){
-	return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+    return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
 RegExp.of = function(str){
-	return new RegExp(RegExp.escape(str));
+    return new RegExp(RegExp.escape(str));
 }
 
-const betterSort = (arr) => {
-    return arr.sort((left, right) => 2 * (left > right) - 1);
+const betterSort = (arr, f = (l, r) => l > r) => {
+    return arr.sort((left, right) => 2 * f(l, r) - 1);
 }
 
 const makeArray = (len, fill) => [...Array(len)].map(() => fill);
@@ -281,7 +314,7 @@ const unique = (s) => {
 }
 
 const prefix = (arr, len) => {
-	return arr.slice(0, len);
+    return arr.slice(0, len);
 };
 
 const runsOf = (arr, func) => {
@@ -328,8 +361,8 @@ function permute(inputArr) {
 
 // modified from http://stackoverflow.com/a/36164530/4119004
 const transpose = (m) => {
-	m = [...m];
-	return [...m[0]].map((x, i) => m.map(x => x[i]));
+    m = [...m];
+    return [...m[0]].map((x, i) => m.map(x => x[i]));
 };
 
 // http://codereview.stackexchange.com/a/39747/81013
@@ -348,22 +381,22 @@ function powerSet( list ){
 
 
 let dateOpts = new Map([
-	["YYYY", (date) => date.getFullYear().toString().slice(-4)],
-	["YY", (date) => date.getFullYear().toString().slice(-2)],
-	["MM", (date) => (date.getMonth() + 1).toString().slice(-2)],
-	["DD", (date) => (date.getDate()).toString().slice(-2)],
-	["hh", (date) => (date.getHours()).toString().slice(-2)],
-	["mm", (date) => (date.getMinutes()).toString().slice(-2)],
-	["sss", (date) => (date.getMilliseconds()).toString().slice(-3)],
-	["ss", (date) => (date.getSeconds()).toString().slice(-2)],
+    ["YYYY", (date) => date.getFullYear().toString().slice(-4)],
+    ["YY", (date) => date.getFullYear().toString().slice(-2)],
+    ["MM", (date) => (date.getMonth() + 1).toString().slice(-2)],
+    ["DD", (date) => (date.getDate()).toString().slice(-2)],
+    ["hh", (date) => (date.getHours()).toString().slice(-2)],
+    ["mm", (date) => (date.getMinutes()).toString().slice(-2)],
+    ["sss", (date) => (date.getMilliseconds()).toString().slice(-3)],
+    ["ss", (date) => (date.getSeconds()).toString().slice(-2)],
 ]);
 const formatDate = (time, str) => {
-	str = str || "YYYY-MM-DD hh:mm:ss.sss";
-	let date = new Date(+time);
-	return str.replace(new RegExp([...dateOpts.keys()]
-						.map(RegExp.escape)
-						.join("|"), "g"),
-			(opt) => dateOpts.get(opt)(date));
+    str = str || "YYYY-MM-DD hh:mm:ss.sss";
+    let date = new Date(+time);
+    return str.replace(new RegExp([...dateOpts.keys()]
+                        .map(RegExp.escape)
+                        .join("|"), "g"),
+            (opt) => dateOpts.get(opt)(date));
 }
 
 const chunkBy = (arr, f) => {
@@ -409,110 +442,110 @@ const cellMap = (arr, f) => {
 };
 
 const recursiveRepl = (orig, re, sub) => {
-	// console.log(orig, re, sub);
-	while(orig.match(re)){
-		orig = orig.replace(re, sub);
-	}
-	return orig;
+    // console.log(orig, re, sub);
+    while(orig.match(re)){
+        orig = orig.replace(re, sub);
+    }
+    return orig;
 }
 
 const FALSE = Decimal(0);
 const TRUE = Decimal(1);
 
 const toBase = (dec, base) => {
-	base = base instanceof Decimal ? base : Decimal(base);
-	if(dec.eq(0) || dec.eq(1)) return [dec];
-	let maxLen = +dec.add(1).log(base).ceil();
-	let baseNums = Array(maxLen).fill(Decimal(0));
-	while(dec.gt(0)){
-		let c = dec.log(base).floor();
-		let rm = base.pow(c);
-		dec = dec.sub(rm);
-		let ind = maxLen - +c - 1;
-		baseNums[ind] = (baseNums[ind] || Decimal(0)).add(1); 
-	}
-	return baseNums;
+    base = base instanceof Decimal ? base : Decimal(base);
+    if(dec.eq(0) || dec.eq(1)) return [dec];
+    let maxLen = +dec.add(1).log(base).ceil();
+    let baseNums = Array(maxLen).fill(Decimal(0));
+    while(dec.gt(0)){
+        let c = dec.log(base).floor();
+        let rm = base.pow(c);
+        dec = dec.sub(rm);
+        let ind = maxLen - +c - 1;
+        baseNums[ind] = (baseNums[ind] || Decimal(0)).add(1); 
+    }
+    return baseNums;
 }
 
 const antiBase = (decArr, base) => {
-	return decArr.map((e, i) => base.pow(decArr.length - i - 1).mul(e))
-				 .reduce((a, b) => a.add(b), FALSE);
+    return decArr.map((e, i) => base.pow(decArr.length - i - 1).mul(e))
+                 .reduce((a, b) => a.add(b), FALSE);
 }
 
 const ALNUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 const toBaseString = (a, b) => {
-	let arr = toBase(a, b);
-	if(+b <= 36)
-		return arr.map(e => {
-			let k = +e;
-			return ALNUM[+e];
-		}).join("");
-	else if(+b == 95)
-		return arr.map(e => {
-			let k = +e;
-			return String.fromCharCode(32 + k);
-		}).join("");
-	else
-		error("invalid radix `" + b + "`");
+    let arr = toBase(a, b);
+    if(+b <= 36)
+        return arr.map(e => {
+            let k = +e;
+            return ALNUM[+e];
+        }).join("");
+    else if(+b == 95)
+        return arr.map(e => {
+            let k = +e;
+            return String.fromCharCode(32 + k);
+        }).join("");
+    else
+        error("invalid radix `" + b + "`");
 }
 
 const antiBaseString = (a, b) => {
-	if(+b <= 36){
-		return antiBase([...a].map(e => Decimal(ALNUM.indexOf(e))), b);
-	} else if(+b == 95){
-		return antiBase([...a].map(e => Decimal(e.charCodeAt() - 32)), b);
-	} else {
-		error("invalid radix `" + b + "`");
-	}
+    if(+b <= 36){
+        return antiBase([...a].map(e => Decimal(ALNUM.indexOf(e))), b);
+    } else if(+b == 95){
+        return antiBase([...a].map(e => Decimal(e.charCodeAt() - 32)), b);
+    } else {
+        error("invalid radix `" + b + "`");
+    }
 }
 
 let primeMem = new Map([
-	["2", TRUE],
-	["3", TRUE],
-	["4", FALSE],
-	["5", TRUE],
-	["6", FALSE],
-	["7", TRUE],
-	["8", FALSE],
-	["9", FALSE],
-	["10", FALSE]
+    ["2", TRUE],
+    ["3", TRUE],
+    ["4", FALSE],
+    ["5", TRUE],
+    ["6", FALSE],
+    ["7", TRUE],
+    ["8", FALSE],
+    ["9", FALSE],
+    ["10", FALSE]
 ]);
 const isPrime = (n) => {
-	let strOf = n.toString();
-	if(n.lt(2)){//really slow... all of this function is, but why?
-		return FALSE;
-	} else if(primeMem.has(strOf)){
-		return primeMem.get(strOf);
-	} else {
-		for(let i = Decimal(2); i.lte(n.sqrt()); i = i.add(1)){
-			if(n.mod(i).eq(0)){
-				primeMem.set(strOf, FALSE);
-				return FALSE;
-			}
-		}
-		primeMem.set(strOf, TRUE);
-		return TRUE;
-	}
+    let strOf = n.toString();
+    if(n.lt(2)){//really slow... all of this function is, but why?
+        return FALSE;
+    } else if(primeMem.has(strOf)){
+        return primeMem.get(strOf);
+    } else {
+        for(let i = Decimal(2); i.lte(n.sqrt()); i = i.add(1)){
+            if(n.mod(i).eq(0)){
+                primeMem.set(strOf, FALSE);
+                return FALSE;
+            }
+        }
+        primeMem.set(strOf, TRUE);
+        return TRUE;
+    }
 }
 
 const DECIMAL_DEFAULT_PRECISION = 20;
 Decimal.set({ precision: DECIMAL_DEFAULT_PRECISION });
 
-Decimal.PI = Decimal(640320).pow(3)			// (640320^3
-			.add(Decimal(744)).pow(2)		// + 744)^2
-			.sub(Decimal(196884).mul(2))	// - (196884*2)
-			.ln().div(
-				Decimal(163).sqrt().mul(2)
-			);
+Decimal.PI = Decimal(640320).pow(3)            // (640320^3
+            .add(Decimal(744)).pow(2)        // + 744)^2
+            .sub(Decimal(196884).mul(2))    // - (196884*2)
+            .ln().div(
+                Decimal(163).sqrt().mul(2)
+            );
 
 let rotate = (a, n) => {
-	if(typeof a === "string") return rotate(a.split(""), n).join("");
-	if(n < 0) return rotate([...a].reverse(), -n).reverse();
-	for(let i = 0; i < n; i++){
-		a.unshift(a.pop());
-	}
-	return a;
+    if(typeof a === "string") return rotate(a.split(""), n).join("");
+    if(n < 0) return rotate([...a].reverse(), -n).reverse();
+    for(let i = 0; i < n; i++){
+        a.unshift(a.pop());
+    }
+    return a;
 }
 
 const eye = (size) => {
@@ -523,8 +556,13 @@ const eye = (size) => {
     return d;
 }
 
+// broken
 const shape = (arr) => {
     let build = [];
+    if(!isDefined(arr))
+        return build;
+    if(arr.length === 0)
+        return [0];
     let trav = (arr) => {
         // if(isDefined(arr[Symbol.iterator])){
         if(isDefined(arr.map)){
@@ -557,24 +595,24 @@ let horizontalRepeat = (x, n) => {
 }
 
 let hcat = (a1, a2) => {
-	if(typeof a1 === "string" && typeof a2 === "string"){
-		let g1 = gridify(a1);
-		let g2 = gridify(a2);
-		if(g1.length !== g2.length){
-			if(g2.length === 1){
-				return ungridify(hcat(g1, [...Array(g1.length)].map((e, i) => a2[i % a2.length])));
-			}
-			error("dimension error");
-		}
-		return ungridify(hcat(g1, g2));
-	}
-	if(a1.length !== a2.length){
-		if(a2.length === 1){
-			return hcat(a1, [...Array(a1.length)].map(() => a2));
-		}
-		error("dimension error");
-	}
-	return a1.map((e, i) => e.concat(a2[i]));
+    if(typeof a1 === "string" && typeof a2 === "string"){
+        let g1 = gridify(a1);
+        let g2 = gridify(a2);
+        if(g1.length !== g2.length){
+            if(g2.length === 1){
+                return ungridify(hcat(g1, [...Array(g1.length)].map((e, i) => a2[i % a2.length])));
+            }   
+            error("dimension error");
+        }
+        return ungridify(hcat(g1, g2));
+    }
+    if(a1.length !== a2.length){
+        if(a2.length === 1){
+            return hcat(a1, [...Array(a1.length)].map(() => a2));
+        }
+        error("dimension error");
+    }
+    return a1.map((e, i) => e.concat(a2[i]));
 }
 
 const equal = (x, y) => {
@@ -584,46 +622,62 @@ const equal = (x, y) => {
         }
         return false;
     }
-	if(x.constructor !== y.constructor)
-		return false;
-	
-	// handle arrays specially
-	if(x instanceof Array){
-		if(x.length !== y.length)
-			return false;
-		
-		for(let i = 0; i < x.length; i++){
-			if(!equal(x[i], y[i]))
-				return false;
-		}
-		return true;
+    if(x.constructor !== y.constructor)
+        return false;
+    
+    // handle arrays specially
+    if(x instanceof Array){
+        if(x.length !== y.length)
+            return false;
+        
+        for(let i = 0; i < x.length; i++){
+            if(!equal(x[i], y[i]))
+                return false;
+        }
+        return true;
     } else if(x instanceof Nil){
         return true;
-	} else if(x.constructor === String){
-		return x === y;
-	} else if(x instanceof Decimal){
-		return x.eq(y);
-	} else if(isDefined(x[EQUAL])){
-		return x[EQUAL](y);
-	} else if(x.constructor === Number){
-		return x === y;
-	} else if(x.constructor === Function){
+    } else if(x.constructor === String){
+        return x === y;
+    } else if(x instanceof Decimal){
+        return x.eq(y);
+    } else if(isDefined(x[EQUAL])){
+        return x[EQUAL](y);
+    } else if(x.constructor === Number){
+        return x === y;
+    } else if(x.constructor === Function){
         return x === y;
     }{
         console.warn("no equal property for " + x);
         return x === y;
     }
-	
-	// they have same type and SHOULD have (and have same)
-	// iterator, if any
-	// this alternative definition is used to guess equality
-	// for unfamiliar types
-	// this would only be a problem if there is some cell K in
-	// either iterable for which K and the iterable share the same
-	// class; for example, [..."Hello"] (an iterable string) would
-	// yield 5 iterable single-length strings
-	if(x[Symbol.iterator]){
-		return equal([...x], [...y]);
+    
+    // they have same type and SHOULD have (and have same)
+    // iterator, if any
+    // this alternative definition is used to guess equality
+    // for unfamiliar types
+    // this would only be a problem if there is some cell K in
+    // either iterable for which K and the iterable share the same
+    // class; for example, [..."Hello"] (an iterable string) would
+    // yield 5 iterable single-length strings
+    if(x[Symbol.iterator]){
+        return equal([...x], [...y]);
+    }
+}
+
+const less = (x, y) => {
+	if(x.lt){
+		return x.lt(y);
+	} else {
+		return x < y;
+	}
+}
+
+const greater = (x, y) => {
+	if(x.gt){
+		return x.gt(y);
+	} else if(y.lt){
+		return !less(y, x);
 	}
 }
 
@@ -633,109 +687,109 @@ const warn = (err) => {
 }
 
 const typeName = (type) =>
-	(type.name || type.toString()).replace(/^e$/, "Decimal");
+    (type.name || type.toString()).replace(/^e$/, "Decimal");
 
 const falsey = (tp) => {
-    let c = false;
-    c |= tp === "";
-    c |= tp instanceof Decimal && tp.cmp(0) == 0;
-    c |= !tp;
-    c |= typeof tp === "undefined";
-    c |= isNaN(tp);
+    let c =
+        tp === ""
+     || tp instanceof Decimal && tp.cmp(0) == 0
+     || typeof tp === "undefined"
+    // c |= Number.isNaN(tp);
+     || tp instanceof Nil;
     return !!c;
 }
 
 const truthy = (tp) => !falsey(tp);
 
 function vectorize(f, arity = f.length){
-	if(arity === 1){
-		function trav(item){
-			if(item[VECTORABLE]){
-				return item.map(trav);
-			} else {
-				return f.bind(this)(item);
-			}
-		}
-		
-		return trav;
-	} else if(arity === 2){
-		function trav2(a, b){
-			if(a[VECTORABLE]){
-				if(b[VECTORABLE]){
-					if(b.length !== a.length){
-						error("length error");
-					}
-					return a.map((e, i) => trav2.bind(this)(e, b[i]));
-				} else {
-					return a.map(e => trav2.bind(this)(e, b));
-				}
-			} else if(b instanceof Array){
-				return b.map(e => trav2.bind(this)(a, e));
-			} else {
-				return f.bind(this)(a, b);
-			}
-		}
-		return trav2;
-	// } else if(arity === 3) {
-		// function travN(...args){
-			// if(args.every(e => e instanceof Array)){
-				// let r = (i, ...a) =>
-					// args[i].map(i == 0
-						// ? travN.bind(this)(...a)
-						// : e => r(i - 1, ...a, e)
-					// );
-				// return r(args.length-1);
-			// }
-		// }
-		// return travN;
-	} else {
-		throw new Error("unsupported arity " + arity);
-	}
+    if(arity === 1){
+        function trav(item){
+            if(item[VECTORABLE]){
+                return item.map(trav);
+            } else {
+                return f.bind(this)(item);
+            }
+        }
+        
+        return trav;
+    } else if(arity === 2){
+        function trav2(a, b){
+            if(a[VECTORABLE]){
+                if(b[VECTORABLE]){
+                    if(b.length !== a.length){
+                        error("length error");
+                    }
+                    return a.map((e, i) => trav2.bind(this)(e, b[i]));
+                } else {
+                    return a.map(e => trav2.bind(this)(e, b));
+                }
+            } else if(b instanceof Array){
+                return b.map(e => trav2.bind(this)(a, e));
+            } else {
+                return f.bind(this)(a, b);
+            }
+        }
+        return trav2;
+    // } else if(arity === 3) {
+        // function travN(...args){
+            // if(args.every(e => e instanceof Array)){
+                // let r = (i, ...a) =>
+                    // args[i].map(i == 0
+                        // ? travN.bind(this)(...a)
+                        // : e => r(i - 1, ...a, e)
+                    // );
+                // return r(args.length-1);
+            // }
+        // }
+        // return travN;
+    } else {
+        throw new Error("unsupported arity " + arity);
+    }
 }
 
 function threeVector(f){
-	function trav3V(a, b, c){
-		return vectorize((a, b) => f(a, b, c));
-	}
-	return trav3V;
+    function trav3V(a, b, c){
+        return vectorize((a, b) => f(a, b, c));
+    }
+    return trav3V;
 }
 
 function vectorizeRight(f, arity = f.length){
-	if(arity === 1){
-		function trav(item){
-			if(item[VECTORABLE]){
-				return item.map(trav);
-			} else {
-				return f.bind(this)(item);
-			}
-		}
-		
-		return trav;
-	} else if(arity === 2){
-		function trav2(a, b){
-			// console.log(a, b);
-			if(b[VECTORABLE]){
-				return b.map(e => trav2.bind(this)(a, e));
-			} else {
-				return f.bind(this)(a, b);
-			}
-		}
-		return trav2;
-	}
+    if(arity === 1){
+        function trav(item){
+            if(item[VECTORABLE]){
+                return item.map(trav);
+            } else {
+                return f.bind(this)(item);
+            }
+        }
+        
+        return trav;
+    } else if(arity === 2){
+        function trav2(a, b){
+            // console.log(a, b);
+            if(b[VECTORABLE]){
+                return b.map(e => trav2.bind(this)(a, e));
+            } else {
+                return f.bind(this)(a, b);
+            }
+        }
+        return trav2;
+    }
 }
 
 const depthOf = (arr, d = 0) => {
-	if(arr instanceof Array){
-		return Math.max(...arr.map(e => depthOf(e, d + 1)), d);
-	} else {
-		return d;
-	}
+    if(arr instanceof Array){
+        return Math.max(...arr.map(e => depthOf(e, d + 1)), d);
+    } else {
+        return d;
+    }
 }
 
 const flatten = (arr, n = Infinity) =>
-	arr instanceof Array
-		? arr.map((e) => n > 1 ? flatten(e, n - 1) : e).reduce((p, c) => p.concat(c), [])
-		: arr;
+    arr instanceof Array
+        ? arr.map((e) => n > 1 ? flatten(e, n - 1) : e).reduce((p, c) => p.concat(c), [])
+        : arr;
 
 // from http://stackoverflow.com/a/30832210/4119004
 function download(data, filename, type) {
@@ -779,26 +833,25 @@ const repr = (item) => {
 }
 
 const chunk = (arr, len) => {
-	len = +len;
-	let res = [];
-	for(let i = 0; i < arr.length; i += len){
-		res.push(arr.slice(i, i + len));
-	}
-	return res;
+    len = +len;
+    let res = [];
+    for(let i = 0; i < arr.length; i += len){
+        res.push(arr.slice(i, i + len));
+    }
+    return res;
 }
 
 const table = (a, b, f) => {
-	return a.map(x => b.map(y => f(x, y)));
+    return a.map(x => b.map(y => f(x, y)));
 };
 
 const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
     let nothing = Symbol("nothing");
     item = fixShape(item, nothing);
-	console.log(item);
     // obtain widths for columns
     let columnLens = deepMap(
         transpose(item),
-        e => (console.log(e), e === nothing ? 0 : castToStr(e).length)
+        e => e === nothing ? 0 : castToStr(e).length
     ).map(
         e => Math.max(...e)
     );
@@ -808,7 +861,7 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
         let res = "";
         for(let j = 0; j < width; j++){
             let cur = item[i][j];
-			// console.log(cur);
+            // console.log(cur);
             if(cur === nothing) cur = "";
             res += castToStr(cur).padStart(columnLens[j], " ");
             if(j < width - 1) res += " ";
@@ -819,37 +872,37 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
 }
 
 const joinArray = (item) => {
-	let trav = (arr, depth = depthOf(arr)) => {
+    let trav = (arr, depth = depthOf(arr)) => {
         if(!isDefined(arr)) return "undefined";
-		if(arr instanceof Array)
+        if(arr instanceof Array)
             if(arr.length === 0)
                 return "()";
             else
                 return "(" + arr.map(e => trav(e, depth - 1))
                     .join(depth === 1 ? " "
                         : "\n".repeat(depth - 1)) + ")";
-		else if(arr instanceof Decimal)
-			return arr.toString().replace(/-/g, "_");
-		else
-			return arr.toString();
-	};
+        else if(arr instanceof Decimal)
+            return arr.toString().replace(/-/g, "_");
+        else
+            return arr.toString();
+    };
     if(shape(item).length === 2){
         return display2d(item);
     }
-	return trav(item);
+    return trav(item);
 };
 
 const joinGrid = (item) => {
-	let trav = (arr, depth = depthOf(arr)) => {
-		if(arr instanceof Array)
-			return arr.map(e => trav(e, depth - 1))
-				.join(depth <= 1 ? ""
-					: "\n".repeat(depth - 1));
-		else if(arr instanceof Decimal)
-			return arr.toString().replace(/-/g, "_");
-		else
-			return arr.toString();
-	};
+    let trav = (arr, depth = depthOf(arr)) => {
+        if(arr instanceof Array)
+            return arr.map(e => trav(e, depth - 1))
+                .join(depth <= 1 ? ""
+                    : "\n".repeat(depth - 1));
+        else if(arr instanceof Decimal)
+            return arr.toString().replace(/-/g, "_");
+        else
+            return arr.toString();
+    };
     return trav(item);
 };
 
@@ -862,29 +915,29 @@ const disp = (item) => {
 }
 
 const pp = (item) => {
-	let ident = flatten(item);
-	if(typeof ident === "string" ||
-		ident instanceof Array &&
-		ident.every(e => typeof e === "string") &&
+    let ident = flatten(item);
+    if(typeof ident === "string" ||
+        ident instanceof Array &&
+        ident.every(e => typeof e === "string") &&
         ident.length){
-		return joinGrid(item);
-	} else {
-		return joinArray(item);
-	}
+        return joinGrid(item);
+    } else {
+        return joinArray(item);
+    }
 };
 
 const dispJS = (x) =>
-	x === undefined ? "undefined" :
-	x.map ?
-		x.map(disp).join(" ") :
-			x.constructor === String ? '"'+x+'"' :
-				x.toFixed ?
-					x.toFixed() :
-						x.toString();
+    x === undefined ? "undefined" :
+    x.map ?
+        x.map(disp).join(" ") :
+            x.constructor === String ? '"'+x+'"' :
+                x.toFixed ?
+                    x.toFixed() :
+                        x.toString();
 
 const factorial = (dec) => {
     if(!dec.eq(dec.floor())) error(`Expected ${dec} to be an integer.`);
-	return dec.lt(2) ? Decimal(1) : factorial(dec.sub(1)).mul(dec);
+    return dec.lt(2) ? Decimal(1) : factorial(dec.sub(1)).mul(dec);
 }
 
 const takeWhile = (list, f) => {
@@ -894,18 +947,18 @@ const takeWhile = (list, f) => {
 }
 
 const assureTyped = (obj, type) => {
-	if(typeof type !== "function")
-		throw new Error(type + " is not a type thingy...");
+    if(typeof type !== "function")
+        throw new Error(type + " is not a type thingy...");
     
     if(!isDefined(obj))
         error("popping from an empty stack");
     
-	if(obj.constructor === type || obj instanceof type)
-		return true;
-	
-	error("type conflict; expected " + typeName(type) +
-		", received `" + obj + "`, which is of type " +
-		typeName(obj.constructor));
+    if(obj.constructor === type || obj instanceof type)
+        return true;
+    
+    error("type conflict; expected " + typeName(type) +
+        ", received `" + obj + "`, which is of type " +
+        typeName(obj.constructor));
 }
 
 // http://stackoverflow.com/a/1242596/4119004
@@ -913,25 +966,29 @@ const bytes = (str) =>
     [...utf8.encode(str)].map(e => e.charCodeAt());
 
 const parseArr = (str) => {
-	let number = "(?:-?\\w+)";
-	let formats = [
-		[
-			new RegExp("^\\s*\\(?\\s*(?:" + number + "\\s*)*\\)?\\s*$"),
-			(e) => e.replace(/^\s*\(\s*|\s*\)\s*$/g, "").split(/\s+/).map(parseNum),
-		],
-		[
-			new RegExp("^\\s*\\[?\\s*(?:" + number + "\\s*,?\\s*)*\\s*\\]?\\s*$"),
-			(e) => e.replace(/^\s*\[\s*|\s*\]\s*$/g, "").split(/\s*,\s*/).map(parseNum),
-		],
-	];
-	let res = formats.find(e => e[0].test(str));
-	if(!res) error("unrecognized array `" + str + "`");
-	return res[1](str);
+    let number = "(?:-?\\w+)";
+    let formats = [
+        [
+            new RegExp("^\\s*\\(?\\s*(?:" + number + "\\s*)*\\)?\\s*$"),
+            (e) => e.replace(/^\s*\(\s*|\s*\)\s*$/g, "").split(/\s+/).map(parseNum),
+        ],
+        [
+            new RegExp("^\\s*\\[?\\s*(?:" + number + "\\s*,?\\s*)*\\s*\\]?\\s*$"),
+            (e) => e.replace(/^\s*\[\s*|\s*\]\s*$/g, "").split(/\s*,\s*/).map(parseNum),
+        ],
+    ];
+    let res = formats.find(e => e[0].test(str));
+    if(!res) error("unrecognized array `" + str + "`");
+    return res[1](str);
 }
+
+const grade = (list) =>
+	range(0, list.length)
 
 if(isNode){
     module.exports = {
         REFORM: REFORM,
+		range: range,
         EQUAL: EQUAL,
         defined: defined,
         isPrime: isPrime,
@@ -982,7 +1039,14 @@ if(isNode){
         antiBase: antiBase,
         shape: shape,
         display2d: display2d,
-		parseArray: parseArray,
+        parseArr: parseArr,
+        parseNum: parseNum,
+        deepMap: deepMap,
+        TRUE: TRUE,
+        FALSE: FALSE,
+        gridify: gridify,
+        ungridify: ungridify,
+		table: table,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
