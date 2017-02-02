@@ -43,7 +43,9 @@ if(require.main === module){
         boolean: ["t", "p", "P"],
     });
     let prog;
-	let conf = JSON.parse(readFile(args.config || "stacked.config"));
+	let conf = JSON.parse(readFile(args.config ||
+		path.join(__dirname, "stacked.config")
+	));
 	
 	for(let p in conf){
 		args[p] = conf[p];

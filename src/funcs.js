@@ -983,7 +983,7 @@ const parseArr = (str) => {
 }
 
 const grade = (list) =>
-	range(0, list.length)
+	range(0, list.length);
 
 if(isNode){
     module.exports = {
