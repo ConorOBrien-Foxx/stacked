@@ -264,15 +264,19 @@ function typedFunc(typeMap, arity = -1){
 
 class Token {
     constructor(str, isComment){
-        if(str instanceof Token) str = str.raw;
-        if(isArray(str)){
-            this.type = "op";
-            this.func = str[0];
-            return;
-        }
         this.raw = str;
+        this.isComment = isComment;
+        if(str instanceof Token){
+            this.raw = str = str.raw;
+            this.isComment = str.isComment;
+        }
+        // todo: not cycle through all options for copying, maybe?
         if(isComment){
             this.type = "comment";
+        }
+        else if(isArray(str)){
+            this.type = "op";
+            this.func = str[0];
         }
         // let's identify what type of token this is
         else if(str == "."){
@@ -307,10 +311,6 @@ class Token {
             this.type = "funcStart";
         } else if(str === "]"){
             this.type = "funcEnd";
-        } else if(str === "(*"){
-            this.type = "commentStart";
-        } else if(str === "*)"){
-            this.type = "commentEnd";
         } else if(str === "("){
             this.type = "arrayStart";
         } else if(str === "$("){
@@ -1797,7 +1797,6 @@ const tokenize = (str, opts = {}) => {
     let isAlpha = (d) => (/[A-Za-z]/.test(d));
     let isIdentifierPrefix = isAlpha;
     let isIdentifier = (d) => isAlphaNumeric(d) || d === "_";
-    let commentDepth = 0;
     tokenizeLoop: while(hasCharsLeft()){
         // 0. skip whitespace
         if(/^\s$/.test(cur())){
@@ -1850,18 +1849,32 @@ const tokenize = (str, opts = {}) => {
             
         // }
         // 4. match a comment start symbol, if available
+        else if(needle("(*")){
+            let commentDepth = 1;
+            let queue = [];
+            queue.push(cur() + next());
+            advance(); // remove initial (*
+            while(commentDepth){
+                if(needle("(*")){
+                    commentDepth++;
+                    queue.push(cur() + next());
+                    advance();
+                } else if(needle("*)")){
+                    commentDepth--;
+                    queue.push(cur() + next());
+                    advance();
+                } else {
+                    queue.push(cur());
+                    advance();
+                }
+            }
+            while(queue.length){
+                let t = new Token(queue.shift(), true);
+                toks.push(t);
+            }
+        }
         // 5. match a function array start, if available (`$(`)
         // 5b. match a grouping symbol
-        else if(needle("(*")){
-            toks.push(cur() + next());
-            advance();
-            commentDepth++;
-        }
-        else if(needle("*)") && commentDepth > 0){
-            toks.push(cur() + next());
-            advance();
-            commentDepth--;
-        }
         else if(needle("$(") || needle("#(")){
             toks.push(cur() + next());
             advance();
@@ -1927,40 +1940,19 @@ const tokenize = (str, opts = {}) => {
         }
     }
     
-    // preprocess comments
-    let commentInds = toks.map(e => false);
-    // let max = 100;
-    // for(let i = 0, t = 0; i < toks.length && t < max; i++, t++){
-    for(let i = 0; i < toks.length; i++){
-        if(toks[i] === "(*"){
-            let depth = 1;
-            i++;
-            while(depth && i < toks.length){
-                let cur = toks[i];
-                if(cur === "(*") depth++;
-                else if(cur === "*)") depth--;
-                else commentInds[i] = true;
-                i++;
-            }
-            i--;
-            if(depth)
-                warn("unclosed comment");
-        }
-    }
-    
-    return toks.map((e, i) => {
-        try {
-            return new Token(e, commentInds[i])
-        } catch(E) {
-            if(ignoreError){
-                let t = new Token("");
-                t.raw = e;
-                return t;
-            }
-            else
-                throw E;
-        }
-    });
+    return toks.map(e => e instanceof Token ? e : new Token(e));
+        // try {
+            // return new Token(e)
+        // } catch(E) {
+            // if(ignoreError){
+                // let t = new Token("");
+                // t.raw = e;
+                // return t;
+            // }
+            // else
+                // throw E;
+        // }
+    // });
 };
 
 const vars = new Map([
@@ -2082,7 +2074,7 @@ class Stacked {
     readOp(cur){
         if(this.observeToken)
             this.observeToken.bind(this)(cur, "readOp");
-        if(["comment", "commentStart", "commentEnd"].indexOf(cur.type) >= 0){
+        if(cur.type === "comment"){
             // do nothing, it's a comment.
         } else if(cur.type === "accessor"){
             this.index++;
