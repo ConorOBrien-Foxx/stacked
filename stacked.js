@@ -27,8 +27,36 @@ let use = (filePath) => {
 		require(filePath)(stacked);
 	}
 }
-
 stacked.use = use;
+
+const ESCAPE = "\x1b";
+const colors = {
+    "bold": 1,
+    "black": 30,
+    "red": 31,
+    "green": 32,
+    "yellow": 33,
+    "blue": 34,
+    "purple": 35,
+    "cyan": 36,
+    "white": 37,
+    "standard": 39
+};
+const colorize = (color) => (str) =>
+    ESCAPE + "[" + colors[color] + "m" + str + ESCAPE + "[0m";
+const styles = {
+    "string": colorize("purple"),
+    "number": colorize("yellow"),
+    "setfunc": colorize("green"),
+    "setvar": colorize("green"),
+    "op": colorize("bold"),
+};
+styles["lambdaStart"] = styles["lambdaEnd"] =
+styles["funcStart"] = styles["funcEnd"] = colorize("cyan");
+const getStyle = (e) => styles[e.type] ? styles[e.type](e.raw) : e.raw;
+const highlight = (prog) =>
+    stacked.tokenize(prog, { keepWhiteSpace: true, ignoreError: true })
+        .map(getStyle).join("");
 
 if(require.main === module){
     let args = require("minimist")(process.argv.slice(2), {
@@ -39,8 +67,9 @@ if(require.main === module){
             "e": "exec",
 			"c": "config",
 			"f": "file",
+            "h": "highlight",
         },
-        boolean: ["t", "p", "P"],
+        boolean: ["t", "p", "P", "h"],
     });
     let prog;
 	let conf = JSON.parse(readFile(args.config ||
@@ -51,7 +80,7 @@ if(require.main === module){
 	for(let p in conf){
 		args[p] = conf[p];
 	}
-    if(args.t){
+    if(args.test){
         require("./test/test.js").test();
         return;
     }
@@ -60,6 +89,10 @@ if(require.main === module){
     } else {
         let fileName = args.file ? args.file : args._.shift();
 		prog = readFile(fileName);
+    }
+    if(args.highlight){
+        process.stdout.write(highlight(prog));
+        return;
     }
     let inst = new Stacked(prog.replace(/\r/g, ""));
     inst.vars.set("args", args._);

@@ -3019,6 +3019,7 @@ stacked.Stacked = Stacked;
 stacked.bootstrap = bootstrap;
 stacked.bootstrapExp = bootstrapExp;
 stacked.silentError = false;
+stacked.tokenize = tokenize;
 
 if(isNode){
     module.exports = exports.default = stacked;
