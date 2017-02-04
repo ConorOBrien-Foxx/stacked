@@ -1047,6 +1047,7 @@ if(isNode){
         gridify: gridify,
         ungridify: ungridify,
 		table: table,
+        formatDate: formatDate,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){

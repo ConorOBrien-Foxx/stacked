@@ -2063,7 +2063,7 @@ class Stacked {
             } else
                 res += e + " ";
         }
-        return res;
+        return res.trim();
         // return this.toks.slice(this.index - 2, this.index + 2).join(" ");
     }
     
@@ -2323,10 +2323,14 @@ const bootstrapExp = (code) => {
 // node specific functions
 if(isNode){
     ops.set("read", new StackedFunc([
-        [[String], (e) => fs.readFileSync(e).toString()]
+        [[String], (e) => {
+            if(!fs.existsSync(e))
+                fs.writeFileSync(e, "");
+            return fs.readFileSync(e).toString();
+        }]
     ], 1, { vectorize: true }));
     ops.set("write", new StackedFunc([
-        [[String, String], (name, data) => { fs.writeFileSync(name, data) }]
+        [[String, String], (data, name) => { fs.writeFileSync(name, data) }]
     ], 2, { vectorize: true }));
     ops.set("exit", () => process.exit());
     
