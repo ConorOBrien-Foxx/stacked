@@ -1,4 +1,4 @@
-const stacked   = require("./../src/stacked.js");
+ const stacked   = require("./../src/stacked.js");
 const Decimal   = require("./../src/decimal.js");
 const equal     = require("./../src/funcs.js").equal;
 const defined   = require("./../src/funcs.js").defined;

@@ -466,6 +466,10 @@ class LambdaArgument {
     toString(){
         return this.name;
     }
+    
+    [EQUAL](y){
+        return this.toString() === y.toString();
+    }
 }
 
 class Lambda {
@@ -506,11 +510,13 @@ class Lambda {
         let stackArguments = inst.stack.splice(-this.args.length);
         for(let i = 0; i < this.args.length; i++){
             let arg = this.args[i];
+            // problem with variable retrieval
             temp.vars.set(arg, stackArguments.shift());
         }
         
         temp.run();
         
+        // todo: set the scope for each function to this scope
         if(temp.running === null)
             inst.running = false;
         inst.stack = inst.stack.concat(temp.stack);
@@ -528,7 +534,7 @@ class Lambda {
             for(let [key, val] of inst.vars){
                 if(temp.vars.has(key)
                     && key !== "program"
-                    && temp.lambdaArgs.indexOf(key) < 0){
+                    && this.args.indexOf(key) < 0){
                     inst.setVar(key, temp.vars.get(key));
                 }
             }
@@ -2060,11 +2066,11 @@ class Stacked {
     }
     
     getVar(name){
-        if(this.vars.has(name.toString())){
-            return this.vars.get(name.toString());
-        } else {
-            error("undefined variable `" + name + "`\n" + this.trace());
+        for(let [key, val] of this.vars){
+            if(key.toString() === name)
+                return val;
         }
+        error("undefined variable `" + name + "`\n" + this.trace());
     }
     
     setVar(name, val){
@@ -2361,7 +2367,7 @@ if(isNode){
     vars.set("pathdelim", path.delimiter);
     vars.set("pathsep", path.delimiter);
     
-    // todo: add format
+    // todo: add path.format
     
     bootstrap("[argv 2 get] @:d0");
     error = (e) => {
@@ -2406,7 +2412,6 @@ $(ipart , fpart) fork @:ifpart
 [2 *] @:double
 [1 +] @:inc
 [1 -] @:dec
-{ e f : e [f apply] map } @:clmn
 [0 get] @:first
 [_1 get] @:last
 [2 mod 1 eq] @:odd

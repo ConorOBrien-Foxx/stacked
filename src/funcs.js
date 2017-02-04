@@ -648,7 +648,8 @@ const equal = (x, y) => {
     } else if(x.constructor === Function){
         return x === y;
     }{
-        console.warn("no equal property for " + x);
+        console.warn("no equal property for " + x.constructor.name + " -- " + x);
+        console.warn("                  and " + y.constructor.name + " -- " + y);
         return x === y;
     }
     
