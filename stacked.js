@@ -2,6 +2,7 @@ const stacked = require("./src/stacked.js");
 const fs = require("fs");
 const path = require("path");
 const Stacked = stacked.Stacked;
+const sanatize = stacked.sanatize;
 
 let err = (msg) => {
     console.error(msg);
@@ -95,7 +96,7 @@ if(require.main === module){
         return;
     }
     let inst = new Stacked(prog.replace(/\r/g, ""));
-    inst.vars.set("args", args._);
+    inst.vars.set("args", sanatize(args._));
     inst.run();
     if(args.printStack){
         console.log(disp(inst.stack));

@@ -1319,7 +1319,7 @@ const ops = new Map([
     ["todec", new StackedFunc([
         [[Decimal], x => x],
         [[String], parseNum],
-        [[Array], t => flatten(t).join("")],
+        [[Array], t => parseNum(flatten(t).join(""))],
     ], 1)],
     // ["todec", function(){
         // let t = this.stack.pop();
@@ -2488,6 +2488,7 @@ $not $any ++ @:none
 
 [: disp] @:show
 [: out] @:echo
+[: put] @:say
 
 ([3 * 1 +] $halve) $even agenda @:ulamstep
 { x :
@@ -2998,6 +2999,8 @@ stacked.bootstrap = bootstrap;
 stacked.bootstrapExp = bootstrapExp;
 stacked.silentError = false;
 stacked.tokenize = tokenize;
+stacked.sanatize = sanatize;
+stacked.unsanatize = unsanatize;
 
 if(isNode){
     module.exports = exports.default = stacked;
