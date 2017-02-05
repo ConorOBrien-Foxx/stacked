@@ -307,6 +307,8 @@ tester.testCases = [
     ["$'ab' #.", { top: [97, 98].map(D) }],
     
     ["hold 3 put release", { top: "3" }],
+    ["hold 3 out release", { top: "3\n" }],
+    ["hold forget about it release", { top: "No, seriously, forget about it!" }],
     
     ["3 [: 1 - : out] loop", { stack: [3, 2, 1, 0].map(D) }],
     
