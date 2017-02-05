@@ -227,11 +227,15 @@ function createArray(length) {
 
 const surround = (s, f) => {
     if(isString(s)) return ungridify(surround(gridify(s), f));
-    if(!isDefined(s[0][0]))
+    if(!isDefined(s[0]))
+        s = [[]];
+    else if(shape(s).length == 1)
         s = [s];
     s = fixShape(s);
     let height = s.length;
     let width = s[0].length;
+    if(width == 0 && height == 1)
+        return [[f]];
     if(width == 0 && height == 0)
         return [[f, f], [f, f]];
     s = s.map(a => [].concat(f, a, f));
@@ -254,13 +258,11 @@ const moore = (arr, x, y, n = 1, m = n) => {
     return grid;
 }
 
-const isArray = (a) => a instanceof Array;
-
 const fixShape = (arr, fill = 0) => {
     let recur = (a) => {
         if(!a.map) return a;
-        let maxlen = Math.max(...a.map(e => isArray(e) ? e.length : -1));
-        return a.map(e => recur(isArray(e) ? e.padEnd(maxlen, fill) : e));
+        let maxlen = Math.max(...a.map(e => Array.isArray(e) ? e.length : -1));
+        return a.map(e => recur(Array.isArray(e) ? e.padEnd(maxlen, fill) : e));
     }
     return recur(arr);
 }
@@ -566,9 +568,9 @@ const shape = (arr) => {
     let trav = (arr) => {
         // if(isDefined(arr[Symbol.iterator])){
         if(isDefined(arr.map)){
-            let next = [...arr][0];
-            if(next === arr) return;
             build.push(arr.length);
+            let next = [...arr][0];
+            if(next === arr || !isDefined(next)) return;
             trav(next);
         }
     }
@@ -576,7 +578,9 @@ const shape = (arr) => {
     return build;
 }
 
-let gridify = (str) => fixShape(str.split(/\r?\n/).map(e => [...e]), " ");
+let gridify = (str) => {
+    return fixShape(str.split(/\r?\n/).map(e => [...e]), " ");
+}
 let ungridify = (arr) => arr.map(e => e.join("")).join("\n");
 
 let verticalRepeat = (x, n) => {
@@ -818,7 +822,7 @@ const repr = (item) => {
     if(isDefined(item.repr)){
         return item.repr();
     }
-    if(isArray(item))
+    if(Array.isArray(item))
         return "(" + item.map(repr).join(" ") + ")";
     else if(isString(item)){
         return "'" + item.replace(/'/g, "''") + "'";
@@ -1010,7 +1014,6 @@ if(isNode){
         unique: unique,
         surround: surround,
         DECIMAL_DEFAULT_PRECISION: DECIMAL_DEFAULT_PRECISION,
-        isArray: isArray,
         isDefined: isDefined,
         VECTORABLE: VECTORABLE,
         warn: warn,

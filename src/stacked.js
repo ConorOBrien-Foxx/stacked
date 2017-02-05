@@ -274,7 +274,7 @@ class Token {
         if(isComment){
             this.type = "comment";
         }
-        else if(isArray(str)){
+        else if(Array.isArray(str)){
             this.type = "op";
             this.func = str[0];
         }
