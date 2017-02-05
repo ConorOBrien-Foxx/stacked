@@ -361,6 +361,7 @@ class Func {
     constructor(body){
         this.body = body;
         this.arity = body.arity || null;
+        this.scope = null;
     }
     
     static of(func, toStr){
@@ -434,9 +435,16 @@ class Func {
         temp.hold = inst.hold;
         temp.oldOut = inst.oldOut;
         temp.slow = inst.slow;
-        temp.vars = clone(inst.vars);
+        temp.vars = clone(this.scope || inst.vars);
         
         temp.run();
+        
+        // fix each func
+        temp.stack = temp.stack.map(e => {
+            if(e instanceof Func || e instanceof Lambda)
+                e.scope = clone(temp.vars);
+            return e;
+        });
         
         inst.stack = temp.stack;
         inst.output = temp.output;
@@ -516,7 +524,13 @@ class Lambda {
         
         temp.run();
         
-        // todo: set the scope for each function to this scope
+        // fix each func
+        temp.stack = temp.stack.map(e => {
+            if(e instanceof Func || e instanceof Lambda)
+                e.scope = clone(temp.vars);
+            return e;
+        });
+        
         if(temp.running === null)
             inst.running = false;
         inst.stack = inst.stack.concat(temp.stack);
@@ -526,10 +540,6 @@ class Lambda {
         inst.oldOut = temp.oldOut;
         
         // scoping, as per above
-        
-        // #### scoping
-        // idea: make argument scoping different
-        // nevermind, just have degrees of scoping
         if(scoping === 1){
             for(let [key, val] of inst.vars){
                 if(temp.vars.has(key)
@@ -545,13 +555,6 @@ class Lambda {
         } else {
             error("invalid scoping degree `" + scoping + "`");
         }
-        // inst.vars.forEach((key, val) => {
-            // console.log(key);
-            // if(temp.vars.has(key)){
-                // inst.vars.set(temp.vars.get(key));
-            // }
-        // });
-        // console.log(inst.vars);
     }
     
     [EQUAL](y){
@@ -980,7 +983,7 @@ const ops = new Map([
         [[String], gridify],
     ], 1)],
     ["ungrid", new StackedFunc([
-        [[String], ungridify],
+        [[Array], ungridify],
     ], 1)],
     ["DEBUG", function(){
         console.log(dispJS(this.stack));
@@ -1173,6 +1176,12 @@ const ops = new Map([
         }
         this.stack.push(k);
     }],
+    ["ffix", new StackedFunc([
+        [[STP_FUNC_LIKE], function(f){
+            f.scope = clone(this.vars);
+            return f;
+        }],
+    ], 1, { vectorize: true })],
     ["and", new StackedFunc([
         [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) && truthy(b)))],
     ], 2, { vectorize: true })],
@@ -1523,52 +1532,6 @@ const ops = new Map([
         }],
         // [[Func, Func], (a, b) => new Func(a.body + " " + b.body)],
     ], 2)],
-    // takes a function and binds it to the current scope
-    // works by replacing all occuracnes of variables/functions with their respective
-    // entries
-    ["bind", function(){
-        let f = this.stack.pop();
-        if(f.exec != Func.prototype.exec && f.exec != Lambda.prototype.exec){
-            error("cannot bind `" + f + "`");
-        }
-        let toks = tokenize(f.body).map(e => {
-            if(e.type === "word"){
-                if(this.ops.has(e.value)){
-                    let nf = this.ops.get(e.value);
-                    return new Token([function(){
-                        nf.bind(this)();
-                    }]);
-                } else if(this.vars.has(e.value)){
-                    let val = this.vars.get(e.value);
-                    return new Token([function(){
-                        this.stack.push(val);
-                    }]);
-                } else {
-                    return e;
-                }
-            } else {
-                return e;
-            }
-        });
-        let k;
-        if(f instanceof Func){
-            k = new Func(f.body);
-        } else if(f instanceof Lambda){
-            k = new Lambda(f.args, f.body);
-            toks.unshift(...[...f.args].reverse().map(e => new Token("@" + e)));
-        }
-        k.exec = function(inst){
-            let st = new Stacked("", inst.options);
-            st.raw = f.body;
-            st.toks = clone(toks);
-            st.stack = clone(inst.stack);
-            st.run();
-            inst.stack = clone(st.stack);
-        }
-        console.log(k+[]);
-        console.log(k);
-        this.stack.push(k);
-    }],
     ["alert", func(e => alert(e))],
     ["download", new StackedFunc([
         [
@@ -2390,8 +2353,6 @@ $(- - +) { x . : x sign } agenda @:decrease
 [sgroup tail merge] @:isolate
 [: *] @:square
 [map flat] @:flatmap
-(* Until I fix scoping *)
-(* { f : { n : n f! n = } bind } @:invariant *)
 [0 >] @:ispos
 [0 <] @:isneg
 [0 eq] @:iszero
