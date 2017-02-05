@@ -306,12 +306,16 @@ tester.testCases = [
     ["'ab' #.", { top: D(97) }],
     ["$'ab' #.", { top: [97, 98].map(D) }],
     
+    ["hold 3 put release", { top: "3" }],
+    
     ["3 [: 1 - : out] loop", { stack: [3, 2, 1, 0].map(D) }],
     
     ["5 ulam", { top: [5, 16, 8, 4, 2, 1].map(D) }],
     
     ["4 dec", { top: D(3) }],
     ["4 inc", { top: D(5) }],
+    
+    
 ];
 
 tester.test = (info = true) => {
