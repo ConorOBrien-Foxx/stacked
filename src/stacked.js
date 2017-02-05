@@ -973,9 +973,6 @@ const ops = new Map([
             effect.exec(this);
         }
     }],
-    ["jump", func(function(k){
-        this.index = k - 1;
-    })],
     ["grid", new StackedFunc([
         [[Array], joinGrid],
     ], 1)],
