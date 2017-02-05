@@ -232,6 +232,8 @@ const surround = (s, f) => {
     s = fixShape(s);
     let height = s.length;
     let width = s[0].length;
+    if(width == 0 && height == 0)
+        return [[f, f], [f, f]];
     s = s.map(a => [].concat(f, a, f));
     s.unshift(makeArray(width + 2, f));
     s.push(makeArray(width + 2, f));
