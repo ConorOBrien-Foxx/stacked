@@ -2511,7 +2511,7 @@ $not $any ++ @:none
 { shpe e F :
   e flat @e_flat
   shpe { i : e_flat i F! } shapef } @:FSHAPE
-{ shpe e F :
+{ shpe e :
   e flat @e_flat
   shpe { i : e_flat i modget } shapef } @:SHAPE
 { shpe ent pad_el : shpe ent { ent i :
@@ -2549,6 +2549,15 @@ $not $any ++ @:none
 (* todo: see if previous two work *)
 
 [2000 precision] @:lprec
+
+{ x y :
+  (x y) $size map MIN @min_len
+  (x y) [min_len take] map tr
+} @:zip
+
+{ f :
+  [zip f #/ map]
+} @:zipwith
 `);
 
 makeAlias("prod", "\u220f");
