@@ -866,9 +866,7 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
         let res = "";
         for(let j = 0; j < width; j++){
             let cur = item[i][j];
-            // console.log(cur);
-            if(cur === nothing) cur = "";
-            res += castToStr(cur).padStart(columnLens[j], " ");
+            res += (cur === nothing ? "" : castToStr(cur)).padStart(columnLens[j], " ");
             if(j < width - 1) res += " ";
         }
         lines.push(res.trimRight() + ")");

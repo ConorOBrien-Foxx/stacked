@@ -54,6 +54,9 @@ let expect = (code, check) => {
     
     if(defined(check.out, out) !== out){
         tErr("output", check.out, out);
+    } else if(!isDefined(check.out) && out !== ""){
+        console.warn("warning: in `" + code + "`: output received without output check specified.");
+        console.warn(out.replace(/^/gm, "  "));
     }
     
     if(!equal(defined(check.stack, ent.stack), ent.stack)){
@@ -93,6 +96,7 @@ tester.testCases = [
     ["{! n }", {}],
     
     ["3 @a  a", { stack: [ D(3) ] }],
+    // globally declares!??!?!?!
     
     ["3 4 + put", { out: "7" }],
     ["3 4 +", { stack: [D(7)] }],
@@ -128,7 +132,7 @@ tester.testCases = [
     
     ["1 2 pair", { stack: [ [1, 2].map(D) ] }],
     ["1 (2) pair", { stack: [ [D(1), [D(2)]] ] }],
-    
+
     ["1 2 %", { top: D(1) }],
     ["3 2 %", { top: D(1) }],
     ["_1 2 %", { top: D(-1) }],
@@ -292,6 +296,7 @@ tester.testCases = [
     ["'asdf' tail", { top: "f" }],
     
     ["1 2 $+ exec", { top: D(3) }],
+    ["1 2 $+ !", { top: D(3) }],
     
     ["1 not", { top: FALSE }],
     ["0 not", { top: TRUE }],
@@ -310,20 +315,69 @@ tester.testCases = [
     ["hold 3 out release", { top: "3\n" }],
     ["hold forget about it release", { top: "No, seriously, forget about it!" }],
     
-    ["3 [: 1 - : out] loop", { stack: [3, 2, 1, 0].map(D) }],
+    ["((1 2) (3 4)) joingrid", { top: "12\n34" }],
+    
+    ["3 [: 1 -] loop", { stack: [3, 2, 1, 0].map(D) }],
+    
+    ["{ i : i put } 3 6 for", { out: "3456" }],
+    
+    ["(_2 0 32) skewsign", { top: [0, 1, 2].map(D) }],
+    
+    ["($neg $inc $square) $skewsign agenda oneach @:t  (_2 0 2) t", { top: [2, 1, 4].map(D) }],
+    ["$(neg inc square) $skewsign agenda oneach @:t  (_2 0 2) t", { top: [2, 1, 4].map(D) }],
+    // ["$(- * +) $<=> agenda @:t _2 3 DEBUG t", { top: D(1) }],
+    
+    ["(0 4 2) size", { top: D(3) }],
+    ["42 size", { top: D(2) }],
+    
+    ["#(_2 3 >) #(_2 3 <) -", { stack: [D(-1)] }],
     
     ["5 ulam", { top: [5, 16, 8, 4, 2, 1].map(D) }],
     
+    ["[3 out] 1 if", { out: "3\n" }],
+    ["[3 out] 0 if", { out: "" }],
+    ["[3 out] '' if", { out: "" }],
+    
+    ["[3 out] '' unless", { out: "3\n" }],
+    ["[3 out] 1 unless", { out: "" }],
+    
+    ["1 2 3 ifelse", { top: D(1) }],
+    ["1 2 [+] [-] 3 ifelse", { top: D(3) }],
+    ["1 2 [+] [-] 0 ifelse", { top: D(-1) }],
+    
+    ["1 2 slen put", { out: "2" }],
+    ["slen put", { out: "0" }],
+    
+    ["1 2 3 4 3 flush", { stack: [] }],
+    ["flush", { stack: [] }],
+    
+    ["(1 2 3) $square map", { top: [1, 4, 9].map(D) }],
+    ["(1 2 3) [2+] map", { top: [3, 4, 5].map(D) }],
+    
+    ["1 2 3 $square smap", { stack: [1, 4, 9].map(D) }],
+    ["1 2 3 [2+] smap", { stack: [3, 4, 5].map(D) }],
+    
+    ["1 2 3 $+ sfold", { top: D(6) }],
+    ["4 5 2 $/ sfold", { top: D(0.4) }],
+    ["1 2 3 [+ square] sfold", { top: D(144) }],
+    
+    ["_2 3 cmp", { stack: [D(-1)] }],
+    ["3 3 cmp", { stack: [D(0)] }],
+    ["10 3 cmp", { stack: [D(1)] }],
+    ["_2 3 <=>", { stack: [D(-1)] }],
+    ["3 3 <=>", { stack: [D(0)] }],
+    ["10 3 <=>", { stack: [D(1)] }],
+    
     ["4 dec", { top: D(3) }],
     ["4 inc", { top: D(5) }],
-    
-    
 ];
+
+// console.log(stacked("10 4 cmp").stack.join(";;;;"));
 
 tester.test = (info = true) => {
     let foundOps = [
         // include the ones that don't/can't be tested
-        "debug", "DEBUG"
+        "debug", "DEBUG", "input", "INPUT", "prompt", "PROMPT"
     ];
     for(let [prog, out] of tester.testCases){
         foundOps = foundOps.concat(expect(prog, out));

@@ -519,6 +519,7 @@ class Lambda {
         for(let i = 0; i < this.args.length; i++){
             let arg = this.args[i];
             // problem with variable retrieval
+            temp.vars.delete(arg.toString());
             temp.vars.set(arg, stackArguments.shift());
         }
         
@@ -550,6 +551,7 @@ class Lambda {
             }
         } else if(scoping === 2){
             inst.vars = clone(temp.vars);
+            inst.funcs = clone(temp.funcs);
         } else if(scoping === 0){
             return;
         } else {
@@ -750,6 +752,9 @@ const ops = new Map([
     ], 2, { vectorize: true })],
     [":>", new StackedFunc([
         [[Decimal], (a) => range(Decimal(0), a)],
+    ], 1, { vectorize: true })],
+    ["~>", new StackedFunc([
+        [[Decimal], (a) => range(Decimal(1), a.add(1))],
     ], 1, { vectorize: true })],
     ["~", new StackedFunc([
         [[Decimal], a => a.floor().add(1).neg()],
@@ -973,7 +978,7 @@ const ops = new Map([
             effect.exec(this);
         }
     }],
-    ["grid", new StackedFunc([
+    ["joingrid", new StackedFunc([
         [[Array], joinGrid],
     ], 1)],
     ["togrid", new StackedFunc([
@@ -999,13 +1004,14 @@ const ops = new Map([
         assureTyped(min, Decimal);
         assureTyped(max, Decimal);
         //todo:fix with slow
+        //nvm, slow is evil
         for(var c = min; c.lte(max); c = c.add(1)){
             this.stack.push(c);
             f.exec(this);
         }
     }],
     ["agenda", new StackedFunc([
-        [[ANY, STP_FUNC_LIKE], function(agenda, agendaCond){
+        [[Array, STP_FUNC_LIKE], function(agenda, agendaCond){
             let k = new Func(agenda + " agenda");
             k.toString = function(){
                 return "#(" + disp(agenda) + " " + disp(agendaCond) + " agenda)";
@@ -1029,10 +1035,10 @@ const ops = new Map([
         }]
     ], 2)],
     ["size", new StackedFunc([
-        [[Decimal], a => a.toFixed().length],
+        [[Decimal], a => new Decimal(a.toFixed().length)],
         [[STP_HAS("length")], a => new Decimal(a.length)]
     ], 1)],
-    // ["size", func(a => new Decimal(a.length))],
+    // todo: if/unless fix
     ["if", function(){
         let [f, ent] = this.stack.splice(-2);
         if(!FUNC_LIKE(f))
@@ -1044,7 +1050,9 @@ const ops = new Map([
                 this.stack.push(f);
     }],
     ["unless", function(){
-        let [ent, f] = this.stack.splice(-2);
+        let [f, ent] = this.stack.splice(-2);
+        if(!FUNC_LIKE(f))
+            error("type conflict; expected a function-like, received `" + f + "`, which is of type " + typeName(f.constructor));
         if(falsey(ent))
             if(f.exec)
                 f.exec(this);
@@ -1061,7 +1069,7 @@ const ops = new Map([
         else
             this.stack.push(f);
     }],
-    ["len", function(){
+    ["slen", function(){
         this.stack.push(Decimal(this.stack.length));
     }],
     ["flush", function(){
@@ -1087,7 +1095,7 @@ const ops = new Map([
     ["smap", function(){
         let f = this.stack.pop();
         this.stack = [this.stack, f];
-        ops.get("map").bind(this)();
+        ops.get("map").exec(this);
         this.stack = this.stack.pop();
     }],
     ["sfold", function(){
@@ -1366,9 +1374,10 @@ const ops = new Map([
     ], 2)],
     ["eval", function(){
         let t = this.stack.pop();
-        this.stack.push(new Func(t));
-        let k = ops.get("!").exec(this);
-        if(k instanceof Function) k();
+        new Func(t).exec(this, 2);
+        // this.stack.push(new Func(t));
+        // let k = ops.get("!").exec(this);
+        // if(k instanceof Function) k();
     }],
     ["evalp", new StackedFunc([
         [[String], function(s){
@@ -2347,6 +2356,7 @@ $(- - +) { x . : x sign } agenda @:decrease
   arr toarr @arr
   init arr, func doinsert
 } @:fold
+[sign 1 +] @:skewsign
 [sgroup tail merge] @:isolate
 [: *] @:square
 [map flat] @:flatmap
@@ -2534,6 +2544,10 @@ $not $any ++ @:none
 { n :
   2 [nextprime] [: n sout <=] while
 } @:minprimef
+
+(* todo: see if previous two work *)
+
+[2000 precision] @:lprec
 `);
 
 makeAlias("prod", "\u220f");
@@ -2543,6 +2557,7 @@ makeAlias("cmp", "<=>");
 makeAlias("square", "²");
 makeAlias("iszero", "is0");
 makeAlias("doinsert", "#\\");
+makeAlias("doinsert", "fold");
 
 // ---stealing--- adapting some of Haskell's Data.List stuff
 bootstrap(`

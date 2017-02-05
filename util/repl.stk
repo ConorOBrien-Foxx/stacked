@@ -1,4 +1,6 @@
-'Stacked REPL environment initialized.' out
+'Stacked REPL environment initialized.
+Known bugs: variables/funcs do not persist between lines
+            errors terminate repl session' out
 
 (* REPL functions *)
 [0 @disp_stack] @:hide_stack
@@ -16,9 +18,15 @@
 1 @disp_stack        (* controls whether or not the stack is displayed after input *)
 program @top_prog    (* this program, for `info` *)
 
+'> ' @user_prompt
+''   @result_tag
+
+[@user_prompt] @:setprompt
+[@result_tag] @:settag
+
 (* program loop *)
 [
-  '> ' PROMPT eval
-  $sout disp_stack if
+  user_prompt PROMPT eval
+  [result_tag put sout] disp_stack if
   1 @disp_stack      (* make sure we prepare to display the _stack next time *)
 ] [1] while
