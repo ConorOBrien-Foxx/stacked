@@ -2498,6 +2498,7 @@ $not $any ++ @:none
 [ofshape $tid deepmap] @:ints
 
 ['' repl] @:del
+['' rrepl] @:DEL
 [CR del LF split] @:lines
 { a b : #(a b >) #(a b <) - } @:cmp
 { ent i :
