@@ -606,6 +606,7 @@ const ops = new Map([
     ], 2)],
     ["-", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.sub(b)],
+        [[String, String], (s, t) => s.replace(new StRegex(t, "g"), "")],
     ], 2, { vectorize: true })],
     ["/", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.div(b)],
