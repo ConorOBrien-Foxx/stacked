@@ -193,12 +193,30 @@ Array.prototype.get = String.prototype.get = function(i){
     else error("index `" + i + "` out of bounds in `" + repr(this) + "`");
 }
 
+const getFrom = (a, b) => {
+    if(isDefined(a.get)){
+        return a.get(b);
+    } else {
+        return a[b];
+    }
+}
+
 RegExp.escape = function(str){
     return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
 RegExp.of = function(str){
     return new RegExp(RegExp.escape(str));
+}
+
+RegExp.getBody = function(reg){
+    let str = reg.toString();
+    return str.slice(1, str.lastIndexOf("/"));
+}
+
+RegExp.getFlags = function(reg){
+    let str = reg.toString();
+    return str.slice(str.lastIndexOf("/") + 1);
 }
 
 const betterSort = (arr, f = (l, r) => l > r) => {
@@ -364,7 +382,7 @@ function permute(inputArr) {
 // modified from http://stackoverflow.com/a/36164530/4119004
 const transpose = (m) => {
     m = [...m];
-    return [...m[0]].map((x, i) => m.map(x => x[i]));
+    return [...m[0]].map((x, i) => m.map(x => getFrom(x, i)));
 };
 
 // http://codereview.stackexchange.com/a/39747/81013
@@ -853,10 +871,17 @@ const table = (a, b, f) => {
 const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
     let nothing = Symbol("nothing");
     item = fixShape(item, nothing);
+    let handle = (e) => {
+        let cur = e;
+        if(cur === nothing) cur = "";
+        if(!isDefined(cur)) cur = "undef";
+        else cur = castToStr(cur);
+        return cur;
+    }
     // obtain widths for columns
     let columnLens = deepMap(
         transpose(item),
-        e => e === nothing ? 0 : castToStr(e).length
+        e => e === nothing ? 0 : handle(e).length
     ).map(
         e => Math.max(...e)
     );
@@ -865,8 +890,8 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
     for(let i = 0; i < height; i++){
         let res = "";
         for(let j = 0; j < width; j++){
-            let cur = item[i][j];
-            res += (cur === nothing ? "" : castToStr(cur)).padStart(columnLens[j], " ");
+            let cur = handle(getFrom(getFrom(item, i), j));
+            res += cur.padStart(columnLens[j], " ");
             if(j < width - 1) res += " ";
         }
         lines.push(res.trimRight() + ")");
@@ -985,8 +1010,80 @@ const parseArr = (str) => {
     return res[1](str);
 }
 
+// todo
 const grade = (list) =>
-	range(0, list.length);
+	range(0, list.length);//not decimals
+
+class StRegex {
+    constructor(body, flags = ""){
+        if(body instanceof RegExp){
+            flags = RegExp.getFlags(body);
+            body = RegExp.getBody(body);
+        }
+        this.pattern = StRegex.toReg(body, flags);
+        this.body = body;
+        this.flags = flags;
+        return this;
+    }
+    
+    [Symbol.match](str, ...a){
+        return str.match(this.pattern, ...a);
+    }
+    
+    [Symbol.replace](str, ...a){
+        return str.replace(this.pattern, ...a);
+    }
+    
+    [Symbol.search](str, ...a){
+        return str.search(this.pattern, ...a);
+    }
+    
+    [Symbol.split](str, ...a){
+        return str.replace(this.pattern, ...a);
+    }
+    
+    static toReg(str, flags = ""){
+        let build = "";
+        for(let i = 0; i < str.length; i++){
+            if(str[i] === "`"){
+                for(i++; i < str.length; i++){
+                    if(str[i] === "`")
+                        if(str[i + 1] !== "`")
+                            break;
+                        else
+                            i++;
+                    build += RegExp.escape(str[i]);
+                }
+            }
+            else if(str[i] === "\\"){
+                i++;
+                if(StRegex.standardEscapes.includes(str[i])){
+                    build += "\\" + str[i];
+                } else if(StRegex.escapes.has(str[i])){
+                    build += StRegex.escapes.get(str[i]);
+                } else {
+                    build += str[i];
+                }
+            }
+            else
+                build += str[i];
+        }
+        return new RegExp(build, flags);
+    }
+    
+    toString(){
+        return "/" + this.body + "/" + this.flags;
+    }
+}
+StRegex.standardEscapes = [..."abfnrv\\'\"^$*+?.(){}[]" +
+                              "bBdDwWsS" +
+                              "c0123456789"];
+StRegex.escapes = new Map([
+    ["m", "[A-Za-z]"],
+    ["M", "[^A-Za-z]"],
+    ["i", "[A-Za-z0-9]"],
+    ["I", "[^A-Za-z0-9]"],
+]);
 
 if(isNode){
     module.exports = {
@@ -1050,6 +1147,8 @@ if(isNode){
         ungridify: ungridify,
 		table: table,
         formatDate: formatDate,
+        getFrom: getFrom,
+        StRegex: StRegex,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){

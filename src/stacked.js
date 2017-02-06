@@ -86,7 +86,7 @@ class StackedPseudoType {
 
 const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
 const STP = (...args) => new StackedPseudoType(...args);
-const STP_HAS = (prop) => STP(e => isDefined(e[prop]));
+const STP_HAS = (prop) => STP(e => isDefined(e[prop]), "has#" + prop.toString());
 const ANY = STP(() => true, "Any");
 const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]));
 const REFORMABLE = STP_HAS(REFORM);
@@ -484,6 +484,7 @@ class Lambda {
     constructor(args, body){
         this.args = args.map(e => new LambdaArgument(e));
         this.body = body;
+        this.scope = null;
     }
     
     get arity(){
@@ -512,7 +513,7 @@ class Lambda {
         temp.hold = inst.hold;
         temp.oldOut = inst.oldOut;
         temp.slow = inst.slow;
-        temp.vars = clone(inst.vars);
+        temp.vars = clone(this.scope || inst.vars);
         
         // add the arguments
         let stackArguments = inst.stack.splice(-this.args.length);
@@ -671,13 +672,7 @@ const ops = new Map([
     ["prime", new StackedFunc([
         [[Decimal], isPrime]
     ], 1, { vectorize: true })],
-    ["get", new StackedFunc((a, b) => {
-        if(isDefined(a.get)){
-            return a.get(b);
-        } else {
-            return a[b];
-        }
-    }, 2, { vectorize: "right", untyped: true })],
+    ["get", new StackedFunc(getFrom, 2, { vectorize: "right", untyped: true })],
     ["stack", function(){
         this.stack.push(clone(this.stack));
     }],
@@ -769,7 +764,7 @@ const ops = new Map([
         [[String, String], (a, b) => a.split(b)]
     ], 2)],
     ["rsplit", new StackedFunc([
-        [[String, String], (a, b) => a.split(new RegExp(b))]
+        [[String, String], (a, b) => a.split(new StRegex(b))]
     ], 2)],
     ["oneach", func((f) => {
         let k = new Func(f + "oneach");
@@ -801,41 +796,41 @@ const ops = new Map([
     ["repl", new StackedFunc([
         [[String, String, String],
             (orig, target, sub) =>
-                orig.replace(new RegExp(target, "g"), sub)],
+                orig.replace(new StRegex(target, "g"), sub)],
         [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a))
+            return orig.replace(new StRegex(target, "g"), (...a) => sub.sanatized(this, ...a))
         }],
     ], 3)],
     ["irepl", new StackedFunc([
         [[String, String, String],
             (orig, target, sub) =>
-                orig.replace(new RegExp(target, "gi"), sub)],
+                orig.replace(new StRegex(target, "gi"), sub)],
         [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new RegExp(target, "gi"), (...a) => sub.sanatized(this, ...a))
+            return orig.replace(new StRegex(target, "gi"), (...a) => sub.sanatized(this, ...a))
         }],
     ], 3)],
     ["mrepl", new StackedFunc([
         [[String, String, String],
             (orig, target, sub) =>
-                orig.replace(new RegExp(target, "gm"), sub)],
+                orig.replace(new StRegex(target, "gm"), sub)],
         [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new RegExp(target, "gm"), (...a) => sub.sanatized(this, ...a));
+            return orig.replace(new StRegex(target, "gm"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
     ["mirepl", new StackedFunc([
         [[String, String, String],
             (orig, target, sub) =>
-                orig.replace(new RegExp(target, "gmi"), sub)],
+                orig.replace(new StRegex(target, "gmi"), sub)],
         [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new RegExp(target, "gmi"), (...a) => sub.sanatized(this, ...a));
+            return orig.replace(new StRegex(target, "gmi"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
     ["recrepl", new StackedFunc([
         [[String, String, String], 
             (orig, target, sub) =>
-                recursiveRepl(orig, new RegExp(target, "g"), sub)],
+                recursiveRepl(orig, new StRegex(target, "g"), sub)],
         [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return recursiveRepl(orig, new RegExp(target, "g"), (...a) => sub.sanatized(this, ...a));
+            return recursiveRepl(orig, new StRegex(target, "g"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
     ["merge", function(){
@@ -1571,7 +1566,7 @@ const ops = new Map([
         }
     }],
     ["retest", new StackedFunc([
-        [[String, String], (a, b) => new Decimal(+new RegExp(b).test(a))],
+        [[String, String], (a, b) => new Decimal(+new StRegex(b).test(a))],
     ], 2)],
     ["takewhile", new StackedFunc([
         [[REFORMABLE, STP_FUNC_LIKE], function(a, b){
@@ -2739,6 +2734,7 @@ class CharString {
     constructor(a){
         this.members = [...a];
         // todo: shape
+        return this;
     }
     
     [EQUAL](y){
@@ -2761,6 +2757,10 @@ class CharString {
     
     get length(){
         return this.members.length;
+    }
+    
+    slice(...a){
+        return new CharString(this.members.slice(...a));
     }
     
     add(c){
