@@ -2350,9 +2350,10 @@ if(isNode){
     vars.set("pathdelim", path.delimiter);
     vars.set("pathsep", path.delimiter);
     
-    ops.set("termcol", StackedFunc.zero(() => process.stdout.columns));
-    ops.set("termrow", StackedFunc.zero(() => process.stdout.rows));
+    ops.set("termcol", StackedFunc.zero(() => new Decimal(process.stdout.columns)));
+    ops.set("termrow", StackedFunc.zero(() => new Decimal(process.stdout.rows)));
     bootstrap("[(termcol termrow)] @:termdim");
+    bootstrap("['\r' ' ' termrow * + put] @:cll");
     
     // todo: add path.format
     
