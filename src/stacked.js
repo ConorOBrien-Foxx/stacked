@@ -663,14 +663,15 @@ const ops = new Map([
         }
         this.stack.push(k);
     }],
+    // generators are pretty bad in stacked...
     // takes a condition P and a generation function F. Instead of iterating from
     // x = 0... untll P(x), this iterates from x = f(0), f(1), ... until P(f(x)).
     // yields a function that does this.
-    ["seqnth", new StackedFunc([
-        [[STP_FUNC_LIKE, STP_FUNC_LIKE], function(condition, gen){
-            Func.of();
-        }],
-    ], 2)],
+    // ["seqnth", new StackedFunc([
+        // [[STP_FUNC_LIKE, STP_FUNC_LIKE], function(condition, gen){
+            // Func.of();
+        // }],
+    // ], 2)],
     ["prime", new StackedFunc([
         [[Decimal], isPrime]
     ], 1, { vectorize: true })],
