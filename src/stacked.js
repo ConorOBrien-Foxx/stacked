@@ -28,6 +28,8 @@ if(typeof require !== "undefined"){
     prompt = (message = "") => readLineSync.question(message);
 }
 
+Timeout = typeof Timeout === "undefined" ? (class X {}) : Timeout;
+
 const errorColor = isNode ? (x) => `\x1b[31m${x}\x1b[0m` : (x) => x;
 
 const DELAY = 200;
@@ -192,6 +194,16 @@ class StackedFunc {
         delete this.dest;
         if(this.options.result && isDefined(res))
             dest.stack.push(res);
+    }
+    
+    static constant(v){
+        return StackedFunc.zero(() => v);
+    }
+    
+    static zero(f){
+        return new StackedFunc([
+            [[], () => f()],
+        ], 0);
     }
     
     static match(types, ...args){
@@ -764,10 +776,10 @@ const ops = new Map([
         [[ITERABLE, String], (a, b) => [...a].join(b)],
     ], 2)],
     ["split", new StackedFunc([
-        [[String, String], (a, b) => a.split(b)]
+        [[String, String], (a, b) => a.split(b)],
     ], 2)],
     ["rsplit", new StackedFunc([
-        [[String, String], (a, b) => a.split(new StRegex(b))]
+        [[String, String], (a, b) => a.split(new StRegex(b))],
     ], 2)],
     ["oneach", func((f) => {
         let k = new Func(f + "oneach");
@@ -1420,12 +1432,15 @@ const ops = new Map([
             let n = +d.mul(1000);
             f.exec(this);
             let i = setInterval(() => f.exec(this), n);
-            return new Decimal(i);
+            return typeof i === "number" ? new Decimal(i) : i;
         }]
     ], 2)],
     ["stopani", typedFunc([
         [[Decimal], function(d){
             clearInterval(+d);
+        }],
+        [[Timeout], function(d){
+            clearInterval(d);
         }],
     ], 1)],
     ["typeof", func((a) => a.constructor)],
@@ -2334,6 +2349,10 @@ if(isNode){
     vars.set("pathdelim", path.delimiter);
     vars.set("pathsep", path.delimiter);
     
+    ops.set("termcol", StackedFunc.zero(() => process.stdout.columns));
+    ops.set("termrow", StackedFunc.zero(() => process.stdout.rows));
+    bootstrap("[(termcol termrow)] @:termdim");
+    
     // todo: add path.format
     
     bootstrap("[argv 2 get] @:d0");
@@ -2479,6 +2498,8 @@ $not $any ++ @:none
 [Conway '' CellularAutomata] @:conway
 
 { c : c repr out [cls c step repr out] 1 animation } @:cellani
+
+{ f d : 0 @i [i f! i inc @i] d animation } @:ani
 
 [#/ !] @:doinsert
 

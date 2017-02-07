@@ -15,6 +15,15 @@ const parseNum = function(str){
         }
         let parts = str.split("i").map(parseNum);
         return new Complex(...parts);
+    } else if(str.has("r")){
+        if(str.endsWith("r")){
+            return parseNum(str.slice(0, -1));
+            // todo: add Rational
+            // return new Rational(parseNum(str.slice(0, -1)), Decimal(1));
+        }
+        let parts = str.split("r").map(parseNum);
+        // return new Rational(...parts);
+        return parts[0].div(parts[1]);  
     }
     str = str.replace(/(.+)n$/, "-$1").replace(/^_/, "-");
     try {
