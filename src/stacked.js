@@ -1046,7 +1046,7 @@ const ops = new Map([
     ], 2)],
     ["size", new StackedFunc([
         [[Decimal], a => new Decimal(a.toFixed().length)],
-        [[String], s => [...s].length],
+        [[String], s => new Decimal([...s].length)],
         [[STP_HAS("length")], a => new Decimal(a.length)]
     ], 1)],
     // todo: if/unless fix
