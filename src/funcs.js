@@ -195,11 +195,12 @@ Map.prototype.repr = function(){
 
 Array.prototype.get = String.prototype.get = function(i){
     i = +i;
-    if(isDefined(this[i]))
-        return this[i];
-    else if(isDefined(this[i + this.length]))
-        return this[i + this.length];
-    else error("index `" + i + "` out of bounds in `" + repr(this) + "`");
+    let ref = [...this];
+    if(isDefined(ref[i]))
+        return ref[i];
+    else if(isDefined(ref[i + ref.length]))
+        return ref[i + ref.length];
+    else error("index `" + i + "` out of bounds in `" + repr(ref) + "`");
 }
 
 const getFrom = (a, b) => {
