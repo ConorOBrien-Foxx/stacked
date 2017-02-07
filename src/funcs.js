@@ -205,8 +205,8 @@ RegExp.escape = function(str){
     return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
-RegExp.of = function(str){
-    return new RegExp(RegExp.escape(str));
+RegExp.of = function(str, flags = ""){
+    return new RegExp(RegExp.escape(str), flags);
 }
 
 RegExp.getBody = function(reg){

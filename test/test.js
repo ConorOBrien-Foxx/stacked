@@ -112,6 +112,8 @@ tester.testCases = [
     
     ["2 1 -", { stack: [ D(1) ] }],
     ["(1 2) 1 -", { stack: [ [0, 1].map(D) ] }],
+    ["'Hello, world!' 'l' -", { top: "Heo, word!" }],
+    ["'Hello... world!' '.' /", { top: "Hello world!" }],
     
     ["1 2 /", { stack: [ D(0.5) ] }],
     ["4 _2 /", { stack: [ D(-2) ] }],

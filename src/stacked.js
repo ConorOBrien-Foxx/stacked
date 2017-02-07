@@ -610,6 +610,7 @@ const ops = new Map([
     ], 2, { vectorize: true })],
     ["/", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.div(b)],
+        [[String, String], (s, t) => s.replace(RegExp.of(t, "g"), "")],
     ], 2, { vectorize: true })],
     ["^", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.pow(b)],
