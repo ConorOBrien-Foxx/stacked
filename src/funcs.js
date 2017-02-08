@@ -1089,8 +1089,12 @@ StRegex.standardEscapes = [..."abfnrv\\'\"^$*+?.(){}[]" +
                               "bBdDwWsS" +
                               "c0123456789"];
 StRegex.escapes = new Map([
-    ["m", "[A-Za-z]"],
-    ["M", "[^A-Za-z]"],
+    ["l", "[A-Za-z]"],
+    ["L", "[^A-Za-z]"],
+    ["m", "[a-z]"],
+    ["M", "[A-Z]"],
+    ["o", "[^a-z]"],
+    ["O", "[^A-Z]"],
     ["i", "[A-Za-z0-9]"],
     ["I", "[^A-Za-z0-9]"],
 ]);

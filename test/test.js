@@ -139,6 +139,8 @@ tester.testCases = [
     ["3 2 %", { top: D(1) }],
     ["_1 2 %", { top: D(-1) }],
     ["_3 2 %", { top: D(-1) }],
+    ["'Hello!' 'l' %", { top: "Heo!" }],
+    ["'Hello!' '\w' %", { top: "!" }],
     
     ["_3 2 mod", { top: D(1) }],
     ["3 2 mod", { top: D(1) }],
