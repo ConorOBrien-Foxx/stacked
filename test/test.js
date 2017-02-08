@@ -142,6 +142,9 @@ tester.testCases = [
     ["'Hello!' 'l' %", { top: "Heo!" }],
     ["'Hello!' '\w' %", { top: "!" }],
     
+    // test StRegex
+    ["'Hello, World-02391!' '\m' %", ],
+    
     ["_3 2 mod", { top: D(1) }],
     ["3 2 mod", { top: D(1) }],
     
