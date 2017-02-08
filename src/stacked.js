@@ -645,6 +645,10 @@ const ops = new Map([
     [",", new StackedFunc((a, b) => flatten([a, b], 1), 2, { untyped: true })],
     ["pair", func((a, b) => [a, b])],
     ["%", new StackedFunc([
+        [[String, String],
+            (a, b) => a.replace(RegExp((a.match(new StRegex(b, "g")) || [])
+                            .map(RegExp.escape)
+                            .join("|"), "g"), "")],
         [[Decimal, Decimal], (a, b) => a.mod(b)],
     ], 2, { vectorize: true })],
     ["mod", new StackedFunc([
@@ -808,6 +812,11 @@ const ops = new Map([
         ops.get("oneach").bind(this)();
         ops.get("!").exec(this);
     }],
+    ["match", new StackedFunc([
+        [[String, String],
+            (str, target) => str.match(new StRegex(target, "g")) || [],
+        ],
+    ], 2, { vectorize: true })],
     ["repl", new StackedFunc([
         [[String, String, String],
             (orig, target, sub) =>
@@ -1954,7 +1963,7 @@ const vars = new Map([
     ["E",          Decimal(1).exp()],
     ["alpha",      "abcdefghijklmnopqrstuvwxyz"],
     ["ALPHA",      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
-	["digs",       "0123456789"],
+    ["digs",       "0123456789"],
     ["vowels",     "aeiouy"],
     ["VOWELS",     "AEIOUY"],
     ["consonants", "bcdfghjklmnpqrstvwxz"],
@@ -1962,7 +1971,9 @@ const vars = new Map([
     ["qwerty",     ["qwertyuiop", "asdfghjkl", "zxcvbnm"]],
     ["QWERTY",     ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]],
     ["EPA",        []],
-    ["EPS",        ""]
+    ["EPS",        ""],
+    ["ascii",      " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~"],
+    ["ASCII",      [..." !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~"]],
 ]);
 
 vars.set("π",      vars.get("PI"));
