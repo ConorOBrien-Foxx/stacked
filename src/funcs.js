@@ -522,7 +522,7 @@ const toBaseString = (a, b) => {
 
 const antiBaseString = (a, b) => {
     if(+b <= 36){
-        return antiBase([...a].map(e => Decimal(ALNUM.indexOf(e))), b);
+        return antiBase([...a].map(e => Decimal(ALNUM.indexOf(e.toUpperCase()))), b);
     } else if(+b == 95){
         return antiBase([...a].map(e => Decimal(e.charCodeAt() - 32)), b);
     } else {
