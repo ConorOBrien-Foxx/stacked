@@ -1161,6 +1161,7 @@ if(isNode){
         ungridify: ungridify,
 		table: table,
         formatDate: formatDate,
+        antiBaseString: antiBaseString,
         getFrom: getFrom,
         StRegex: StRegex,
         // ##insert

@@ -1013,7 +1013,7 @@ const ops = new Map([
     // todo: take from a textarea, maybe
     // or make another command for that
     ["input", func(() => parseNum(prompt()))],
-    ["prompt", func(() => prompt())],
+    ["prompt", StackedFunc.zero(prompt)],
     ["INPUT", func((e) => parseNum(prompt(e)))],
     ["PROMPT", func((e) => prompt(e))],
     ["for", function(){
@@ -1756,6 +1756,11 @@ new Map([
     ["ord", "#."],
     ["chr", "#:"],
     ["pair", "#,"],
+    ["antibase", "ab"],
+    ["antibaserep", "abr"],
+    ["tobase", "tb"],
+    ["baserep", ["tbr", "tobaserep"]],
+    // ["
     // ["prefix", "inits"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
@@ -1852,7 +1857,7 @@ const tokenize = (str, opts = {}) => {
             let queue = [];
             queue.push(cur() + next());
             advance(); // remove initial (*
-            while(commentDepth){
+            while(commentDepth && hasCharsLeft()){
                 if(needle("(*")){
                     commentDepth++;
                     queue.push(cur() + next());
@@ -1974,6 +1979,7 @@ const vars = new Map([
     ["EPS",        ""],
     ["ascii",      " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~"],
     ["ASCII",      [..." !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~"]],
+    ["BEL",        "\x07"]
 ]);
 
 vars.set("π",      vars.get("PI"));
@@ -2405,6 +2411,8 @@ $(ipart , fpart) fork @:ifpart
 [2 antibase] @:unbits
 [10 tobase] @:digits
 [10 antibase] @:undigits
+[16 tobaserep] @:tohex
+[16 antibaserep] @:unhex
 [$rev map] @:reveach
 ['txt' download] @:savetxt
 [2 /] @:halve
