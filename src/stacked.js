@@ -1954,6 +1954,7 @@ const vars = new Map([
     ["E",          Decimal(1).exp()],
     ["alpha",      "abcdefghijklmnopqrstuvwxyz"],
     ["ALPHA",      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+	["digs",       "0123456789"],
     ["vowels",     "aeiouy"],
     ["VOWELS",     "AEIOUY"],
     ["consonants", "bcdfghjklmnpqrstvwxz"],
@@ -2353,7 +2354,7 @@ if(isNode){
     ops.set("termcol", StackedFunc.zero(() => new Decimal(process.stdout.columns)));
     ops.set("termrow", StackedFunc.zero(() => new Decimal(process.stdout.rows)));
     bootstrap("[(termcol termrow)] @:termdim");
-    bootstrap("['\r' ' ' termrow * + put] @:cll");
+    bootstrap("['\r' put ' ' termcol 1- * put '\r' put] @:cll");
     
     // todo: add path.format
     
