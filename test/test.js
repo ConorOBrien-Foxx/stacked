@@ -140,10 +140,17 @@ tester.testCases = [
     ["_1 2 %", { top: D(-1) }],
     ["_3 2 %", { top: D(-1) }],
     ["'Hello!' 'l' %", { top: "Heo!" }],
-    ["'Hello!' '\w' %", { top: "!" }],
+    ["'Hello!' '\\w' %", { top: "!" }],
     
     // test StRegex
-    ["'Hello, World-02391!' '\m' %", ],
+    ["'Hello, World-02391!' '\\m' %", { top: "H, W-02391!" }],
+    ["'Hello, World-02391!' '\\M' %", { top: "elloorld" }],
+    ["'Hello, World-02391!' '\\o' %", { top: "ello, orld-02391!" }],
+    ["'Hello, World-02391!' '\\O' %", { top: "HW" }],
+    ["'Hello, World-02391!' '\\i' %", { top: ", -!" }],
+    ["'Hello, World-02391!' '\\I' %", { top: "HelloWorld02391" }],
+    ["'Hello, World-02391!' '\\l' %", { top: ", -02391!" }],
+    ["'Hello, World-02391!' '\\L' %", { top: "HelloWorld" }],
     
     ["_3 2 mod", { top: D(1) }],
     ["3 2 mod", { top: D(1) }],
