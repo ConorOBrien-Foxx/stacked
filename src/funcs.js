@@ -746,20 +746,20 @@ function vectorize(f, arity = f.length){
         
         return trav;
     } else if(arity === 2){
-        function trav2(a, b){
-            if(a[VECTORABLE]){
-                if(b[VECTORABLE]){
-                    if(b.length !== a.length){
+        function trav2(aVector, bVector){
+            if(aVector[VECTORABLE]){
+                if(bVector[VECTORABLE]){
+                    if(bVector.length !== aVector.length){
                         error("length error");
                     }
-                    return a.map((e, i) => trav2.bind(this)(e, b[i]));
+                    return aVector.map((e, i) => trav2.bind(this)(e, bVector[i]));
                 } else {
-                    return a.map(e => trav2.bind(this)(e, b));
+                    return aVector.map(e => trav2.bind(this)(e, bVector));
                 }
-            } else if(b instanceof Array){
-                return b.map(e => trav2.bind(this)(a, e));
+            } else if(bVector instanceof Array){
+                return bVector.map(e => trav2.bind(this)(aVector, e));
             } else {
-                return f.bind(this)(a, b);
+                return f.bind(this)(aVector, bVector);
             }
         }
         return trav2;

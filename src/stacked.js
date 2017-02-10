@@ -104,6 +104,8 @@ class StackedFunc {
         
         this.options = options;
         
+        this.modify = defined(this.options.modify, true);
+        
         this.options.typeMap = clone(typeMap);
         this.displayName = options.displayName = options.name || options.displayName;
         
@@ -160,7 +162,8 @@ class StackedFunc {
                 "no matching types for " +
                 args.map(e => tpname(e.constructor))
                     .join(", ") + "; " +
-                "expected one of:\n" + typeMapStr
+                "expected one of:\n" + typeMapStr + "\n(got arguments: " +
+                    args.map(disp).join(" ") + ")"
             );
         }
         // console.log(fm);
@@ -178,7 +181,7 @@ class StackedFunc {
                     "popping from an empty stack"
                 );
             else
-                args = dest.stack.splice(-this.arity);
+                args = dest.stack[this.modify ? "splice" : "slice"](-this.arity);
         else
             args = [];
         let res;
@@ -370,10 +373,19 @@ class Token {
 }
 
 class Func {
-    constructor(body){
+    constructor(body, options = {}){
         this.body = body;
-        this.arity = body.arity || null;
+        this.arity = defined(body.arity, null);
+        this.options = options;
+        this.modify = defined(options.modify, true);
         this.scope = null;
+    }
+    
+    clone(){
+        let newf = new Func(this.body, this.options);
+        newf.exec = clone(this.exec);
+        newf.toString = clone(this.toString);
+        return newf;
     }
     
     static of(func, toStr){
@@ -437,9 +449,9 @@ class Func {
         }
     }
     
-    exec(inst, scoping){
+    exec(inst, scoping = 1){
         let temp = new Stacked(this.body, inst.options);
-        temp.stack = inst.stack;
+        temp.stack = clone(inst.stack);
         temp.reg = inst.reg;
         temp.ops = clone(inst.ops);
         temp.output = inst.output;
@@ -458,7 +470,7 @@ class Func {
             return e;
         });
         
-        inst.stack = temp.stack;
+        inst.stack = (this.modify ? [] : inst.stack).concat(temp.stack);
         inst.output = temp.output;
         inst.heldString = temp.heldString;
         inst.hold = temp.hold;
@@ -493,10 +505,16 @@ class LambdaArgument {
 }
 
 class Lambda {
-    constructor(args, body){
+    constructor(args, body, options = {}){
+        this.options = options;
+        this.modify = defined(options.modify, true);
         this.args = args.map(e => new LambdaArgument(e));
         this.body = body;
         this.scope = null;
+    }
+    
+    clone(){
+        return new Lambda(this.args.map(e => e.name), this.body, this.options);
     }
     
     get arity(){
@@ -527,8 +545,10 @@ class Lambda {
         temp.slow = inst.slow;
         temp.vars = clone(this.scope || inst.vars);
         
+        console.log(!!this.scope, this.body);
+        
         // add the arguments
-        let stackArguments = inst.stack.splice(-this.args.length);
+        let stackArguments = inst.stack[this.modify ? "splice" : "slice"](-this.args.length);
         for(let i = 0; i < this.args.length; i++){
             let arg = this.args[i];
             // problem with variable retrieval
@@ -540,8 +560,13 @@ class Lambda {
         
         // fix each func
         temp.stack = temp.stack.map(e => {
-            if(e instanceof Func || e instanceof Lambda)
-                e.scope = clone(temp.vars);
+            if(e instanceof Func || e instanceof Lambda){
+                e.scope = new Map;
+                for(let [k, v] of temp.vars){
+                    e.scope.set(k.toString(), v);
+                }
+                console.log(e.scope.get("asdf")+[]);
+            }
             return e;
         });
         
@@ -989,12 +1014,21 @@ const ops = new Map([
     ["while", function(){
         let cond = this.stack.pop();
         let effect = this.stack.pop();
-        // console.log(cond, cond+[]);
         while(true){
             cond.exec(this);
             let e = this.stack.pop();
             if(falsey(e)) break;
             effect.exec(this);
+        }
+    }],
+    ["whilst", function(){
+        let cond = this.stack.pop();
+        let effect = this.stack.pop();
+        while(true){
+            effect.exec(this);
+            cond.exec(this);
+            let e = this.stack.pop();
+            if(falsey(e)) break;
         }
     }],
     ["joingrid", new StackedFunc([
@@ -1660,6 +1694,16 @@ const ops = new Map([
     ["ltrim", new StackedFunc([
         [[String], (e) => e.trimLeft()],
     ], 1, { vectorize: true })],
+    ["?", new StackedFunc([
+        [[STP_FUNC_LIKE], function(f){
+            let k = clone(f);
+            k.modify = false;
+            k.toString = function(){
+                return f.toString() + "?";
+            }
+            return k;
+        }],
+    ], 1, { vectorize: true })],
     // ["typeof", new StackedFunc([
         // [[ANY], (e) => e.constructor],
     // ])],
@@ -2040,6 +2084,7 @@ class Stacked {
     
     execOp(opname){
         if(opname instanceof StackedFunc){
+            // console.log(opname.modify, opname.displayName);
             opname.exec(this);
         } else {
             opname.bind(this)();
@@ -2071,6 +2116,7 @@ class Stacked {
             if(key.toString() === name)
                 return val;
         }
+        console.log(name, this.vars.get(name));
         error("undefined variable `" + name + "`\n" + this.trace());
     }
     
@@ -2099,7 +2145,9 @@ class Stacked {
             let k = new Func(cur.value);
             k.toString = function(){ return cur.raw; }
             k.exec = function(inst){
-                let toExec = inst.ops.get(cur.value);
+                let toExec = clone(inst.ops.get(cur.value));
+                toExec.modify = this.modify;
+                toExec.scope = this.scope;
                 inst.execOp(toExec);
             }
             k.arity = (this.ops.get(cur.value) || { arity: null }).arity;
@@ -2124,10 +2172,13 @@ class Stacked {
                 error("invalid function-like `" + funcToSet.toString() + "`");
             }
             let resultFunc = function(){
-                funcToSet.exec(this);
+                let myFunc = clone(funcToSet);
+                myFunc.modify = defined(resultFunc.modify, true);       // _really_ weird
+                myFunc.exec(this);
             };
             resultFunc.arity = funcToSet.arity;
-            // loses information about arity
+            resultFunc.scope = funcToSet.scope;
+            // loses information about arity?
             this.ops.set(cur.value, resultFunc);
         } else if(cur.type === "op"){
             // execute command
@@ -2387,6 +2438,7 @@ if(isNode){
 }
 
 bootstrap(`
+[prime not] @:notprime
 $(+ + -) { x . : x sign } agenda @:increase
 $(- - +) { x . : x sign } agenda @:decrease
 { init arr func :
@@ -2566,29 +2618,13 @@ $not $any ++ @:none
 [1e6 *] @:million
 [1e9 *] @:billion
 
-(
-  [(0 1) eq any]   [2]
-  [2 eq]           [3]
-  [3 eq]           [5]
-  [(4 5 6) eq any] [7]
-  { n :
-    n 6 / floor @k
-    n 6 - k * @i
-    (1 5) i 2 < get @o
-    6 k * o + @x
-    3 o + 2 / @i
-    [
-      i 6 BXOR @i
-      x i + @x
-    ] [x prime not] while
-    x
-  }
-) cases" @:nextprime
-{ n :
-  2 [nextprime] [: n sout <=] while
-} @:minprimef
+[[notprime]? whilst] @:untilprime
+[$inc untilprime] @:nextprime
+[$dec untilprime] @:prevprime
 
-(* todo: see if previous two work *)
+(* { n :
+  2 [nextprime] [: n sout <=] while
+} @:minpf *)
 
 [2000 precision] @:lprec
 
