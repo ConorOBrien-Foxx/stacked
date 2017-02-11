@@ -109,6 +109,7 @@ Array.prototype.reject = function(f){
 }
 
 const clone = (x) => {
+    if(x === null) return x;
     if(!isDefined(x))
         return x;
     if(isDefined(x.clone)){
@@ -1164,6 +1165,8 @@ if(isNode){
         antiBaseString: antiBaseString,
         getFrom: getFrom,
         StRegex: StRegex,
+        periodLoop: periodLoop,
+        prefix: prefix,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){

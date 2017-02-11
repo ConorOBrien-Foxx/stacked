@@ -47,6 +47,17 @@ error = (err) => {
         throw new Error("error: " + err);
 };
 
+if(isNode){
+    error = (e) => {
+        if(stacked.silentError)
+            throw new Error(e);
+        else {
+            console.error("error: " +e);
+            process.exit(1);
+        }
+    }
+}
+
 // todo: burninate this evil thingy
 function typed(typeMap){
     return function(...args){
@@ -385,6 +396,8 @@ class Func {
         let newf = new Func(this.body, this.options);
         newf.exec = clone(this.exec);
         newf.toString = clone(this.toString);
+        newf.scope = clone(this.scope);
+        newf.modify = this.modify;
         return newf;
     }
     
@@ -403,6 +416,17 @@ class Func {
     over(...args){
         let t = new Stacked("");
         t.stack = args;
+        this.exec(t);
+        return defined(t.stack.pop(), new Nil);
+    }
+    
+    singleOverWith(inst, ...args){
+        if(!(inst instanceof Stacked))
+            throw new Error(inst, " is not a Stacked instance.");
+        let t = new Stacked("", inst.options);
+        t.vars = inst.vars;
+        t.ops = inst.ops;
+        t.stack = [args[0]];
         this.exec(t);
         return defined(t.stack.pop(), new Nil);
     }
@@ -545,8 +569,6 @@ class Lambda {
         temp.slow = inst.slow;
         temp.vars = clone(this.scope || inst.vars);
         
-        console.log(!!this.scope, this.body);
-        
         // add the arguments
         let stackArguments = inst.stack[this.modify ? "splice" : "slice"](-this.args.length);
         for(let i = 0; i < this.args.length; i++){
@@ -565,7 +587,7 @@ class Lambda {
                 for(let [k, v] of temp.vars){
                     e.scope.set(k.toString(), v);
                 }
-                console.log(e.scope.get("asdf")+[]);
+                // console.log(e.scope.get("asdf")+[]);
             }
             return e;
         });
@@ -666,7 +688,7 @@ const ops = new Map([
     ], 2, { vectorize: true })],
     ["rep", new StackedFunc([
         [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
-    ], 2)],
+    ], 2, { vectorize: "right" })],
     [",", new StackedFunc((a, b) => flatten([a, b], 1), 2, { untyped: true })],
     ["pair", func((a, b) => [a, b])],
     ["%", new StackedFunc([
@@ -789,6 +811,9 @@ const ops = new Map([
     ["..", new StackedFunc([
         [[Decimal, Decimal], range],
     ], 2, { vectorize: true })],
+    ["#>", new StackedFunc([
+        [[Decimal, Decimal], (a, b) => range(a, a.add(b.add(1)))],
+    ], 2, { vectorize: true })],
     [":>", new StackedFunc([
         [[Decimal], (a) => range(Decimal(0), a)],
     ], 1, { vectorize: true })],
@@ -797,6 +822,19 @@ const ops = new Map([
     ], 1, { vectorize: true })],
     ["~", new StackedFunc([
         [[Decimal], a => a.floor().add(1).neg()],
+        [[Func], function(f){
+            let k = new Func(f);
+            k.toString = function(){
+                return f.toString() + "~";
+            }
+            k.exec = function(inst){
+                inst.stack.reverse();
+                f.exec(inst);
+            }
+            k.arity = f.arity;
+            k.scope = f.scope;
+            return k;
+        }],
     ], 1, { vectorize: true })],
     ["neg", new StackedFunc([
         [[Decimal], a => a.neg()],
@@ -1266,8 +1304,8 @@ const ops = new Map([
     ["filter", typedFunc([
         [[[(e) => isDefined(e.filter)], STP_FUNC_LIKE], function(a, f){
             return a.filter((...args) => {
-                let r = f.overWith(this, ...args.map(sanatize));
-                // console.log(pp(r), ";", pp(args));
+                let r = f.singleOverWith(this, ...args.map(sanatize));
+                // console.log(disp(r));
                 return truthy(r);
             });
         }],
@@ -1298,7 +1336,7 @@ const ops = new Map([
                 // error("missing effect for case (received `" +
                         // arr.length + "` entities)");
             let cases = chunk(arr, 2);
-            // todo: overWith instead of over
+            
             for(let cse of cases){
                 let [qualifier, result] = cse;
                 if(truthy(qualifier.overWith(inst, x))){
@@ -2116,7 +2154,7 @@ class Stacked {
             if(key.toString() === name)
                 return val;
         }
-        console.log(name, this.vars.get(name));
+        // console.log(name, this.vars.get(name));
         error("undefined variable `" + name + "`\n" + this.trace());
     }
     
@@ -2173,7 +2211,7 @@ class Stacked {
             }
             let resultFunc = function(){
                 let myFunc = clone(funcToSet);
-                myFunc.modify = defined(resultFunc.modify, true);       // _really_ weird
+                myFunc.modify = defined(resultFunc.modify, funcToSet.modify, true);       // _really_ weird
                 myFunc.exec(this);
             };
             resultFunc.arity = funcToSet.arity;
@@ -2197,6 +2235,8 @@ class Stacked {
                 this.index++;
             }
             this.index--;
+            if(this.toks[this.index].type !== "funcEnd")
+                error("expected `]`, got EOF");
             build = build.slice(0, -2); // remove trailing " ]"
             this.stack.push(new Func(build));
         } else if(cur.type === "funcArrayStart"){
@@ -2427,17 +2467,16 @@ if(isNode){
     // todo: add path.format
     
     bootstrap("[argv 2 get] @:d0");
-    error = (e) => {
-        if(stacked.silentError)
-            throw new Error(e);
-        else {
-            console.error(e);
-            process.exit(1);
-        }
-    }
 }
 
 bootstrap(`
+{ arr skew :
+   arr size @L
+   L skew - inc :> skew dec #> @inds
+   arr inds get
+} @:infixes
+[: size ~> prefix] @:inits
+{ a f : a inits f map } @:onpref
 [prime not] @:notprime
 $(+ + -) { x . : x sign } agenda @:increase
 $(- - +) { x . : x sign } agenda @:decrease
@@ -2618,13 +2657,31 @@ $not $any ++ @:none
 [1e6 *] @:million
 [1e9 *] @:billion
 
+(* $notprime? whilst doesn't work *)
 [[notprime]? whilst] @:untilprime
 [$inc untilprime] @:nextprime
 [$dec untilprime] @:prevprime
 
-(* { n :
-  2 [nextprime] [: n sout <=] while
-} @:minpf *)
+(
+  [1 <=] []
+  { n :
+    2 [nextprime] [: n |] until
+  }
+) cases" @:minpf
+
+
+(* todo: scoping only directly within lambdas should preserve args? *)
+{ n :
+  () @facs
+  n @m
+  [
+    m minpf @d
+    (m m minpf d) out
+    facs d , @facs
+    m d / @m
+  ] [m 1 >] while
+  facs
+} @:pf
 
 [2000 precision] @:lprec
 
@@ -2905,7 +2962,7 @@ CharString.prototype[VECTORABLE] = true;
 
 aliasPrototype(CharString, "+", "add");
 
-integrate(CharString, { merge: true });
+integrate(CharString, { merge: true, ignore: "slice" });
 
 makeAlias("CharString", "CS");
 
