@@ -115,10 +115,10 @@
             floodFill(x, y - 1, tcol, rcol);
             floodFill(x - 1, y, tcol, rcol);
         };
-        ops.set("setpixel", typedFunc([
+        ops.set("setpixel", new StackedFunc([
             [[Decimal, Decimal, Color], setPixel]
         ], 3));
-        ops.set("fill", typedFunc([
+        ops.set("fill",  new StackedFunc([
             [[Decimal, Decimal, Color], (x, y, c) => floodFill(x, y, getPixel(x, y), c)],
         ], 3));
         ops.set("reset", function(){
@@ -137,7 +137,7 @@
             pen.canvas.height = +this.stack.pop();
             ops.get("reset")();
         });
-        ops.set("setbg", typedFunc([
+        ops.set("setbg",  new StackedFunc([
             [[Color], (c) => {
                 ctx.fillStyle = c.toString();
                 ctx.fillRect(0, 0, pen.canvas.width, pen.canvas.height);

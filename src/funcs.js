@@ -65,7 +65,13 @@ const isDefined = (a) => typeof a !== "undefined";
 const defined = (...a) => a.find(isDefined);
 
 String.prototype[REFORM] = function(s){
-    return s.constructor === String ? s : s.join ? s.join("") : s[Symbol.iterator] ? [...s].join("") : [s].join("");
+    return s.constructor === String 
+                ? s
+                : s.join
+                    ? s.join("")
+                    : s[Symbol.iterator]
+                        ? [...s].join("")
+                        : [s].join("");
 }
 
 Array.prototype[REFORM] = function(a){
@@ -287,6 +293,7 @@ const moore = (arr, x, y, n = 1, m = n) => {
     return grid;
 }
 
+// todo: fix/defined behaviour for arrays like [[1, 2, 3], 4]
 const fixShape = (arr, fill = 0) => {
     let recur = (a) => {
         if(!isDefined(a) || !a.map) return a;
@@ -892,7 +899,10 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
     // obtain widths for columns
     let columnLens = deepMap(
         transpose(item),
-        e => e === nothing ? 0 : handle(e).length
+        e => {
+            // console.log(e);
+            return e === nothing ? 0 : handle(e).length;
+        }
     ).map(
         e => Math.max(...e)
     );
@@ -1050,7 +1060,7 @@ class StRegex {
     }
     
     [Symbol.split](str, ...a){
-        return str.replace(this.pattern, ...a);
+        return str.split(this.pattern, ...a);
     }
     
     static toReg(str, flags = ""){
@@ -1167,6 +1177,7 @@ if(isNode){
         StRegex: StRegex,
         periodLoop: periodLoop,
         prefix: prefix,
+        rotate: rotate, 
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
