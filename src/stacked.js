@@ -14,8 +14,39 @@ if(typeof require !== "undefined"){
     require("./turtle.js");
     let toMerge = require("./funcs.js");
     for(let k of Object.getOwnPropertyNames(toMerge)){
-        global[k] = toMerge[k];
+        if(k !== "highlight")
+            global[k] = toMerge[k];
     }
+
+    const ESCAPE = "\x1b";
+    const colors = {
+        "bold": 1,
+        "black": 30,
+        "red": 31,
+        "green": 32,
+        "yellow": 33,
+        "blue": 34,
+        "purple": 35,
+        "cyan": 36,
+        "white": 37,
+        "standard": 39
+    };
+    const colorize = (color) => (str) =>
+    ESCAPE + "[" + colors[color] + "m" + str + ESCAPE + "[0m";
+    const styles = {
+        "string": colorize("purple"),
+        "number": colorize("yellow"),
+        "setfunc": colorize("green"),
+        "setvar": colorize("green"),
+        "op": colorize("bold"),
+    };
+    styles["lambdaStart"] = styles["lambdaEnd"] =
+    styles["funcStart"] = styles["funcEnd"] = colorize("cyan");
+    const getStyle = (e) => styles[e.type] ? styles[e.type](e.raw) : e.raw;
+    const highlight = (prog) =>
+        stacked.tokenize(prog, { keepWhiteSpace: true, ignoreError: true })
+            .map(getStyle).join("");
+    toMerge.highlight = global.highlight = highlight;
     Complex = require("./complex.js");
     CellularAutomata = require("./automata.js");
     AutomataRule = CellularAutomata.AutomataRule;
@@ -380,6 +411,7 @@ class Func {
         newf.toString = clone(this.toString);
         newf.scope = clone(this.scope);
         newf.modify = this.modify;
+        newf.displayName = this.displayName;
         return newf;
     }
     
@@ -563,7 +595,14 @@ class Lambda {
         temp.vars = clone(this.scope || inst.vars);
         
         // add the arguments
-        let stackArguments = inst.stack[this.modify ? "splice" : "slice"](-this.args.length);
+        let stackArguments
+        if(this.args.length === 0)
+            stackArguments = [];
+        else
+            if(inst.stack.length < this.args.length)
+                error("(in `" + (this.displayName) + "`) popping from an empty stack");
+            else
+                stackArguments = inst.stack[this.modify ? "splice" : "slice"](-this.args.length);
         for(let i = 0; i < this.args.length; i++){
             let arg = this.args[i];
             // problem with variable retrieval
@@ -2285,8 +2324,9 @@ class Stacked {
             if(!FUNC_LIKE(funcToSet)){
                 error("invalid function-like `" + funcToSet.toString() + "` for `" + cur.raw + "`");
             }
-            let resultFunc = function(){
+            let resultFunc = funcToSet instanceof StackedFunc ? myFunc : function(){
                 let myFunc = clone(funcToSet);
+                myFunc.displayName = cur.value;
                 myFunc.modify = defined(resultFunc.modify, funcToSet.modify, true);       // _really_ weird
                 myFunc.exec(this);
             };
@@ -2764,7 +2804,7 @@ $not $any ++ @:none
 [2000 precision] @:lprec
 
 { x y :
-  (x y) $size map MIN @min_len
+  (x y) show $size map MIN @min_len
   (x y) [min_len take] map tr
 } @:zip
 
@@ -3230,5 +3270,6 @@ stacked.sanatize = sanatize;
 stacked.unsanatize = unsanatize;
 
 if(isNode){
+    stacked.highlight = highlight;
     module.exports = exports.default = stacked;
 }

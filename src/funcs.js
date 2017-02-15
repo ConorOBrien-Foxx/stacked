@@ -49,6 +49,13 @@ const range = (a, b) => {
 var error;
 error = error || ((e) => { throw new Error(e) });
 
+if(isNode){
+    error = (e) => {
+        console.error("error: " +e);
+        process.exit(1);
+    }
+}
+
 class Nil {
     constructor(){};
     
@@ -60,6 +67,8 @@ class Nil {
 const VECTORABLE = Symbol("VECTORABLE");
 const REFORM = Symbol("REFORM");
 const EQUAL = Symbol("EQUAL");
+
+let exportObject = {};
 
 const isDefined = (a) => typeof a !== "undefined";
 const defined = (...a) => a.find(isDefined);
@@ -400,6 +409,11 @@ function permute(inputArr) {
 // modified from http://stackoverflow.com/a/36164530/4119004
 const transpose = (m) => {
     m = [...m];
+    if(shape(m).length !== 2)
+        error("bad shape for transposition in:\n" +
+            exportObject.highlight(repr(m))
+                    .replace(/^/gm, "  "));
+    // console.log(disp(m));
     return [...m[0]].map((x, i) => m.map(x => getFrom(x, i)));
 };
 
@@ -1111,7 +1125,7 @@ StRegex.escapes = new Map([
 ]);
 
 if(isNode){
-    module.exports = {
+    module.exports = exportObject = {
         REFORM: REFORM,
 		range: range,
         EQUAL: EQUAL,
@@ -1177,7 +1191,8 @@ if(isNode){
         StRegex: StRegex,
         periodLoop: periodLoop,
         prefix: prefix,
-        rotate: rotate, 
+        rotate: rotate,
+        highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
         cls: function cls(){
