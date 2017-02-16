@@ -546,13 +546,14 @@ class Lambda {
     constructor(args, body, options = {}){
         this.options = options;
         this.modify = defined(options.modify, true);
-        this.args = args.map(e => new LambdaArgument(e));
+        this.args = args//.map(e => new LambdaArgument(e));
         this.body = body;
         this.scope = null;
     }
     
     clone(){
-        return new Lambda(this.args.map(e => e.name), this.body, this.options);
+        // return new Lambda(this.args.map(e => e.name), this.body, this.options);
+        return new Lambda(this.args, this.body, this.options);
     }
     
     get arity(){
@@ -600,7 +601,7 @@ class Lambda {
             stackArguments = [];
         else
             if(inst.stack.length < this.args.length)
-                error("(in `" + (this.displayName) + "`) popping from an empty stack");
+                error("insufficient arguments passed to `" + (this.displayName || this.name || this.toString()) + "`");
             else
                 stackArguments = inst.stack[this.modify ? "splice" : "slice"](-this.args.length);
         for(let i = 0; i < this.args.length; i++){
@@ -1349,10 +1350,8 @@ const ops = new Map([
     ], 3)],
     ["filter", new StackedFunc([
         [[STP_HAS("filter"), STP_FUNC_LIKE], function(a, f){
-            console.log(disp(a));
             return a.filter((...args) => {
-                console.log(f+[]);
-                let r = f.singleOverWith(
+                let r = f.overWith(
                     this,
                     ...args.map(sanatize)
                 );
@@ -2657,9 +2656,7 @@ $not $any ++ @:none
 { a f : a [merge f!] map } @:with
 
 { arr mask :
-  arr disp
-  mask disp
-  arr { . i : i show mask i get } accept
+  arr { . i : mask i get } accept
 } @:keep
 
 { a f :
