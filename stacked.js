@@ -35,6 +35,7 @@ if(require.main === module){
     let args = require("minimist")(process.argv.slice(2), {
         alias: {
             "t": "test",
+            "T": "verboseTest",
             "p": "printLast",
             "P": "printStack", 
             "e": "exec",
@@ -43,7 +44,7 @@ if(require.main === module){
             "h": "highlight",
             "o": "outLast",
         },
-        boolean: ["t", "p", "P", "h", "o"],
+        boolean: ["t", "p", "P", "h", "o", "T"],
     });
     let prog;
 	let conf = JSON.parse(readFile(args.config ||
@@ -56,6 +57,9 @@ if(require.main === module){
 	}
     if(args.test){
         require("./test/test.js").test();
+        return;
+    } else if(args.verboseTest){
+        require("./test/test.js").verboseTest();
         return;
     }
     if(args.exec){

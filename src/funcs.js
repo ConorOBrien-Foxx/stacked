@@ -172,15 +172,22 @@ Array.prototype.padEnd = function(len, fill){
 
 String.prototype.padStart = function(len, fill = " "){
     let str = this.toString();
-    while(str.length < len)
-        str = fill + str;
+    let index = 0;
+    while(str.length < len){
+        str = fill[index++] + str;
+        index = index % fill.length;
+    }
     return str;
 }
 
 String.prototype.padEnd = function(len, fill = " "){
     let str = this.toString();
+    let index = 0;
     while(str.length < len)
-        str += fill;
+    while(str.length < len){
+        str += fill[index++];
+        index = index % fill.length;
+    }
     return str;
 }
 
@@ -925,7 +932,8 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
     for(let i = 0; i < height; i++){
         let res = "";
         for(let j = 0; j < width; j++){
-            let cur = handle(getFrom(getFrom(item, i), j));
+            let cur = getFrom(getFrom(item, i), j);
+            cur = cur === nothing ? "" : handle(cur);
             res += cur.padStart(columnLens[j], " ");
             if(j < width - 1) res += " ";
         }
@@ -1192,6 +1200,7 @@ if(isNode){
         periodLoop: periodLoop,
         prefix: prefix,
         rotate: rotate,
+        fixShape: fixShape,
         highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js

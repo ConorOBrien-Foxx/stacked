@@ -29,15 +29,27 @@ if(typeof require !== "undefined"){
         "purple": 35,
         "cyan": 36,
         "white": 37,
-        "standard": 39
+        "standard": 39,
+        "bgblack": 40,
+        "bgred": 41,
+        "bggreen": 42,
+        "bgyellow": 43,
+        "bgblue": 44,
+        "bgpurple": 45,
+        "bgcyan": 46,
+        "bgwhite": 47,
     };
-    const colorize = (color) => (str) =>
-    ESCAPE + "[" + colors[color] + "m" + str + ESCAPE + "[0m";
+    const colorize = (color, ...others) => (str) =>
+        (
+            others.length ? colorize(...others) : (x => x)
+        )(ESCAPE + "[" + colors[color] + "m" + str + ESCAPE + "[0m");
     const styles = {
         "string": colorize("purple"),
+        "charString": colorize("purple", "bold"),
         "number": colorize("yellow"),
         "setfunc": colorize("green"),
         "setvar": colorize("green"),
+        "quoteFunc": colorize("bold", "green"),
         "op": colorize("bold"),
     };
     styles["lambdaStart"] = styles["lambdaEnd"] =
@@ -524,7 +536,7 @@ class Func {
     }
     
     toString(){
-        return "[" + (this.display || this.body || "<not displayable>").trim() + "]";
+        return "[" + defined(this.display, this.body, "<not displayable>").trim() + "]";
     }
 }
 
@@ -1305,7 +1317,7 @@ const ops = new Map([
     ], 3)],
     ["dpad", new StackedFunc([
         [[STP(e => isDefined(e.padStart)), Decimal],
-            (arr, len) => arr.padStart(len, isString(flatten(arr)[0]) ? " " : 0)],
+            (arr, len) => arr.padStart(len, isString(flatten(arr)[0]) ? " " : Decimal(0))],
     ], 2, { vectorize: "right" })],
     ["insert", new StackedFunc(function(func){
         let k = new Func(func+"insert");
@@ -1406,14 +1418,22 @@ const ops = new Map([
         if(arr.length !== 3)
             error("argument vector must be 3, got " + arr.length);
         let [fa, ga, ha] = arr;
-        let f = a => fa.overWith(this, a);
+        let f = (...args) => fa.overWith(this, ...args);
         let g = (a, b) => ga.overWith(this, a, b);
-        let h = a => ha.overWith(this, a);
+        let h = (...args) => ha.overWith(this, ...args);
+        let arity = 1;
+        if(isDefined(fa.arity) && isDefined(ha.arity)){
+            if(fa.arity !== ha.arity)
+                error("(in `fork`) `" + fa + "` and `" + ha + "` have different arities");
+            arity = fa.arity;
+        }
         let k = new Func("");
         k.exec = function(inst){
-            let arg = inst.stack.pop();
-            let ltine = f(arg);
-            let rtine = h(arg);
+            if(inst.stack.length < arity)
+                error("(in `" + k + "`) popping from an empty stack");
+            let args = arity ? inst.stack.splice(-arity) : [];  
+            let ltine = f(...args);
+            let rtine = h(...args);
             let res = g(ltine, rtine);
             inst.stack.push(res);
         }
@@ -2362,7 +2382,9 @@ class Stacked {
                 if(cur.type === "arrayEnd")
                     break;
                 if(cur.type === "op" || cur.type == "word"){
-                    arr.push(new Func(cur.raw));
+                    let f = new Func(cur.raw);
+                    f.arity = defined(this.ops.get(cur.raw), { arity: null }).arity;
+                    arr.push(f);
                 } else {
                     error("`" + cur.raw + "` is not a function.");
                 }
@@ -2586,9 +2608,14 @@ if(isNode){
 
 bootstrap(`
 { arr skew :
-   arr size @L
-   L skew - inc :> skew dec #> @inds
-   arr inds get
+  [
+    arr size @L
+    L skew - inc :> skew dec #> @inds
+    arr inds get
+  ]
+  [
+    arr skew neg chunk fixshape
+  ] skew 0 >= ifelse
 } @:infixes
 [: size ~> prefix] @:inits
 { a f : a inits f map } @:onpref
@@ -2615,6 +2642,8 @@ $(fpart , ipart) fork @:fipart
 $(ipart , fpart) fork @:ifpart
 [2 tobase] @:bits
 [2 antibase] @:unbits
+[2 tobaserep] @:bin
+[2 antibaserep] @:unbin
 [10 tobase] @:digits
 [10 antibase] @:undigits
 [16 tobaserep] @:tohex
@@ -2697,9 +2726,9 @@ $not $any ++ @:none
 
 { arr e :
   arr e index @ind
-  [ arr ]
-  [ arr ind _rot ]
-  ind _1 = ifelse
+  arr
+  [ ind neg rot ]
+  ind _1 = unless
 } @:mount
 
 { a : a perm [a eq none] accept } @:derangements
@@ -2791,7 +2820,6 @@ $not $any ++ @:none
   n @m
   [
     m minpf @d
-    (m m minpf d) out
     facs d , @facs
     m d / @m
   ] [m 1 >] while
@@ -2823,6 +2851,7 @@ makeAlias("doinsert", "fold");
 bootstrap(`
 { list el : list [el pair] map $++ #\\ betail } @:intersperse
 [intersperse flat] @:intercalate
+$(take pair drop) fork @:splitat
 `);
 
 vars.set("typeDecimal", Decimal);

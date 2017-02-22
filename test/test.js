@@ -72,6 +72,8 @@ let expect = (code, check) => {
             console.warn("warning: in `" + code + "`: only checked top of stack, but there are still members on it.");
         }
     }
+    foundOps.output = out;
+    foundOps.stack = ent.stack;
     return foundOps;
 }
 
@@ -379,6 +381,74 @@ tester.testCases = [
     ["4 5 2 $/ sfold", { top: D(0.4) }],
     ["1 2 3 [+ square] sfold", { top: D(144) }],
     
+    ["1 2 3 $+ sfoldr", { top: D(6) }],
+    ["4 5 2 $/ sfoldr", { top: D(0.1) }],
+    ["1 2 3 [+ square] sfoldr", { top: D(676) }],
+    
+    ["1 2 3 4   0 2 nswap", { stack: [3, 2, 1, 4].map(D) }],
+    
+    ["(1 2 3 4) [0 2 nswap] apply", { top: [3, 2, 1, 4].map(D) }],
+    
+    ["1 precision       3.2  2 +", { top: D(5) }],
+    // make sure precision doesn't persist
+    ["                  3.2  2 +", { top: D(5.2) }],
+    ["22 precision        2 71 ^", { top: D("2361183241434822606848") }],
+    
+    ["5 2 tobase", { top: [1, 0, 1].map(D) }],
+    ["5 5 tobase", { top: [1, 0].map(D) }],
+    ["5 2 tb", { top: [1, 0, 1].map(D) }],
+    ["5 5 tb", { top: [1, 0].map(D) }],
+    ["(1 0) 5 antibase", { top: D(5) }],
+    ["(1 0 1) 2 antibase", { top: D(5) }],
+    ["(1 0) 5 ab", { top: D(5) }],
+    ["(1 0 1) 2 ab", { top: D(5) }],
+    ["123 36 baserep", { top: "3F" }],
+    ["123 2 baserep", { top: "1111011" }],
+    ["'3F' 36 antibaserep", { top: D(123) }],
+    ["'1111011' 2 antibaserep", { top: D(123) }],
+    ["'3F' 36 abr", { top: D(123) }],
+    ["'1111011' 2 abr", { top: D(123) }],
+    
+    ["'Hello' '.' 10 pad", { top: ".....Hello" }],
+    ["'Hello' '.' 8 pad", { top: "...Hello" }],
+    ["'Hello' '.:' 8 pad", { top: ".:.Hello" }],
+    ["'Hello' '.:' 0 pad", { top: "Hello" }],
+    
+    ["'Hello' '.' 10 rpad", { top: "Hello....." }],
+    ["'Hello' '.' 8 rpad", { top: "Hello..." }],
+    ["'Hello' '.:' 8 rpad", { top: "Hello.:." }],
+    ["'Hello' '.:' 0 rpad", { top: "Hello" }],
+    
+    ["'Hello' 7 dpad", { top: "  Hello" }],
+    ["(1 2 3 4 5) 7 dpad", { top: [0, 0, 1, 2, 3, 4, 5].map(D) }],
+    
+    // insert and ffix later
+    
+    ["0 0 and", { top: D(0) }],
+    ["1 0 and", { top: D(0) }],
+    ["0 1 and", { top: D(0) }],
+    ["1 1 and", { top: D(1) }],
+    
+    ["0 0 or", { top: D(0) }],
+    ["1 0 or", { top: D(1) }],
+    ["0 1 or", { top: D(1) }],
+    ["1 1 or", { top: D(1) }],
+    
+    ["0 0 xor", { top: D(0) }],
+    ["1 0 xor", { top: D(1) }],
+    ["0 1 xor", { top: D(1) }],
+    ["1 1 xor", { top: D(0) }],
+    
+    ["3 10 BAND", { top: D(2) }],
+    ["3 10 BOR", { top: D(11) }],
+    ["3 10 BXOR", { top: D(9) }],
+    
+    ["(1 2 3) (4 5 6) $+ table", { top: 
+        [[5, 6, 7], [6, 7, 8], [7, 8, 9]].map(e => e.map(D))
+    }],
+    
+    //--bootstrapped functions
+    
     ["_2 3 cmp", { stack: [D(-1)] }],
     ["3 3 cmp", { stack: [D(0)] }],
     ["10 3 cmp", { stack: [D(1)] }],
@@ -388,15 +458,21 @@ tester.testCases = [
     
     ["4 dec", { top: D(3) }],
     ["4 inc", { top: D(5) }],
+    ["4 double", { top: D(8) }],
+    ["4 halve", { top: D(2) }],
+    
+    ["5 bits", { top: [1, 0, 1].map(D) }],
+    ["123 bin", { top: "1111011" }],
 ];
 
 // console.log(stacked("10 4 cmp").stack.join(";;;;"));
 
+let foundOps = [
+    // include the ones that don't/can't be tested
+    "debug", "DEBUG", "input", "INPUT", "prompt", "PROMPT",
+    "exit", "ret", "return", "rand"
+];
 tester.test = (info = true) => {
-    let foundOps = [
-        // include the ones that don't/can't be tested
-        "debug", "DEBUG", "input", "INPUT", "prompt", "PROMPT"
-    ];
     for(let [prog, out] of tester.testCases){
         foundOps = foundOps.concat(expect(prog, out));
     }
@@ -408,6 +484,20 @@ tester.test = (info = true) => {
         let ratio = Math.ceil(coveredOps / totalOps * 10000) / 100;
         console.log(`Number of ops tested: ${coveredOps} out of ${totalOps} = ${ratio}%`);
     }
+}
+
+tester.verboseTest = () => {
+    for(let [prog, out] of tester.testCases){
+        let expectations = expect(prog, out);   // these are surely great!
+        console.log(stacked.highlight("   " + prog + "\n" + repr(expectations.stack)));
+        foundOps = foundOps.concat();
+    }
+    console.log(`All checks (${tester.testCases.length}) passed successfully`);
+    foundOps = new Set(foundOps);
+    let coveredOps = foundOps.size;
+    let totalOps = stacked("").ops.size;
+    let ratio = Math.ceil(coveredOps / totalOps * 10000) / 100;
+    console.log(`Number of ops tested: ${coveredOps} out of ${totalOps} = ${ratio}%`);
 }
 
 module.exports = tester;
