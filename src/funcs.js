@@ -69,6 +69,7 @@ const REFORM = Symbol("REFORM");
 const EQUAL = Symbol("EQUAL");
 
 let exportObject = {};
+exportObject.highlight = x => x;
 
 const isDefined = (a) => typeof a !== "undefined";
 const defined = (...a) => a.find(isDefined);
@@ -253,7 +254,7 @@ RegExp.getFlags = function(reg){
 }
 
 const betterSort = (arr, f = (l, r) => l > r) => {
-    return arr.sort((left, right) => 2 * f(l, r) - 1);
+    return arr.sort((left, right) => 2 * f(left, right) - 1);
 }
 
 const makeArray = (len, fill) => [...Array(len)].map(() => fill);
@@ -310,7 +311,8 @@ const moore = (arr, x, y, n = 1, m = n) => {
 }
 
 // todo: fix/defined behaviour for arrays like [[1, 2, 3], 4]
-const fixShape = (arr, fill = 0) => {
+const fixShape = (arr, fill) => {
+    fill = defined(fill, isString(flatten(arr)[0]) ? " " : 0);
     let recur = (a) => {
         if(!isDefined(a) || !a.map) return a;
         let maxlen = Math.max(...a.map(e => Array.isArray(e) ? e.length : -1));

@@ -142,13 +142,13 @@ class StackedPseudoType {
 
 const FUNC_LIKE = (e) => e instanceof Lambda || e instanceof Func;
 const STP = (...args) => new StackedPseudoType(...args);
-const STP_HAS = (prop) => STP(e => isDefined(e[prop]), "has#" + prop.toString());
-const ANY = STP(() => true, "Any");
-const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]));
+const STP_HAS = (prop) => STP(e => isDefined(e[prop]), "{has#" + prop.toString() + "}");
+const ANY = STP(() => true, "{Any}");
+const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]), "{Iterable}");
 const REFORMABLE = STP_HAS(REFORM);
-const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "Integer");
-const STP_FUNC_LIKE = STP(FUNC_LIKE, "Func-like");
-const STP_EXECABLE = STP((e) => isDefined(e.exec), "Executable");
+const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "{Integer}");
+const STP_FUNC_LIKE = STP(FUNC_LIKE, "{Func-like}");
+const STP_EXECABLE = STP((e) => isDefined(e.exec), "{Executable}");
 
 // todo: integrate this into everything; throw warnings for all things that don't
 class StackedFunc {
@@ -1423,9 +1423,9 @@ const ops = new Map([
         let h = (...args) => ha.overWith(this, ...args);
         let arity = 1;
         if(isDefined(fa.arity) && isDefined(ha.arity)){
-            if(fa.arity !== ha.arity)
+            if(fa.arity !== ha.arity && fa.arity !== null && ha.arity !== null)
                 error("(in `fork`) `" + fa + "` and `" + ha + "` have different arities");
-            arity = fa.arity;
+            arity = Math.max(fa.arity, ha.arity);
         }
         let k = new Func("");
         k.exec = function(inst){
@@ -1440,6 +1440,7 @@ const ops = new Map([
         k.toString = function(){
             return arr.toString();
         }
+        k.arity = arity;
         this.stack.push(k);
     }],
     ["hook", function(){
@@ -1450,6 +1451,7 @@ const ops = new Map([
         let f = a => fa.overWith(this, a);
         let g = (a, b) => ga.overWith(this, a, b);
         let k = new Func("");
+        let arity = g.arity;
         k.exec = function(inst){
             let arg = inst.stack.pop();
             let res = g(arg, f(arg));
@@ -1458,6 +1460,7 @@ const ops = new Map([
         k.toString = function(){
             return arr.toString();
         }
+        k.arity = arity;
         this.stack.push(k);
     }],
     ["nfloor", new StackedFunc([
@@ -1550,12 +1553,15 @@ const ops = new Map([
         // let k = ops.get("!").exec(this);
         // if(k instanceof Function) k();
     }],
+    // todo: add error handling via functions
     ["evalp", new StackedFunc([
         [[String], function(s){
             let k = stacked.silentError;
             stacked.silentError = true;
             try {
                 let inst = stacked(s);
+                inst.vars = clone(this.vars);
+                inst.ops = clone(this.ops);
                 stacked.silentError = k;
                 return inst.stack;
             } catch(e){
@@ -1834,12 +1840,47 @@ const ops = new Map([
             return k;
         }],
     ], 1, { vectorize: true })],
-    // ["typeof", new StackedFunc([
-        // [[ANY], (e) => e.constructor],
-    // ])],
-    // ["upload", new StackedFunc([
-        // [[]]
-    // ])],
+    ["isa", new StackedFunc([
+        [[ANY, ANY], (inst, type) => new Decimal(+StackedFunc.ofUnaryType(type)(inst))],
+    ], 2)],
+    /*
+    (
+      typeString ['' split]
+      typeArray  []
+      
+    */
+    ["typed", new StackedFunc([
+        [[Array], function(arr){
+            if(arr.length % 2){
+                let tmp = arr.pop();
+                arr.push(ANY, tmp);
+            }
+            let typeMap = chunk(arr, 2);
+            let [types, fs] = transpose(typeMap);
+            typeMap = typeMap.map(e => {
+                let [a, b] = e;
+                if(!Array.isArray(a)) a = [a];
+                let nextb = function(...args){
+                    return b.overWith(this, ...args);
+                }
+                return [a, nextb];
+            });
+            let arity = typeMap[0][0].length;
+            let _stkfunc = new StackedFunc(typeMap, arity);
+            let k = new Func("[unprintable typed func]");
+            k.exec = function(inst){
+                // if(arity > inst.stack.length)
+                    // error("(in `typed`) popping from an empty stack");
+                // let args = arity == 0 ? [] : inst.stack.splice(-arity);
+                // let ind = types.findIndex(e => StackedFunc.match(e, ...args));
+                // if(ind == -1)
+                    // error
+                _stkfunc.exec(inst);
+            }
+            k.arity = arity;
+            return k;
+        }],
+    ], 1)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -2177,9 +2218,13 @@ const vars = new Map([
     ["CR",         "\r"],
     ["CRLF",       "\r\n"],
     ["PI",         Decimal.PI],
+    ["pi",         Decimal.PI],
     ["TAU",        Decimal.PI.mul(2)],
+    ["tau",        Decimal.PI.mul(2)],
     ["PAU",        Decimal.PI.mul(1.5)],
+    ["pau",        Decimal.PI.mul(1.5)],
     ["E",          Decimal(1).exp()],
+    ["e",          Decimal(1).exp()],
     ["alpha",      "abcdefghijklmnopqrstuvwxyz"],
     ["ALPHA",      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
     ["digs",       "0123456789"],
@@ -2607,6 +2652,10 @@ if(isNode){
 }
 
 bootstrap(`
+(* degrees to radians *)
+[180 / pi *] @:torad
+[pi / 180 *] @:todeg
+
 { arr skew :
   [
     arr size @L
@@ -2836,6 +2885,8 @@ $not $any ++ @:none
 { f :
   [zip f #/ map]
 } @:zipwith
+
+[ fixshape ] @:FIX
 `);
 
 makeAlias("prod", "\u220f");
@@ -2846,12 +2897,15 @@ makeAlias("square", "²");
 makeAlias("iszero", "is0");
 makeAlias("doinsert", "#\\");
 makeAlias("doinsert", "fold");
+makeAlias("FIX", "#&");
 
 // ---stealing--- adapting some of Haskell's Data.List stuff
 bootstrap(`
 { list el : list [el pair] map $++ #\\ betail } @:intersperse
 [intersperse flat] @:intercalate
 $(take pair drop) fork @:splitat
+([1 - take] $pair $drop) fork" @:splitdr
+($take $pair [1 + drop]) fork" @:splitdl
 `);
 
 vars.set("typeDecimal", Decimal);
