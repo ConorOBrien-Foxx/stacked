@@ -1831,16 +1831,16 @@ const ops = new Map([
     ["ltrim", new StackedFunc([
         [[String], (e) => e.trimLeft()],
     ], 1, { vectorize: true })],
-    ["?", new StackedFunc([
-        [[STP_FUNC_LIKE], function(f){
-            let k = clone(f);
-            k.modify = false;
-            k.toString = function(){
-                return f.toString() + "?";
-            }
-            return k;
-        }],
-    ], 1, { vectorize: true })],
+    // ["?", new StackedFunc([
+        // [[STP_FUNC_LIKE], function(f){
+            // let k = clone(f);
+            // k.modify = false;
+            // k.toString = function(){
+                // return f.toString() + "?";
+            // }
+            // return k;
+        // }],
+    // ], 1, { vectorize: true })],
     ["isa", new StackedFunc([
         [[ANY, ANY], (inst, type) => new Decimal(+StackedFunc.ofUnaryType(type)(inst))],
     ], 2)],
