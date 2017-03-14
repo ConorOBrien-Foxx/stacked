@@ -724,7 +724,6 @@ const ops = new Map([
         [[Decimal, String],  (a, b) => b.repeat(+a)],
         [[String, Decimal],  (a, b) => a.repeat(+b)],
         [[Decimal, String],  (b, a) => a.repeat(+b)],
-        [[String, String],   (a, b) => a.join(b)],
         [[Func, Decimal],    function(f, b){
             let c = Decimal(b);
             while(c.gt(0)){
@@ -1969,6 +1968,7 @@ new Map([
     ["antibaserep", "abr"],
     ["tobase", "tb"],
     ["baserep", ["tbr", "tobaserep"]],
+    ["join", "#`"],
     // ["
     // ["prefix", "inits"],
 ]).forEach((v, k) => {
