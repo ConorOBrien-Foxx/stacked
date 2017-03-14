@@ -723,6 +723,8 @@ const ops = new Map([
         [[Decimal, Decimal], (a, b) => a.mul(b)],
         [[Decimal, String],  (a, b) => b.repeat(+a)],
         [[String, Decimal],  (a, b) => a.repeat(+b)],
+        [[Decimal, String],  (b, a) => a.repeat(+b)],
+        [[String, String],   (a, b) => a.join(b)],
         [[Func, Decimal],    function(f, b){
             let c = Decimal(b);
             while(c.gt(0)){
@@ -2851,7 +2853,7 @@ $not $any ++ @:none
 [1e9 *] @:billion
 
 (* $notprime? whilst doesn't work *)
-[[notprime]? whilst] @:untilprime
+[[:notprime] whilst] @:untilprime
 [$inc untilprime] @:nextprime
 [$dec untilprime] @:prevprime
 
