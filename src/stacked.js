@@ -1882,6 +1882,16 @@ const ops = new Map([
             return k;
         }],
     ], 1)],
+    
+    ["pop", new StackedFunc([
+        [[Array], (a) => a.pop()],
+    ], 1)],
+    ["shift", new StackedFunc([
+        [[Array], (a) => a.shift()],
+    ], 1)],
+    ["push", new StackedFunc([
+        [[Array, ANY], (a, b) => (a.push(b), a)],
+    ], 2)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();
@@ -1969,8 +1979,9 @@ new Map([
     ["tobase", "tb"],
     ["baserep", ["tbr", "tobaserep"]],
     ["join", "#`"],
-    // ["
-    // ["prefix", "inits"],
+    ["retest", "rtest"],
+    ["upper", ["upcase", "uc"]],
+    ["lower", ["downcase", "lc", "dc"]],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
@@ -2556,6 +2567,17 @@ class Stacked {
     }
 }
 
+vars.set("typeDecimal", Decimal);
+Decimal.toString = function(){ return "[type Decimal]"; }
+vars.set("typeString", String);
+String.toString = function(){ return "[type String]"; }
+vars.set("typeFunc", Func);
+Func.toString = function(){ return "[type Func]"; }
+vars.set("typeLabmda", Lambda);
+Lambda.toString = function(){ return "[type Lambda]"; }
+vars.set("typeArray", Array);
+Array.toString = function(){ return "[type Array]"; }
+
 const stacked = (...args) => {
     Decimal.set({ precision: DECIMAL_DEFAULT_PRECISION });
     let inst = new Stacked(...args);
@@ -2592,6 +2614,7 @@ const bootstrapExp = (code) => {
         }
     });
     let inst = stacked(code, { ops: tOps });
+    inst.run();
 }
 
 // node specific functions
@@ -2889,6 +2912,10 @@ $not $any ++ @:none
 } @:zipwith
 
 [ fixshape ] @:FIX
+{ x y :
+  x y / floor @c1
+  (c1 x c1 -)
+} @:cusp
 `);
 
 makeAlias("prod", "\u220f");
@@ -2901,6 +2928,107 @@ makeAlias("doinsert", "#\\");
 makeAlias("doinsert", "fold");
 makeAlias("FIX", "#&");
 
+// some string functions
+bootstrapExp(`
+'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' @lorem
+{ str : str head upper str behead ++ } @:encap
+[' ' split $encap map ' ' join] @:titlecase
+('a' 'an' 'the'
+ 'is' 'for' 'and' 'nor' 'but' 'or' 'yet' 'so'
+ 'at' 'around' 'by' 'after' 'along' 'for' 'from' 'of' 'on' 'to' 'with' 'without'
+) @articles
+{ str :
+  str ' ' split @word_list
+  word_list shift encap wrap @fin
+  fin
+   word_list { word : (word encap  word) articles word has # } map
+  , @fin
+  fin ' ' join
+} @:smarttitlecase
+
+{ str n :
+  n str size - 2 cusp ' ' * str join
+}" @:center
+
+(
+  typeString { str :
+    str lines centerlines
+  }
+  typeArray { arr :
+    arr $size map MAX @mlen
+    arr mlen center LF join
+  }
+) typed @:centerlines
+
+[ '\\s+' rsplit ] @:words
+
+{ str width :
+  str words @str_words
+  () @res_lines
+  () @bld_line
+  [
+    str_words first @word
+    bld_line word ++ @next_possible
+    [
+      res_lines bld_line ' ' join push spop
+      () @bld_line
+    ] [
+      next_possible @bld_line
+      str_words shift
+    ] #(next_possible ' ' join size) width > ifelse
+  ] [str_words size] while
+  res_lines bld_line , LF join
+} @:wraptext
+
+{ str width :
+  str words @str_words
+  () @res_lines
+  () @bld_line
+  [
+    str_words first @word
+    bld_line word ++ @next_possible
+    next_possible ' ' join size @next_size
+    (* algorithm inspired by http://code.activestate.com/recipes/414870 *)
+    [
+      bld_line size
+      width bld_line ' ' join size - @l_count
+      [
+        bld_line {!
+          [n ' ' +] n l_count ispos ifelse
+          l_count 1 - @l_count
+        } map @bld_line
+      ] [l_count ispos] while
+      res_lines bld_line ' ' join push spop
+      () @bld_line
+    ] [
+      next_possible @bld_line
+      str_words shift
+    ] next_size width > ifelse
+  ] [str_words size] while
+  res_lines bld_line , LF join
+} @:fulljustify
+
+{ str :
+  str str lines $size map MAX fulljustify
+} @:dfulljustify
+
+export @:encap
+export @:titlecase
+export @:smarttitlecase
+export @:center
+export @:centerlines
+export @:wraptext
+export @:fulljustify
+export @:dfulljustify
+export @:words
+export @articles
+export @lorem
+`);
+
+makeAlias("encap", "capitalize");
+makeAlias("titlecase", "tc");
+makeAlias("smarttitlecase", "stc");
+
 // ---stealing--- adapting some of Haskell's Data.List stuff
 bootstrap(`
 { list el : list [el pair] map $++ #\\ betail } @:intersperse
@@ -2909,17 +3037,6 @@ $(take pair drop) fork @:splitat
 ([1 - take] $pair $drop) fork" @:splitdr
 ($take $pair [1 + drop]) fork" @:splitdl
 `);
-
-vars.set("typeDecimal", Decimal);
-Decimal.toString = function(){ return "[type Decimal]"; }
-vars.set("typeString", String);
-String.toString = function(){ return "[type String]"; }
-vars.set("typeFunc", Func);
-Func.toString = function(){ return "[type Func]"; }
-vars.set("typeLabmda", Lambda);
-Lambda.toString = function(){ return "[type Lambda]"; }
-vars.set("typeArray", Array);
-Array.toString = function(){ return "[type Array]"; }
 
 // extends a current operation for typed-ness
 const extendTypedLocale = (locale, opName, newTypeArr, resultFunc, arity = -1, vectorized = true) => {

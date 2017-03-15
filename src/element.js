@@ -1,5 +1,5 @@
 var isNode = typeof require !== "undefined";
-
+// C:\Users\Conor O'Brien\Pictures\MP Navigator EX\2017_03_14
 if(isNode)
 	var Decimal = require("./decimal.js");
 
@@ -95,7 +95,36 @@ const CALCIUM    = new Element(20, "Ca", "Calcium", "40.078",
                                2, 4, "s", "[Ar]4s^2");
 const SCANDIUM   = new Element(21, "Sc", "Scandium", "44.95591",
                                3, 4, "d", "[Ar]3d^1 4s^2");
-
+const TITANIUM   = new Element(22, "Ti", "Titanium", "47.867",
+                               4, 4, "d", "[Ar]3d^2 4s^2");
+const VANADIUM   = new Element(23, "V", "Vanadium", "50.9415",
+                               5, 4, "d", "[Ar]3d^3 4s^2");
+const CHROMIUM   = new Element(24, "Cr", "Chromium", "51.996",
+                               6, 4, "d", "[Ar]3d^5 4s^1");
+const MANGANESE  = new Element(25, "Mn", "Manganese", "54.9380",
+                               7, 4, "d", "[Ar]3d^5 4s^2");
+const IRON       = new Element(26, "Fe", "Iron", "55.845",
+                               8, 4, "d", "[Ar]3d^6 4s^2");
+const COBALT     = new Element(27, "Co", "Cobalt", "58.9932",
+                               9, 4, "d", "[Ar]3d^7 4s^2");
+const NICKEL     = new Element(28, "Ni", "Nickel", "58.6934",
+                               10, 4, "d", "[Ar]3d^8 4s^2");
+const COPPER     = new Element(29, "Cu", "Copper", "63.546",
+                               11, 4, "d", "[Ar]3d^10 4s^1");
+const ZINC       = new Element(30, "Zn", "Zinc", "65.409",
+                               12, 4, "d", "[Ar]3d^10 4s^2");
+const GALLIUM    = new Element(31, "Ga", "Gallium", "69.723",
+                               13, 4, "p", "[Ar]3d^10 4s^2 4p^1");
+const GERMANIUM  = new Element(32, "Ge", "Germanium", "72.64",
+                               14, 4, "p", "[Ar]3d^10 4s^2 4p^2");
+const ARSENIC    = new Element(33, "As", "Arsenic", "74.9216",
+                               15, 4, "p", "[Ar]3d^10 4s^2 4p^3");
+const SELENIUM   = new Element(34, "Se", "Selenium", "78.96",
+                               16, 4, "p", "[Ar]3d^10 4s^2 4p^4");
+const BROMINE    = new Element(35, "Br", "Bromine", "79.904",
+                               17, 4, "p", "[Ar]3d^10 4s^2 4p^5");
+const KRYPTON    = new Element(36, "Kr", "Krypton", "83.80",
+                               18, 4, "[Ar]3d^10 4s^2 4p^6");
 // todo: add more
 // todo: add ptable disp
 
