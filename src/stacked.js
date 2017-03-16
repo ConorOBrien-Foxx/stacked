@@ -2916,6 +2916,13 @@ $not $any ++ @:none
   x y / floor @c1
   (c1 x c1 -)
 } @:cusp
+
+{ f : {! n f ! n =} } @:invariant
+
+{ f p : [f 0 rand p < if] } @:randomly
+
+(* doesn't work, 'p' undefined *)
+(*{ f : f 0.5 randomly } @:rbinly*)
 `);
 
 makeAlias("prod", "\u220f");
@@ -3012,6 +3019,13 @@ bootstrapExp(`
   str str lines $size map MAX fulljustify
 } @:dfulljustify
 
+($lower invariant [not and] $upper invariant) fork @:islower
+($upper invariant [not and] $lower invariant) fork @:isupper
+
+{ str : 
+  str '' split {! n $(lower upper) n islower # ! } map '' join
+} @:swapcase
+
 export @:encap
 export @:titlecase
 export @:smarttitlecase
@@ -3020,6 +3034,9 @@ export @:centerlines
 export @:wraptext
 export @:fulljustify
 export @:dfulljustify
+export @:swapcase
+export @:islower
+export @:isupper
 export @:words
 export @articles
 export @lorem
