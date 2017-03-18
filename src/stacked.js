@@ -2921,6 +2921,10 @@ $not $any ++ @:none
 
 { f p : [f 0 rand p < if] } @:randomly
 
+{ a i :
+  [a i pop # i rget] [a] i size ifelse
+} @:rget
+
 (* doesn't work, 'p' undefined *)
 (*{ f : f 0.5 randomly } @:rbinly*)
 `);
