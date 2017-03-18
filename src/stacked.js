@@ -92,7 +92,9 @@ error = (err) => {
 
 if(isNode){
     error = (e) => {
-        if(stacked.silentError)
+        let hasStacked = false;
+        try { stacked; hasStacked = true } catch(e) {}
+        if(hasStacked && stacked.silentError)
             throw new Error(e);
         else {
             console.error("error: " +e);
@@ -1896,6 +1898,9 @@ const ops = new Map([
     ["push", new StackedFunc([
         [[Array, ANY], (a, b) => (a.push(b), a)],
     ], 2)],
+    ["rescape", new StackedFunc([
+        [[String], RegExp.escape],
+    ], 1)],
     // ["extend", function(){
         // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
         // let name = this.stack.pop();

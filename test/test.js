@@ -468,6 +468,11 @@ tester.testCases = [
     ["123 bin", { top: "1111011" }],
     
     ["(3 4) $add spread", { top: D(7) }],
+    
+    ["'3 * 4' rescape", { top: "3 \\* 4" }],
+    ["'3 \\* 4' rescape", { top: "3 \\\\\\* 4" }],
+    ["'123' rescape", { top: "123" }],
+    ["'' rescape", { top: "" }],
 ];
 
 // console.log(stacked("10 4 cmp").stack.join(";;;;"));
