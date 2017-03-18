@@ -720,17 +720,21 @@ const ops = new Map([
         [[Decimal, Decimal], (a, b) => a.pow(b)],
     ], 2, { vectorize: true })],
     ["*", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => a.mul(b)],
-        [[Decimal, String],  (a, b) => b.repeat(+a)],
-        [[String, Decimal],  (a, b) => a.repeat(+b)],
-        [[Decimal, String],  (b, a) => a.repeat(+b)],
-        [[Func, Decimal],    function(f, b){
+        [[Decimal, Decimal],       (a, b) => a.mul(b)],
+        [[Decimal, String],        (a, b) => b.repeat(+a)],
+        [[String, Decimal],        (a, b) => a.repeat(+b)],
+        [[Decimal, String],        (b, a) => a.repeat(+b)],
+        [[STP_FUNC_LIKE, Decimal], function(f, b){
             let c = Decimal(b);
             while(c.gt(0)){
                 c = c.sub(1);
                 f.exec(this);
             }
-        }]
+        }],
+        [[Decimal, STP_FUNC_LIKE], function(b, f){
+            this.stack.push(f, b);
+            ops.get("*").exec(this);
+        }],
     ], 2, { vectorize: true })],
     ["rep", new StackedFunc([
         [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
@@ -2559,10 +2563,13 @@ class Stacked {
                     .map(e => e[e.toFixed ? "toFixed" : "toString"]());
     }
     
-    static getLastN(arr, n){
+    static getLastN(arr, n, source = ""){
         let r = [];
         while(n --> 0)
-            r.unshift(arr.pop());
+            if(arr.length === 0)
+                error((source ? "(in `" + source + "`) " : "") + "popping form an empty stack");
+            else
+                r.unshift(arr.pop());
         return r;
     }
 }
@@ -2924,6 +2931,8 @@ $not $any ++ @:none
 { a i :
   [a i pop # i rget] [a] i size ifelse
 } @:rget
+
+{ a f : a ... f! } @:spread
 
 (* doesn't work, 'p' undefined *)
 (*{ f : f 0.5 randomly } @:rbinly*)

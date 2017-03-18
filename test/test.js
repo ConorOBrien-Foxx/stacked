@@ -126,6 +126,9 @@ tester.testCases = [
     ["3 'q' *", { stack: [ "qqq" ] }],
     ["'>_<' 2 *", { stack: [ ">_<>_<" ] }],
     ["4 [1 +] 10 *", { stack: [ D(14) ] }],
+    ["4 10 [1 +] *", { stack: [ D(14) ] }],
+    ["4 { x : x 1 + } 10 *", { stack: [ D(14) ] }],
+    ["4 10 { x : x 1 + } *", { stack: [ D(14) ] }],
     
     ["(2 3) 2 rep", { stack: [ [ [2, 3].map(D), [2, 3].map(D) ] ] }],
     
@@ -463,6 +466,8 @@ tester.testCases = [
     
     ["5 bits", { top: [1, 0, 1].map(D) }],
     ["123 bin", { top: "1111011" }],
+    
+    ["(3 4) $add spread", { top: D(7) }],
 ];
 
 // console.log(stacked("10 4 cmp").stack.join(";;;;"));
