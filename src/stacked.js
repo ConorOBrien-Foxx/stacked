@@ -841,7 +841,18 @@ const ops = new Map([
     ["!", new StackedFunc([
         [[INTEGER], (a) => factorial(a)],
         [[String],  function(a){
-            return a.replace(/%(\w+)/g, (total, varname) => this.getVar(varname));
+            let frepl = (total, fname) => {
+                let oldStack = clone(this.stack);
+                console.log(fname);
+                this.execOp(this.ops.get(fname));
+                let res = this.stack.pop();
+                this.stack = oldStack;
+                return res;
+            }
+            return a.replace(/%(\w+)/g, (total, varname) => this.getVar(varname))
+                    .replace(/%\{(\w+)}/g, (total, varname) => this.getVar(varname))
+                    .replace(/@(\w+)/g, frepl)
+                    .replace(/@\{(\w+)\}/g, frepl);
         }],
         [[STP_FUNC_LIKE], function(f){
             f.exec(this);
