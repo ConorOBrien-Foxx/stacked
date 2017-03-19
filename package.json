@@ -27,9 +27,9 @@
   },
   "homepage": "https://github.com/ConorOBrien-Foxx/stacked#readme",
   "dependencies": {
-    "syncprompt": "^1.0.1",
     "clear": "latest",
+    "minimist": "latest",
     "readline-sync": "latest",
-    "minimist": "latest"
+    "syncprompt": "^1.0.1"
   }
 }

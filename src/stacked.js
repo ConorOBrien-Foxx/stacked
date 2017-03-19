@@ -936,38 +936,14 @@ const ops = new Map([
             (str, target) => str.match(new StRegex(target, "g")) || [],
         ],
     ], 2, { vectorize: true })],
-    ["repl", new StackedFunc([
-        [[String, String, String],
-            (orig, target, sub) =>
-                orig.replace(new StRegex(target, "g"), sub)],
-        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new StRegex(target, "g"), (...a) => sub.sanatized(this, ...a))
+    ["frepl", new StackedFunc([
+        [[String, String, String, String],
+            (orig, target, sub, flags) =>
+                orig.replace(new StRegex(target, flags), sub)],
+        [[String, String, STP_FUNC_LIKE, String], function(orig, target, sub, flags){
+            return orig.replace(new StRegex(target, flags), (...a) => sub.sanatized(this, ...a));
         }],
-    ], 3)],
-    ["irepl", new StackedFunc([
-        [[String, String, String],
-            (orig, target, sub) =>
-                orig.replace(new StRegex(target, "gi"), sub)],
-        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new StRegex(target, "gi"), (...a) => sub.sanatized(this, ...a))
-        }],
-    ], 3)],
-    ["mrepl", new StackedFunc([
-        [[String, String, String],
-            (orig, target, sub) =>
-                orig.replace(new StRegex(target, "gm"), sub)],
-        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new StRegex(target, "gm"), (...a) => sub.sanatized(this, ...a));
-        }],
-    ], 3)],
-    ["mirepl", new StackedFunc([
-        [[String, String, String],
-            (orig, target, sub) =>
-                orig.replace(new StRegex(target, "gmi"), sub)],
-        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return orig.replace(new StRegex(target, "gmi"), (...a) => sub.sanatized(this, ...a));
-        }],
-    ], 3)],
+    ], 4)],
     ["recrepl", new StackedFunc([
         [[String, String, String], 
             (orig, target, sub) =>
@@ -976,6 +952,14 @@ const ops = new Map([
             return recursiveRepl(orig, new StRegex(target, "g"), (...a) => sub.sanatized(this, ...a));
         }],
     ], 3)],
+    ["frecrepl", new StackedFunc([
+        [[String, String, String, String], 
+            (orig, target, sub, flags) =>
+                recursiveRepl(orig, new StRegex(target, flags), sub)],
+        [[String, String, STP_FUNC_LIKE, String], function(orig, target, sub, flags){
+            return recursiveRepl(orig, new StRegex(target, flags), (...a) => sub.sanatized(this, ...a));
+        }],
+    ], 4)],
     ["merge", function(){
         let k = this.stack.pop();
         this.stack = this.stack.concat(k);
@@ -1960,6 +1944,7 @@ const makeAlias = (k, v) => {
 new Map([
     ["oneach", '"'],
     ["recrepl", "rrepl"],
+    ["frecrepl", "frrepl"],
     ["dup", ":"],
     ["swap", "\\"],
     ["get", "#"],
@@ -2871,6 +2856,23 @@ $not $any ++ @:none
 
 [ofshape $tid deepmap] @:ints
 
+
+['g'    frepl] @:repl
+[''     frepl] @:nrepl
+['gm'   frepl] @:mrepl
+['gmi'  frepl] @:mirepl
+['gi'   frepl] @:irepl
+['m'    frepl] @:nmrepl
+['mi'   frepl] @:nmirepl
+['i'    frepl] @:nirepl
+['ge'   frepl] @:erepl
+['gme'  frepl] @:emrepl
+['gmie' frepl] @:emirepl
+['gie'  frepl] @:eirepl
+['e'    frepl] @:nerepl
+['ei'   frepl] @:neirepl
+['em'   frepl] @:nemrepl
+['emi'  frepl] @:nemirepl
 ['' repl] @:del
 ['' rrepl] @:DEL
 [CR del LF split] @:lines

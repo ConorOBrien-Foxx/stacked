@@ -144,9 +144,16 @@ const clone = (x) => {
 
 Array.prototype[VECTORABLE] = true;
 
-Array.prototype.newIndexOf = String.prototype.newIndexOf = function(a, index = 0){
+Array.prototype.newIndexOf = function(a, index = 0){
     for(let i = index; i < this.length; i++){
         if(equal(this[i], a)) return i;
+    }
+    return -1;
+}
+
+String.prototype.newIndexOf = function(a, index = 0){
+    for(let i = index; i < this.length; i++){
+        if(equal(this.slice(i, a.length + i), a)) return i;
     }
     return -1;
 }
@@ -1064,6 +1071,10 @@ class StRegex {
         if(body instanceof RegExp){
             flags = RegExp.getFlags(body);
             body = RegExp.getBody(body);
+        }
+        // escape flag
+        if(flags.indexOf("e") >= 0){
+            body = RegExp.escape(body);
         }
         this.pattern = StRegex.toReg(body, flags);
         this.body = body;
