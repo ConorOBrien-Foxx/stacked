@@ -843,16 +843,20 @@ const ops = new Map([
         [[String],  function(a){
             let frepl = (total, fname) => {
                 let oldStack = clone(this.stack);
-                console.log(fname);
+                // let append = "";
+                // if(/(?:\s|@)$/.test(fname)){
+                    // append = fname[fname.length - 1];
+                    // fname = fname.slice(0, -1);
+                // }
                 this.execOp(this.ops.get(fname));
                 let res = this.stack.pop();
                 this.stack = oldStack;
-                return res;
+                return res;//+ append;
             }
             return a.replace(/%(\w+)/g, (total, varname) => this.getVar(varname))
                     .replace(/%\{(\w+)}/g, (total, varname) => this.getVar(varname))
-                    .replace(/@(\w+)/g, frepl)
-                    .replace(/@\{(\w+)\}/g, frepl);
+                    .replace(/@(\w+|.+?(?=\s|$|@))/g, frepl)
+                    .replace(/@\{(.+)\}/g, frepl);
         }],
         [[STP_FUNC_LIKE], function(f){
             f.exec(this);
