@@ -1971,6 +1971,7 @@ new Map([
     ["neg", "_"],
     ["mod", "%%"],
     ["execeach", "#!"],
+    ["eval", "#~"],
     ["powerset", ["\u2119", "P"]],
     ["transpose", "tr"],
     ["intersection", "\u2229"],
