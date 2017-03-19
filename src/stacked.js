@@ -348,6 +348,8 @@ class Token {
         } else if(str[0] === "'"){
             this.value = str.slice(1, -1).replace(/''/g, "'");
             this.type = "string";
+        } else if(str === "@."){
+            this.type = "popstack";
         } else if(str[0] === "@"){
             this.value = str.slice(1);
             this.type = "setvar";
@@ -2139,9 +2141,12 @@ const tokenize = (str, opts = {}) => {
                 }
             } else {
                 if(needle(":")) build += curAdvance();
-                while(isIdentifier(cur()) && hasCharsLeft()){
+                if(cur() === ".")
                     build += curAdvance();
-                }
+                else
+                    while(isIdentifier(cur()) && hasCharsLeft()){
+                        build += curAdvance();
+                    }
             }
             toks.push(build);
         }
@@ -2366,6 +2371,8 @@ class Stacked {
             this.observeToken.bind(this)(cur, "readOp");
         if(cur.type === "comment"){
             // do nothing, it's a comment.
+        } else if(cur.type === "popstack"){
+            this.stack.pop();
         } else if(cur.type === "accessor"){
             this.index++;
             let ref = this.toks[this.index].raw;
