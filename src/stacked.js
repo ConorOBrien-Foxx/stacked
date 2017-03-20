@@ -2966,6 +2966,8 @@ $not $any ++ @:none
 
 (* doesn't work, 'p' undefined *)
 (*{ f : f 0.5 randomly } @:rbinly*)
+
+[stack $disp map @.] @:SOUT
 `);
 
 makeAlias("prod", "\u220f");
