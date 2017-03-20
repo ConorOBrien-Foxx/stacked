@@ -2764,11 +2764,11 @@ $not $any ++ @:none
 [95 baserep] @:compnum
 [95 antibaserep] @:decompnum
 { a b :
-  [b 0 !=] [
+  [
     b @t
     a b mod @b
     t @a
-  ] while
+  ] [b 0 !=] while
   a isolate
 } oneach @:gcd
 { a b :
