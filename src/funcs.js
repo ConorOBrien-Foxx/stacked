@@ -1214,6 +1214,7 @@ if(isNode){
         prefix: prefix,
         rotate: rotate,
         fixShape: fixShape,
+        cellMap: cellMap,
         highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js

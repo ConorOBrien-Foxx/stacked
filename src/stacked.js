@@ -65,6 +65,7 @@ if(typeof require !== "undefined"){
     // require("./stacked.js");
     
     // waiting for that glorious synchronous stdin!
+    // rip, it requires VS. Haha, not getting that.
     // prompt = require("syncprompt");
     
     readLineSync = require("readline-sync");
