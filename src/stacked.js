@@ -1994,6 +1994,7 @@ new Map([
     ["retest", "rtest"],
     ["upper", ["upcase", "uc"]],
     ["lower", ["downcase", "lc", "dc"]],
+    ["chunk", "#<"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
