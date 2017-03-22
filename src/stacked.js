@@ -720,6 +720,10 @@ const ops = new Map([
     ["/", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.div(b)],
         [[String, String], (s, t) => s.replace(RegExp.of(t, "g"), "")],
+        [[STP_FUNC_LIKE, Decimal], (f, d) => {
+            f.arity = d;
+            return f;
+        }],
     ], 2, { vectorize: true })],
     ["^", new StackedFunc([
         [[Decimal, Decimal], (a, b) => a.pow(b)],
@@ -1374,7 +1378,11 @@ const ops = new Map([
             return a.filter((...args) => {
                 let r = f.overWith(
                     this,
-                    ...args.map(sanatize)
+                    ...(
+                        isDefined(f.arity) && f.arity !== null
+                            ? args.map(sanatize).slice(0, f.arity + 1)
+                            : args.map(sanatize)
+                    )
                 );
                 // console.log(disp(r));
                 return truthy(r);
@@ -1382,8 +1390,19 @@ const ops = new Map([
         }],
     ], 2)],
     ["reject", new StackedFunc([
-        [[[(e) => isDefined(e.filter)], STP_FUNC_LIKE], function(a, f){
-            return a.filter((...args) => falsey(f.overWith(this, ...args)));
+        [[STP_HAS("filter"), STP_FUNC_LIKE], function(a, f){
+            return a.filter((...args) => {
+                let r = f.overWith(
+                    this,
+                    ...(
+                        isDefined(f.arity) && f.arity !== null
+                            ? args.map(sanatize).slice(0, f.arity + 1)
+                            : args.map(sanatize)
+                    )
+                );
+                // console.log(disp(r));
+                return falsey(r);
+            });
         }],
     ], 2)],
     ["date", new StackedFunc([
@@ -2726,9 +2745,9 @@ $(- - +) { x . : x sign } agenda @:decrease
 [sgroup tail merge] @:isolate
 [: *] @:square
 [map flat] @:flatmap
-[0 >] @:ispos
-[0 <] @:isneg
-[0 eq] @:iszero
+[0 >] 1/ @:ispos
+[0 <] 1/ @:isneg
+[0 eq] 1/ @:iszero
 { x : x } @:id
 { . x : x } @:sid
 { . . x : x } @:tid
@@ -2746,16 +2765,16 @@ $(ipart , fpart) fork @:ifpart
 [16 antibaserep] @:unhex
 [$rev map] @:reveach
 ['txt' download] @:savetxt
-[2 /] @:halve
-[2 *] @:double
-[1 +] @:inc
-[1 -] @:dec
-[0 get] @:first
-[_1 get] @:last
-[2 mod 1 eq] @:odd
-[2 mod 0 eq] @:even
-{ x : 1 0 x ifelse } @:truthy
-[truthy not] @:falsey
+[2 /] 1/ @:halve
+[2 *] 1/ @:double
+[1 +] 1/ @:inc
+[1 -] 1/ @:dec
+[0 get] 1/ @:first
+[_1 get] 1/ @:last
+[2 mod 1 eq] 1/ @:odd
+[2 mod 0 eq] 1/ @:even
+{ x : 1 0 x ifelse } 1/ @:truthy
+[truthy not] 1/ @:falsey
 $max #/ @:MAX
 $min #/ @:MIN
 $* #/ @:prod
@@ -2907,12 +2926,12 @@ $not $any ++ @:none
 { shpe ent pad_el : shpe ent { ent i :
   [ent i #] [pad_el] i #(ent size) < ifelse
 } FSHAPE } @:PSHAPE
-[2 * 1 -] @:tmo
-[2 * 1 +] @:tpo
-[100 *] @:hundred
-[1000 *] @:thousand
-[1e6 *] @:million
-[1e9 *] @:billion
+[2 * 1 -] 1/ @:tmo
+[2 * 1 +] 1/ @:tpo
+[100 *] 1/ @:hundred
+[1000 *] 1/ @:thousand
+[1e6 *] 1/ @:million
+[1e9 *] 1/ @:billion
 
 (* $notprime? whilst doesn't work *)
 [[:notprime] whilst] @:untilprime
@@ -2981,6 +3000,8 @@ makeAlias("iszero", "is0");
 makeAlias("doinsert", "#\\");
 makeAlias("doinsert", "fold");
 makeAlias("FIX", "#&");
+makeAlias("inc", "↑");
+makeAlias("dec", "↓");
 
 // some string functions
 bootstrapExp(`
