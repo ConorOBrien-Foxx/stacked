@@ -2747,6 +2747,8 @@ $(- - +) { x . : x sign } agenda @:decrease
 [map flat] @:flatmap
 [0 >] 1/ @:ispos
 [0 <] 1/ @:isneg
+[0 >=] 1/ @:isnneg
+[0 <=] 1/ @:isnpos
 [0 eq] 1/ @:iszero
 { x : x } @:id
 { . x : x } @:sid
