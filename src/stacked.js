@@ -2719,8 +2719,8 @@ if(isNode){
 
 bootstrap(`
 (* degrees to radians *)
-[180 / pi *] @:torad
-[pi / 180 *] @:todeg
+[180 / pi *] 1/ @:torad
+[pi / 180 *] 1/ @:todeg
 
 { arr skew :
   [
@@ -2731,9 +2731,9 @@ bootstrap(`
   [
     arr skew neg chunk fixshape
   ] skew 0 >= ifelse
-} @:infixes
-[: size ~> prefix] @:inits
-{ a f : a inits f map } @:onpref
+} 2/ @:infixes
+[: size ~> prefix] 1/ @:inits
+{ a f : a inits f map } 2/ @:onpref
 [prime not] @:notprime
 $(+ + -) { x . : x sign } agenda @:increase
 $(- - +) { x . : x sign } agenda @:decrease
@@ -2741,10 +2741,10 @@ $(- - +) { x . : x sign } agenda @:decrease
   arr toarr @arr
   init arr, func doinsert
 } @:fold
-[sign 1 +] @:skewsign
+[sign 1 +] 1/ @:skewsign
 [sgroup tail merge] @:isolate
-[: *] @:square
-[map flat] @:flatmap
+[: *] 1/ @:square
+[map flat] 2/ @:flatmap
 [0 >] 1/ @:ispos
 [0 <] 1/ @:isneg
 [0 >=] 1/ @:isnneg
