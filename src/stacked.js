@@ -3002,6 +3002,9 @@ makeAlias("doinsert", "fold");
 makeAlias("FIX", "#&");
 makeAlias("inc", "↑");
 makeAlias("dec", "↓");
+makeAlias("reject", "NO");
+makeAlias("accept", "YES");
+
 
 // some string functions
 bootstrapExp(`
