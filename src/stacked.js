@@ -924,29 +924,31 @@ const ops = new Map([
     ["rsplit", new StackedFunc([
         [[String, String], (a, b) => a.split(new StRegex(b))],
     ], 2)],
-    ["oneach", new StackedFunc((f) => {
-        let k = new Func(f + "oneach");
-        k.toString = function(){
-            return f.toString() + " oneach";
-        }
-        // dirty hack, todo: fix it
-        // dear past me: in your dreams.
-        // dear past me's: you guys are so immature
-        // dear all of my past me's: I've fixed it. HAHA.
-        if(f.arity && f.arity == 2){
-            k.exec = function(inst){
-                let vec = vectorize((a, b) => f.overWith(inst, a, b));
-                let [e1, e2] = inst.stack.splice(-2);
-                inst.stack.push(vec(e1, e2));
-            };
-        } else
-            k.exec = function(inst){
-                let vec = vectorize(e => f.overWith(inst, e));
-                let entity = inst.stack.pop();
-                inst.stack.push(vec(entity));
-            };
-        return k;
-    }, 1, { untyped: true })],
+    ["oneach", new StackedFunc([
+        [[STP_FUNC_LIKE], (f) => {
+            let k = new Func(f + "oneach");
+            k.toString = function(){
+                return f.toString() + " oneach";
+            }
+            // dirty hack, todo: fix it
+            // dear past me: in your dreams.
+            // dear past me's: you guys are so immature
+            // dear all of my past me's: I've fixed it. HAHA.
+            if(f.arity && f.arity == 2){
+                k.exec = function(inst){
+                    let vec = vectorize((a, b) => f.overWith(inst, a, b));
+                    let [e1, e2] = inst.stack.splice(-2);
+                    inst.stack.push(vec(e1, e2));
+                };
+            } else
+                k.exec = function(inst){
+                    let vec = vectorize(e => f.overWith(inst, e));
+                    let entity = inst.stack.pop();
+                    inst.stack.push(vec(entity));
+                };
+            return k;
+        }],
+    ], 1)],
     ["each", function(){
         ops.get("oneach").exec(this);
         ops.get("!").exec(this);
