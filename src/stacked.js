@@ -3001,7 +3001,9 @@ makeAlias("doinsert", "#\\");
 makeAlias("doinsert", "fold");
 makeAlias("FIX", "#&");
 makeAlias("inc", "↑");
+makeAlias("inc", "#^");
 makeAlias("dec", "↓");
+makeAlias("dec", "#v");
 makeAlias("reject", "NO");
 makeAlias("accept", "YES");
 
