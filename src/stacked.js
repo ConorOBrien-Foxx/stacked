@@ -3271,14 +3271,16 @@ Element.ptable.forEach((v, k) => {
     vars.set("E" + k, v);
 });
 
-// color
-Color.prototype["-"] = Color.prototype.sub;
-Color.prototype["="] = Color.prototype.equal;
-integrate(Color, { merge: true });
-
 const aliasPrototype = (klass, alias, name) => {
     klass.prototype[alias] = klass.prototype[name];
 }
+
+// color
+aliasPrototype(Color, "-", "sub");
+aliasPrototype(Color, "=", "equal");
+integrate(Color, { merge: true });
+vars.set("colors", Color.colors);
+console.log(Color.colors);
 
 // char string
 class CharString {

@@ -17,8 +17,35 @@ class Color {
     //  - new Color("#hex")
     // internal representation is rgba
     constructor(entity = [0]){
-        if(entity instanceof String){
-            throw new Error("unsupported color format `STring`");
+        if(typeof entity == "string"){
+            let unit = entity;
+            
+            if(unit[0] == "#")
+                unit = unit.slice(1);
+            
+            if(unit.length == 3){
+                let b = "";
+                for(let i = 0; i < 3; i++){
+                    b += unit[i] + unit[i];
+                }
+                unit = b;
+            }
+            
+            if(unit.length == 6){
+                let arr = [];
+                for(let i = 0; i < 6; i += 2){
+                    arr.push(parseInt(unit.substr(i, 2), 16));
+                }
+                // even though `isNaN` is pretty bad, we are guarenteed to only have
+                // numbers, so it will be sufficient.
+                if(arr.some(isNaN)){
+                    throw new Error("invalid color string `" + entity + "`");
+                }
+                [this.r, this.g, this.b] = arr;
+                this.a = 255;
+            } else {
+                throw new Error("invalid color string `" + entity + "`");
+            }
         } else {
             if(entity[Symbol.iterator])
                 entity = [...entity];
@@ -174,13 +201,31 @@ class Color {
 
 // absolute equality
 Color.tolerance = 0;
+Color.colors = new Map();
 
 // darnit chrome, with color form name not working
-if(!isNode)
-    ["white", "silver", "gray", "grey", "black", "red", "maroon", "yellow", "olive",
-     "lime", "green", "aqua", "teal", "blue", "navy", "fuchsia", "purple"].forEach(c =>
-        Color[c] = Color.colorFromName(c)
-    );
+if(!isNode){
+    `white -> #FFFFFF
+silver -> #C0C0C0
+gray -> #808080
+grey -> #808080
+black -> #000000
+red -> #FF0000
+maroon -> #800000
+yellow -> #FFFF00
+olive -> #808000
+lime -> #00FF00
+green -> #008000
+aqua -> #00FFFF
+teal -> #008080
+blue -> #0000FF
+navy -> #000080
+fuchsia -> #FF00FF
+purple -> #800080`.split("\n").forEach(e => {
+    let [name, val] = e.split(" -> ");
+    Color.colors.set(name, Color[name] = new Color(val));
+});
+}
 
 if(isNode){
     module.exports = exports.default = Color;

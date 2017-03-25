@@ -321,7 +321,7 @@ const moore = (arr, x, y, n = 1, m = n) => {
 const fixShape = (arr, fill) => {
     fill = defined(fill, isString(flatten(arr)[0]) ? " " : 0);
     let recur = (a) => {
-        if(!isDefined(a) || !a.map) return a;
+        if(!isDefined(a) || !Array.isArray(a)) return a;
         let maxlen = Math.max(...a.map(e => Array.isArray(e) ? e.length : -1));
         return a.map(e => recur(Array.isArray(e) ? e.padEnd(maxlen, fill) : e));
     }

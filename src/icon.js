@@ -53,7 +53,7 @@ class Icon {
      * @param {Array.<Array.<Number>>} rgbArray An array of RGB triplets.
      */
     constructor(rgbArray){
-        this.array = array.map(row => row.map(cell => new Color(cell)));
+        this.array = rgbArray.map(row => row.map(cell => new Color(cell)));
     }
     
     writeToCanvas(canvas){
@@ -89,7 +89,7 @@ class Icon {
         }
         while(lines.length){
             let line = [...lines.shift()];
-            while(line.length){                
+            while(line.length){
                 let chunk;
                 [chunk, line] = readChunk(line);
                 let triplet = toRGB(chunk);
