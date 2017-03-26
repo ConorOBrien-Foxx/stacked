@@ -889,6 +889,23 @@ function download(data, filename, type) {
     }
 }
 
+const objRepr = (obj, width = 4) => {
+    let res = "{\n";
+    for(let i in obj){
+        if(obj.hasOwnProperty(i)){
+            let ent = obj[i]
+            let entRepr;
+            if(ent.constructor === Object){
+                entRepr = objRepr(ent, width).replace(/^/gm, " ".repeat(width));
+            } else {
+                entRepr = repr(ent);
+            }
+            res += " ".repeat(width) + repr(i) + " : " + entRepr + ",\n";
+        }
+    }
+    return res.slice(0, -2) + "\n}";
+}
+
 const repr = (item) => {
     if(!isDefined(item)){
         return "undef";
@@ -898,12 +915,19 @@ const repr = (item) => {
     }
     if(Array.isArray(item))
         return "(" + item.map(repr).join(" ") + ")";
+    
     else if(isString(item)){
         return "'" + item.replace(/'/g, "''") + "'";
     }
+    
     else if(item instanceof Decimal){
         return item.toFixed().replace(/-/g, "_");
     }
+    
+    else if(item.constructor === Object){
+        return objRepr(item);
+    }
+    
     else {
         warn("the following item has no repr:");
         warn(item);
@@ -1224,6 +1248,7 @@ if(isNode){
         fixShape: fixShape,
         cellMap: cellMap,
         mapToObject: mapToObject,
+        objRepr: objRepr,
         highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js

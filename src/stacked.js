@@ -1116,12 +1116,23 @@ class Stacked {
             let e = this.stack.pop();
             // todo: make proper stack
             let pt = isDefined(e.get) ? e.get(ref) : e[ref];
-            if(!isDefined(pt) || pt.constructor === Function){
+            if(!isDefined(pt)){
                 // todo: perhaps make this a sort of currying?
                 // or it's too unpredicatable
+                // ^^^ what does this mean?? wish younger self would be more helpful
                 error("`" + repr(e) + "` has no property `" + ref + "`");
+            } else if(pt.constructor === Function){
+                pt = pt.bind(e);
+                // error("Function properties are currently unsupported");
+                let k = new Func("[unprintable foreign function]");
+                k.exec = function(inst){
+                    let args = inst.getLastN(defined(this.arity, pt.length), "[unprintable foreign function]");
+                    inst.stack.push(sanatize(pt(...args)));
+                }
+                this.stack.push(k);
+            } else {
+                this.stack.push(sanatize(pt));
             }
-            this.stack.push(sanatize(pt));
         } else if(cur.type === "quoteFunc"){
             let k = new Func(cur.value);
             k.toString = function(){ return cur.raw; }
@@ -1317,10 +1328,14 @@ class Stacked {
         let r = [];
         while(n --> 0)
             if(arr.length === 0)
-                error((source ? "(in `" + source + "`) " : "") + "popping form an empty stack");
+                error((source ? "(in `" + source + "`) " : "") + "popping from an empty stack");
             else
                 r.unshift(arr.pop());
         return r;
+    }
+    
+    getLastN(n, source = ""){
+        return Stacked.getLastN(this.stack, n, source);
     }
 }
 
@@ -1530,7 +1545,7 @@ if(isNode){
     ], 2));
     ops.set("makeserver", new StackedFunc([
         [[Lambda], function(f){
-            http.createServer((req, resp) => {
+            return http.createServer((req, resp) => {
                 f.overWith(this, req, resp);
             });
         }],
@@ -1539,7 +1554,7 @@ if(isNode){
         [[http.Server, Decimal], function(server, n){
             server.listen(+n);
         }],
-    ], 1));
+    ], 2));
 }
 
 bootstrap(`
