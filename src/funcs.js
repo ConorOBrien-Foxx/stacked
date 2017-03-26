@@ -328,6 +328,14 @@ const fixShape = (arr, fill) => {
     return recur(arr);
 }
 
+const mapToObject = (map) => {
+    let obj = {};
+    for(let [k, v] of map){
+        obj[k] = v;
+    }
+    return obj;
+}
+
 const union = (a, b) => unique([...a, ...b]);
 
 const intersection = (a, b) =>
@@ -1215,6 +1223,7 @@ if(isNode){
         rotate: rotate,
         fixShape: fixShape,
         cellMap: cellMap,
+        mapToObject: mapToObject,
         highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js

@@ -70,13 +70,20 @@ class Color {
                     // convert to rgba
                     entity.push(255);
                 }
-                let [r, g, b, a] = entity;
-                this.r = r % 256;
-                this.g = g % 256;
-                this.b = b % 256;
-                this.a = a % 256;
+                let [r, g, b, a] = entity.map(e => Math.max(0, e % 256));
+                this.r = r;
+                this.g = g;
+                this.b = b;
+                this.a = a;
             }
         }
+    }
+    
+    *[Symbol.iterator](){
+        yield this.r;
+        yield this.g;
+        yield this.b;
+        yield this.a;
     }
     
     static sub(c1, c2){
@@ -86,13 +93,6 @@ class Color {
             c1.b - c2.g,
             Math.min(c1.a, c2.a)
         ]);
-    }
-    
-    *[Symbol.iterator](){
-        yield this.r;
-        yield this.g;
-        yield this.b;
-        yield this.a;
     }
     
     sub(c2){
@@ -184,6 +184,10 @@ class Color {
         return Color.fromCMYK(res);
     }
     
+    repr(){
+        return "new Color(\"" + this + "\")";
+    }
+    
     toString(mode = "hex"){
         switch(mode.toLowerCase()){
             case "hex":
@@ -202,10 +206,9 @@ class Color {
 // absolute equality
 Color.tolerance = 0;
 Color.colors = new Map();
+Color.A_MAX = 256;
 
-// darnit chrome, with color form name not working
-if(!isNode){
-    `white -> #FFFFFF
+`white -> #FFFFFF
 silver -> #C0C0C0
 gray -> #808080
 grey -> #808080
@@ -225,7 +228,6 @@ purple -> #800080`.split("\n").forEach(e => {
     let [name, val] = e.split(" -> ");
     Color.colors.set(name, Color[name] = new Color(val));
 });
-}
 
 if(isNode){
     module.exports = exports.default = Color;

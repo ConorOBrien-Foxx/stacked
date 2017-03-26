@@ -11,6 +11,8 @@ if(typeof require !== "undefined"){
     Icon = require("./icon.js");
     Table = require("./table.js");
     Element = require("./element.js");
+    http = require("http");
+    produceOps = require("./stdlib.js");
     require("./turtle.js");
     let toMerge = require("./funcs.js");
     for(let k of Object.getOwnPropertyNames(toMerge)){
@@ -326,6 +328,7 @@ class Token {
         if(isComment){
             this.type = "comment";
         }
+        
         else if(Array.isArray(str)){
             this.type = "op";
             this.func = str[0];
@@ -334,24 +337,41 @@ class Token {
         else if(str == "."){
             this.type = "accessor";
         }
+        
+        else if(str == "(:"){
+            this.type = "mapStart";
+        }
+        
         else if(/^\s$/.test(str)){
             this.type = "whitespace";
-        } else if(str === "nil"){
+        }
+        
+        else if(str === "nil"){
             this.type = "nil";
             this.value = new Nil;
-        } else if(str.match(/^[_.]?\d[\d.A-Za-z]*$/)){
+        }
+        
+        else if(str.match(/^[_.]?\d[\d.A-Za-z]*$/)){
             this.type = "number";
             this.value = parseNum(str);
-        } else if(ops.has(str)){
+        }
+        
+        else if(ops.has(str)){
             this.type = "op";
             this.name = str;
             this.func = ops.get(str);
-        } else if(str[0] === "'"){
+        }
+        
+        else if(str[0] === "'"){
             this.value = str.slice(1, -1).replace(/''/g, "'");
             this.type = "string";
-        } else if(str === "@."){
+        }
+        
+        else if(str === "@."){
             this.type = "popstack";
-        } else if(str[0] === "@"){
+        }
+        
+        else if(str[0] === "@"){
             this.value = str.slice(1);
             this.type = "setvar";
             if(str[1] === ":"){
@@ -360,32 +380,56 @@ class Token {
             } else if(str[1] === "("){
                 this.type = "setdestruct";
             }
-        } else if(str.match(/^[A-Za-z_]/) || vars.has(str)){
+        }
+        
+        else if(str.match(/^[A-Za-z_]/) || vars.has(str)){
             this.value = str;
             this.type = "word";
-        } else if(str === "["){
+        }
+        
+        else if(str === "["){
             this.type = "funcStart";
-        } else if(str === "]"){
+        }
+        
+        else if(str === "]"){
             this.type = "funcEnd";
-        } else if(str === "("){
+        }
+        
+        else if(str === "("){
             this.type = "arrayStart";
-        } else if(str === "$("){
+        }
+        
+        else if(str === "$("){
             this.type = "funcArrayStart";
-        } else if(str === "#("){
+        }
+        
+        else if(str === "#("){
             this.type = "groupStart";
-        } else if(str.slice(0, 2) === "$'"){
+        }
+        
+        else if(str.slice(0, 2) === "$'"){
             this.type = "charString";
             this.value = new CharString(str.slice(2, -1).replace(/''/g, "'"));
-        } else if(str[0] === "$"){
+        }
+        
+        else if(str[0] === "$"){
             this.type = "quoteFunc";
             this.value = str.slice(1);
-        } else if(str === ")"){
+        }
+        
+        else if(str === ")"){
             this.type = "arrayEnd";
-        } else if(str === "{"){
+        }
+        
+        else if(str === "{"){
             this.type = "lambdaStart";
-        } else if(str === "}"){
+        }
+        
+        else if(str === "}"){
             this.type = "lambdaEnd";
-        } else {
+        }
+        
+        else {
             this.type = "unknown";
         }
     }
@@ -428,6 +472,7 @@ class Func {
         newf.toString = clone(this.toString);
         newf.scope = clone(this.scope);
         newf.modify = this.modify;
+        newf.arity = this.arity;
         newf.displayName = this.displayName;
         return newf;
     }
@@ -468,13 +513,14 @@ class Func {
         let t = new Stacked("", inst.options);
         t.vars = inst.vars;
         t.ops = inst.ops;
-        t.stack = this.arity ? args.slice(0, this.arity) : args;
+        t.stack = isDefined(this.arity) && this.arity !== null ? args.slice(0, this.arity) : args;
         this.exec(t);
         return defined(t.stack.pop(), new Nil);
     }
     
     sanatized(inst, ...args){
-        let k = this.overWith(inst, ...args.map(sanatize));
+        args = args.map(sanatize);
+        let k = this.overWith(inst, ...args);
         return unsanatize(k);
     }
     
@@ -541,7 +587,7 @@ class Func {
     }
     
     toString(){
-        return "[" + defined(this.display, this.body, "<not displayable>").trim() + "]";
+        return "[" + defined(this.display, this.body, "<not displayable>").toString().trim() + "]";
     }
 }
 
@@ -685,1342 +731,6 @@ class Lambda {
 Lambda.prototype.sanatized = Func.prototype.sanatized;
 Lambda.prototype.overWith = Func.prototype.overWith;
 
-const ops = new Map([
-    // todo: fix with charstring
-    ["+", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => a.add(b)],
-        [[String, String], (a, b) => a + b],
-        [[Func, Func], (f, g) => Func.of(
-            function(inst){
-                [f, g].forEach(e => {
-                    inst.stack.push(e);
-                    ops.get("!").exec(inst);
-                });
-            },
-            (f.body + " " + g.body).replace(/ +/g, " ")
-        )],
-    ], 2, { vectorize: true, name: "+" })],
-    ["++", new StackedFunc([
-        [[STP_HAS("concat"), ANY], (a, b) => a.concat(b)],
-        [[Func, Func], function(f, g){
-            let k = new Func((f.body + " " + g.body).replace(/ +/g, " "));
-            k.exec = function(inst){
-                [g, f].forEach(e => {
-                    inst.stack.push(e);
-                    ops.get("!").exec(inst);
-                });
-            }
-            return k;
-        }],
-    ], 2)],
-    ["-", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => a.sub(b)],
-        [[String, String], (s, t) => s.replace(new StRegex(t, "g"), "")],
-    ], 2, { vectorize: true })],
-    ["/", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => a.div(b)],
-        [[String, String], (s, t) => s.replace(RegExp.of(t, "g"), "")],
-        [[STP_FUNC_LIKE, Decimal], (f, d) => {
-            f.arity = d;
-            return f;
-        }],
-    ], 2, { vectorize: true })],
-    ["^", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => a.pow(b)],
-    ], 2, { vectorize: true })],
-    ["*", new StackedFunc([
-        [[Decimal, Decimal],       (a, b) => a.mul(b)],
-        [[Decimal, String],        (a, b) => b.repeat(+a)],
-        [[String, Decimal],        (a, b) => a.repeat(+b)],
-        [[Decimal, String],        (b, a) => a.repeat(+b)],
-        [[STP_FUNC_LIKE, Decimal], function(f, b){
-            let c = Decimal(b);
-            while(c.gt(0)){
-                c = c.sub(1);
-                f.exec(this);
-            }
-        }],
-        [[Decimal, STP_FUNC_LIKE], function(b, f){
-            this.stack.push(f, b);
-            ops.get("*").exec(this);
-        }],
-    ], 2, { vectorize: true })],
-    ["rep", new StackedFunc([
-        [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
-    ], 2, { vectorize: "right" })],
-    [",", new StackedFunc((a, b) => flatten([a, b], 1), 2, { untyped: true })],
-    ["pair", new StackedFunc(
-        (a, b) => [a, b]
-    , 2, { untyped: true })],
-    ["%", new StackedFunc([
-        [[String, String],
-            (a, b) => a.replace(RegExp((a.match(new StRegex(b, "g")) || [])
-                            .map(RegExp.escape)
-                            .join("|"), "g"), "")],
-        [[Decimal, Decimal], (a, b) => a.mod(b)],
-    ], 2, { vectorize: true })],
-    ["mod", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => {
-            var c = a.mod(b);
-            return c.lt(0) ? c.add(b) : c;
-        }],
-    ], 2, { vectorize: true })],
-    // given a function, returns a function that
-    // finds the nth integer after 0 for which
-    // that functon yields a truthy value
-    ["nth", function(){
-        let func = this.stack.pop();
-        if(!FUNC_LIKE(func))
-            error("expected `Func` or `Lambda`, but got `" +
-                typeName(func.constructor) + "` instead.");
-        let k = new Func(func + " nth");
-        k.exec = function(inst){
-            let n = inst.stack.pop();
-            assureTyped(n, Decimal);
-            let last;
-            for(let i = Decimal(0); n.gte(0); i = i.add(1)){
-                if(falsey(func.over(i))) continue;
-                n = n.sub(1);
-                last = i;
-            }
-            inst.stack.push(last);
-        }
-        this.stack.push(k);
-    }],
-    // generators are pretty bad in stacked...
-    // takes a condition P and a generation function F. Instead of iterating from
-    // x = 0... untll P(x), this iterates from x = f(0), f(1), ... until P(f(x)).
-    // yields a function that does this.
-    // ["seqnth", new StackedFunc([
-        // [[STP_FUNC_LIKE, STP_FUNC_LIKE], function(condition, gen){
-            // Func.of();
-        // }],
-    // ], 2)],
-    ["prime", new StackedFunc([
-        [[Decimal], isPrime]
-    ], 1, { vectorize: true })],
-    ["get", new StackedFunc(getFrom, 2, { vectorize: "right", untyped: true })],
-    ["stack", function(){
-        this.stack.push(clone(this.stack));
-    }],
-    ["=", new StackedFunc(
-        (a, b) => Decimal(+equal(a, b)),
-        2,
-        { untyped: true }
-    )],
-    ["!=", new StackedFunc(
-        (a, b) => Decimal(+!equal(a, b)),
-        2,
-        { untyped: true }
-    )],
-    ["eq", new StackedFunc(
-        (a, b) => Decimal(+equal(a, b)),
-        2,
-        { untyped: true, vectorize: true }
-    )],
-    ["neq", new StackedFunc(
-        (a, b) => Decimal(+!equal(a, b)),
-        2,
-        { untyped: true, vectorize: true }
-    )],
-    ["<", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => Decimal(+a.lt(b))],
-        [[String, String], (a, b) => Decimal(+(a < b))]
-    ], 2, { vectorize: true })],
-    ["<", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => Decimal(+a.lt(b))],
-        [[String, String], (a, b) => Decimal(+(a < b))]
-    ], 2, { vectorize: true })],
-    ["<=", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => Decimal(+a.lte(b))],
-        [[String, String], (a, b) => Decimal(+(a <= b))]
-    ], 2, { vectorize: true })],
-    [">", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => Decimal(+a.gt(b))],
-        [[String, String], (a, b) => Decimal(+(a > b))]
-    ], 2, { vectorize: true })],
-    [">=", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => Decimal(+a.gte(b))],
-        [[String, String], (a, b) => Decimal(+(a >= b))]
-    ], 2, { vectorize: true })],
-    ["!", new StackedFunc([
-        [[INTEGER], (a) => factorial(a)],
-        [[String],  function(a){
-            let frepl = (total, fname) => {
-                let oldStack = clone(this.stack);
-                // let append = "";
-                // if(/(?:\s|@)$/.test(fname)){
-                    // append = fname[fname.length - 1];
-                    // fname = fname.slice(0, -1);
-                // }
-                this.execOp(this.ops.get(fname));
-                let res = this.stack.pop();
-                this.stack = oldStack;
-                return res;//+ append;
-            }
-            return a.replace(/%(\w+)/g, (total, varname) => this.getVar(varname))
-                    .replace(/%\{(\w+)}/g, (total, varname) => this.getVar(varname))
-                    .replace(/@(\w+|.+?(?=\s|$|@))/g, frepl)
-                    .replace(/@\{(.+)\}/g, frepl);
-        }],
-        [[STP_FUNC_LIKE], function(f){
-            f.exec(this);
-        }],
-        [[STP_EXECABLE], function(f){
-            f.exec(this);
-        }],
-    ], 1, { vectorize: true })],
-    // volatile
-    ["nexec", function(){
-        console.warn(pp(this.stack));
-        let [k, n] = this.stack.splice(-2);
-        assureTyped(n, Decimal);
-        k.exec(this, +n);
-    }],
-    // divides
-    ["|", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => Decimal(+b.mod(a).eq(0))]
-    ], 2, { vectorize: true })],
-    ["|>", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => range(a, b.add(1))],
-    ], 2, { vectorize: true })],
-    ["..", new StackedFunc([
-        [[Decimal, Decimal], range],
-    ], 2, { vectorize: true })],
-    ["#>", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => range(a, a.add(b.add(1)))],
-    ], 2, { vectorize: true })],
-    [":>", new StackedFunc([
-        [[Decimal], (a) => range(Decimal(0), a)],
-    ], 1, { vectorize: true })],
-    ["~>", new StackedFunc([
-        [[Decimal], (a) => range(Decimal(1), a.add(1))],
-    ], 1, { vectorize: true })],
-    ["~", new StackedFunc([
-        [[Decimal], a => a.floor().add(1).neg()],
-        [[Func], function(f){
-            let k = new Func(f);
-            k.toString = function(){
-                return f.toString() + "~";
-            }
-            k.exec = function(inst){
-                inst.stack.reverse();
-                f.exec(inst);
-            }
-            k.arity = f.arity;
-            k.scope = f.scope;
-            return k;
-        }],
-    ], 1, { vectorize: true })],
-    ["neg", new StackedFunc([
-        [[Decimal], a => a.neg()],
-    ], 1, { vectorize: true })],
-    ["join", new StackedFunc([
-        [[ITERABLE, String], (a, b) => [...a].join(b)],
-    ], 2)],
-    ["split", new StackedFunc([
-        [[String, String], (a, b) => a.split(b)],
-    ], 2)],
-    ["rsplit", new StackedFunc([
-        [[String, String], (a, b) => a.split(new StRegex(b))],
-    ], 2)],
-    ["oneach", new StackedFunc([
-        [[STP_FUNC_LIKE], (f) => {
-            let k = new Func(f + "oneach");
-            k.toString = function(){
-                return f.toString() + " oneach";
-            }
-            // dirty hack, todo: fix it
-            // dear past me: in your dreams.
-            // dear past me's: you guys are so immature
-            // dear all of my past me's: I've fixed it. HAHA.
-            if(f.arity && f.arity == 2){
-                k.exec = function(inst){
-                    let vec = vectorize((a, b) => f.overWith(inst, a, b));
-                    let [e1, e2] = inst.stack.splice(-2);
-                    inst.stack.push(vec(e1, e2));
-                };
-            } else
-                k.exec = function(inst){
-                    let vec = vectorize(e => f.overWith(inst, e));
-                    let entity = inst.stack.pop();
-                    inst.stack.push(vec(entity));
-                };
-            return k;
-        }],
-    ], 1)],
-    ["each", function(){
-        ops.get("oneach").exec(this);
-        ops.get("!").exec(this);
-    }],
-    ["match", new StackedFunc([
-        [[String, String],
-            (str, target) => str.match(new StRegex(target, "g")) || [],
-        ],
-    ], 2, { vectorize: true })],
-    ["frepl", new StackedFunc([
-        [[String, String, String, String],
-            (orig, target, sub, flags) =>
-                orig.replace(new StRegex(target, flags), sub)],
-        [[String, String, STP_FUNC_LIKE, String], function(orig, target, sub, flags){
-            return orig.replace(new StRegex(target, flags), (...a) => sub.sanatized(this, ...a));
-        }],
-    ], 4)],
-    ["recrepl", new StackedFunc([
-        [[String, String, String], 
-            (orig, target, sub) =>
-                recursiveRepl(orig, new StRegex(target, "g"), sub)],
-        [[String, String, STP_FUNC_LIKE], function(orig, target, sub){
-            return recursiveRepl(orig, new StRegex(target, "g"), (...a) => sub.sanatized(this, ...a));
-        }],
-    ], 3)],
-    ["frecrepl", new StackedFunc([
-        [[String, String, String, String], 
-            (orig, target, sub, flags) =>
-                recursiveRepl(orig, new StRegex(target, flags), sub)],
-        [[String, String, STP_FUNC_LIKE, String], function(orig, target, sub, flags){
-            return recursiveRepl(orig, new StRegex(target, flags), (...a) => sub.sanatized(this, ...a));
-        }],
-    ], 4)],
-    ["merge", function(){
-        let k = this.stack.pop();
-        this.stack = this.stack.concat(k);
-    }],
-    ["sgroup", function(){
-        this.stack = [this.stack];
-    }],
-    ["nsgroup", function(){
-        this.stack.push(this.stack.splice(-this.stack.pop()));
-    }],
-    ["debug", new StackedFunc(e => console.log(dispJS(e)), 1, { untyped: true })],
-    ["put", new StackedFunc(
-        function(e){  this.output(e);  },
-        1,
-        { result: false, untyped: true }
-    )],
-    ["rawout", new StackedFunc(
-        function(e){
-            this.output(joinArray(e));
-            this.output("\n");
-        },
-        1,
-        { result: false, untyped: true }
-    )],
-    ["sout", new StackedFunc(
-        function(){
-            this.output(disp(this.stack));
-            this.output("\n");
-        },
-        0,
-        { result: false, untyped: true }
-    )],
-    ["out", new StackedFunc(
-        function(e){
-            this.output(e);
-            this.output("\n");
-        },
-        1,
-        { result: false, untyped: true }
-    )],
-    ["disp", new StackedFunc(function(e){
-        this.output(disp(e));
-        this.output("\n");
-    }, 1, { untyped: true })],
-    ["repr", new StackedFunc(repr, 1, { untyped: true })],
-    ["dup", function(){
-        if(this.stack.length == 0)
-            error("(in `" + (this.displayName || "dup") + "`) popping from an empty stack");
-        let top = this.stack.pop();
-        this.stack.push(top, top);
-    }],
-    ["swap", function(){
-        if(this.stack.length < 2)
-            error("(in `" + (this.displayName || "swap") + "`) popping from an empty stack");
-        let top = this.stack.pop();
-        let secondTop = this.stack.pop();
-        this.stack.push(top, secondTop);
-    }],
-    ["spop", function(){ this.stack.pop(); }],
-    ["drop", new StackedFunc([
-        [[STP_HAS("slice"), Decimal], (a, b) => a.slice(+b)]
-    ], 2, { vectorize: "right" })],
-    ["take", new StackedFunc([
-        [[STP_HAS("slice"), Decimal], (a, b) => a.slice(0, +b)]
-    ], 2, { vectorize: "right" })],
-    ["srev", function(){ this.stack.reverse(); }],
-    ["rev", new StackedFunc([
-        [[String], (e) => [...e].reverse().join("")],
-        [[ITERABLE], (e) => [...e].reverse()],
-    ], 1)],
-    ["behead", new StackedFunc([
-        [[STP_HAS("slice")], e => e.slice(1)],
-    ], 1)],
-    ["head", new StackedFunc([
-        [[STP_HAS("slice")], e => e.slice(0, 1)],
-    ], 1)],
-    ["betail", new StackedFunc([
-        [[STP_HAS("slice")],   a => a.slice(0, -1)],
-    ], 1)],
-    ["tail", new StackedFunc([
-        [[STP_HAS("slice")],   a => a.slice(-1)],
-    ], 1)],
-    ["exec", new StackedFunc([
-        [[STP_EXECABLE], function(f){
-            f.exec(this);
-        }]
-    ], 1)],
-    ["not", new StackedFunc(a => Decimal(+falsey(a)), 1, { untyped: true })],
-    ["ord", new StackedFunc([
-        [[String], a => Decimal(a.charCodeAt())]
-    ], 1, { vectorize: true })],
-    ["chr", new StackedFunc([
-        [[Decimal], a => String.fromCharCode(+a)]
-    ], 1, { vectorize: true })],
-    ["hold", function(){
-        this.hold = true;
-        this.heldString = "";
-        this.oldOut = this.output;
-        this.output = e => this.heldString += pp(e);
-    }],
-    ["release", function(){
-        this.hold = false;
-        this.stack.push(this.heldString);
-        this.output = this.oldOut;
-    }],
-    ["loop", new StackedFunc([
-        [[STP_FUNC_LIKE], function(f){
-            if(this.slow){
-                let k = (f, t) => {
-                    f.exec(t);
-                    let tp = t.stack[t.stack.length - 1];
-                    if(falsey(tp))
-                        return;
-                    return setTimeout(k, DELAY, f, t);
-                }
-                k(f, this);
-            } else {
-                while(true){
-                    f.exec(this);
-                    let k = this.stack.pop();
-                    this.stack.push(k);
-                    if(falsey(k)){
-                        break;
-                    }
-                }
-            }
-        }],
-    ], 1)],
-    ["until", new StackedFunc([
-        [[ANY, STP_FUNC_LIKE, STP_FUNC_LIKE], function(ent, effect, cond){
-            let r = ent;
-            while(true){
-                if(truthy(cond.overWith(this, r))){
-                    this.stack.push(r);
-                    break;
-                }
-                r = effect.overWith(this, r);
-            }
-        }],
-    ], 3)],
-    ["while", function(){
-        let cond = this.stack.pop();
-        let effect = this.stack.pop();
-        while(true){
-            cond.exec(this);
-            let e = this.stack.pop();
-            if(falsey(e)) break;
-            effect.exec(this);
-        }
-    }],
-    ["whilst", function(){
-        let cond = this.stack.pop();
-        let effect = this.stack.pop();
-        while(true){
-            effect.exec(this);
-            cond.exec(this);
-            let e = this.stack.pop();
-            if(falsey(e)) break;
-        }
-    }],
-    ["joingrid", new StackedFunc([
-        [[Array], joinGrid],
-    ], 1)],
-    ["togrid", new StackedFunc([
-        [[String], gridify],
-    ], 1)],
-    ["ungrid", new StackedFunc([
-        [[Array], ungridify],
-    ], 1)],
-    ["DEBUG", function(){
-        console.log(dispJS(this.stack));
-        console.log(this.stack);
-    }],
-    // todo: take from a textarea, maybe
-    // or make another command for that
-    ["input", new StackedFunc(
-        () => parseNum(prompt())
-    , 0, { untyped: true })],
-    ["prompt", StackedFunc.zero(prompt)],
-    ["INPUT",  new StackedFunc(
-        ((e) => parseNum(prompt(e)))
-    , 1, { untyped: true })],
-    ["PROMPT",  new StackedFunc(
-        ((e) => prompt(e))
-    , 1, { untyped: true })],
-    ["for", function(){
-        let [f, min, max] = this.stack.splice(-3);
-        // console.log(f, min, max);
-        assureTyped(f,   Lambda);
-        assureTyped(min, Decimal);
-        assureTyped(max, Decimal);
-        //todo:fix with slow
-        //nvm, slow is evil
-        for(var c = min; c.lte(max); c = c.add(1)){
-            this.stack.push(c);
-            f.exec(this);
-        }
-    }],
-    ["agenda", new StackedFunc([
-        [[Array, STP_FUNC_LIKE], function(agenda, agendaCond){
-            let k = new Func(agenda + " agenda");
-            k.toString = function(){
-                return "#(" + disp(agenda) + " " + disp(agendaCond) + " agenda)";
-            }
-            k.arity = agendaCond.arity;
-            k.exec = function(inst){
-                let args = [];
-                args.push(inst.stack.pop());
-                if(agendaCond.arity && agendaCond.arity === 2){
-                    args.unshift(inst.stack.pop());
-                }
-                let selection = agendaCond.overWith(inst, ...args);
-                inst.stack.push(...args);
-                let todoNext = agenda.get(selection);
-                if(!isDefined(todoNext)){
-                    error("no agenda item at position `" + selection + "`");
-                }
-                todoNext.exec(inst);
-            }
-            return k;
-        }]
-    ], 2)],
-    ["size", new StackedFunc([
-        [[Decimal], a => new Decimal(a.toFixed().length)],
-        [[String], s => new Decimal([...s].length)],
-        [[STP_HAS("length")], a => new Decimal(a.length)]
-    ], 1)],
-    // todo: if/unless fix
-    ["if", function(){
-        let [f, ent] = this.stack.splice(-2);
-        if(!FUNC_LIKE(f))
-            error("type conflict; expected a function-like, received `" + f + "`, which is of type " + typeName(f.constructor));
-        if(truthy(ent))
-            if(f.exec)
-                f.exec(this);
-            else
-                this.stack.push(f);
-    }],
-    ["unless", new StackedFunc(function(f, ent){
-        if(falsey(ent))
-            if(f.exec)
-                f.exec(this);
-            else
-                this.stack.push(f);
-    }, 2, { untyped: true })],
-    ["ifelse", new StackedFunc([
-        [[ANY, ANY, ANY], function(f1, f2, ent){
-            let f = truthy(ent) ? f1 : f2;
-            if(f.exec)
-                f.exec(this);
-            else
-                this.stack.push(f);
-        }],
-    ], 3)],
-    ["slen", function(){
-        this.stack.push(Decimal(this.stack.length));
-    }],
-    ["flush", function(){
-        while(this.stack.length) this.stack.pop();
-    }],
-    ["map", new StackedFunc([
-        [[Array, STP_FUNC_LIKE], function(arr, f){
-            if(f instanceof Lambda){
-                return arr.map((e, i) => f.overWith(this, e, Decimal(i)));
-            } else if(f instanceof Func){
-                return arr.map(e => {
-                    let t = new Stacked("", this.options);
-                    t.vars = this.vars;
-                    t.ops = this.ops;
-                    t.stack.push(e);
-                    f.exec(t);
-                    return defined(t.stack.pop(), new Nil);
-                });
-            }
-        }]
-    ], 2)],
-    // map the stack
-    ["smap", function(){
-        let f = this.stack.pop();
-        this.stack = [this.stack, f];
-        ops.get("map").exec(this);
-        this.stack = this.stack.pop();
-    }],
-    ["sfold", function(){
-        let f = this.stack.pop();
-        if(this.stack.length === 1) return;
-        this.stack = [this.stack.reduce((p, c) => {
-            let t = new Stacked("", this.options);
-            t.stack.push(p, c);
-            f.exec(t);
-            return t.stack.pop();
-        })].reject(falsey);
-    }],
-    ["sfoldr", function(){
-        let f = this.stack.pop();
-        if(this.stack.length === 1) return;
-        this.stack = [this.stack.reverse().reduce((p, c) => {
-            let t = new Stacked("", this.options);
-            t.stack.push(p, c);
-            f.exec(t);
-            return t.stack.pop();
-        })].reject(falsey);
-    }],
-    ["apply", function(){
-        let [arr, f] = this.stack.splice(-2);
-        let isString = typeof arr === "string";
-        let inst = new Stacked("", this.options);
-        inst.stack = [...arr];
-        inst.vars = this.vars;
-        f.exec(inst);
-        this.stack.push(isString ? inst.stack.join("") : inst.stack);
-    }],
-    ["precision", function(){
-        Decimal.set({
-            precision: +this.stack.pop()
-        });
-    }],
-    ["exit", function(){ this.running = false; }],
-    ["ret", function(){ this.running = null; }],
-    ["return", function(){
-        this.stack = [this.stack.pop()];
-        this.running = null;
-    }],
-    ["rand", new StackedFunc([
-        [[Decimal], (a) => a == 0 ? Decimal.random() : a.mul(Decimal.random()).floor()],
-    ], 1, { vectorize: true })],
-    ["nswap", function(){
-        let [a0, a1] = this.stack.splice(-2);
-        [this.stack[a0], this.stack[a1]] = [this.stack[a1], this.stack[a0]];
-    }],
-    ["tobase", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => toBase(a, b)]
-    ], 2, { vectorize: true })],
-    ["antibase", new StackedFunc([
-        [[Array, Decimal], (a, b) => antiBase(a, b)]
-    ], 2)],
-    ["baserep", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => toBaseString(a, b)],
-    ], 2, { vectorize: true })],
-    ["antibaserep", new StackedFunc([
-        [[String, Decimal], (a, b) => antiBaseString(a, b)],
-    ], 2, { vectorize: true })],
-    ["pad", new StackedFunc([
-        [[STP(e => isDefined(e.padStart)), ANY, Decimal], (a, f, len) => a.padStart(len, f)],
-    ], 3)],
-    ["rpad", new StackedFunc([
-        [[STP(e => isDefined(e.padEnd)), ANY, Decimal], (a, f, len) => a.padEnd(len, f)],
-    ], 3)],
-    ["dpad", new StackedFunc([
-        [[STP(e => isDefined(e.padStart)), Decimal],
-            (arr, len) => arr.padStart(len, isString(flatten(arr)[0]) ? " " : Decimal(0))],
-    ], 2, { vectorize: "right" })],
-    ["insert", new StackedFunc(function(func){
-        let k = new Func(func+"insert");
-        k.exec = function(inst){
-            if(!inst.stack.length)
-                error("popping from an empty stack");
-            let ent = inst.stack.pop();
-            if(!(ent instanceof Array))
-                error(typeName(ent.constructor) + " is not insertable");
-            
-            inst.stack.push(ent.length <= 1 ? ent[0] : ent.reduce((p, c) => func.overWith(inst, p, c)));
-        }
-        return k;
-    }, 1, { untyped: true })],
-    ["ffix", new StackedFunc([
-        [[STP_FUNC_LIKE], function(f){
-            f.scope = clone(this.vars);
-            return f;
-        }],
-    ], 1, { vectorize: true })],
-    ["and", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) && truthy(b)))],
-    ], 2, { vectorize: true })],
-    ["or", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) || truthy(b)))],
-    ], 2, { vectorize: true })],
-    ["xor", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) ^ truthy(b)))],
-    ], 2, { vectorize: true })],
-    ["BAND", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => new Decimal(+a & +b)],
-    ], 2, { vectorize: true })],
-    ["BOR", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => new Decimal(+a | +b)],
-    ], 2, { vectorize: true })],
-    ["BXOR", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => new Decimal(+a ^ +b)],
-    ], 2, { vectorize: true })],
-    ["table", new StackedFunc([
-        [[Object, Object, STP_FUNC_LIKE],
-            (a, b, f) => table(a, b, (...args) => f.over(...args))],
-    ], 3)],
-    ["filter", new StackedFunc([
-        [[STP_HAS("filter"), STP_FUNC_LIKE], function(a, f){
-            return a.filter((...args) => {
-                let r = f.overWith(
-                    this,
-                    ...(
-                        isDefined(f.arity) && f.arity !== null
-                            ? args.map(sanatize).slice(0, f.arity + 1)
-                            : args.map(sanatize)
-                    )
-                );
-                // console.log(disp(r));
-                return truthy(r);
-            });
-        }],
-    ], 2)],
-    ["reject", new StackedFunc([
-        [[STP_HAS("filter"), STP_FUNC_LIKE], function(a, f){
-            return a.filter((...args) => {
-                let r = f.overWith(
-                    this,
-                    ...(
-                        isDefined(f.arity) && f.arity !== null
-                            ? args.map(sanatize).slice(0, f.arity + 1)
-                            : args.map(sanatize)
-                    )
-                );
-                // console.log(disp(r));
-                return falsey(r);
-            });
-        }],
-    ], 2)],
-    ["date", new StackedFunc([
-        [[String], (fmt) => formatDate(new Date, fmt)],
-    ], 1, { vectorize: true })],
-    ["plusminus", new StackedFunc([
-        [[Decimal, Decimal], (a, b) => [a.add(b), a.sub(b)]],
-    ], 2, { vectorize: true })],
-    ["cases", function(){
-        let k = new Func("case function");
-        let origArr = this.stack.pop();
-        k.exec = function(inst){
-            let x = inst.stack.pop();
-            let elseCase = null;
-            let arr = [...origArr]; // copy so that in future runs it's not destroyed
-            if(!arr.every(FUNC_LIKE))
-                error("invalid types in `cases`: `"
-                        + arr.find(e => !FUNC_LIKE(e)).toString() + "`");
-            else if(arr.length % 2 == 1)
-                elseCase = arr.pop();
-                // error("missing effect for case (received `" +
-                        // arr.length + "` entities)");
-            let cases = chunk(arr, 2);
-            
-            for(let cse of cases){
-                let [qualifier, result] = cse;
-                if(truthy(qualifier.overWith(inst, x))){
-                    inst.stack.push(result.overWith(inst, x));
-                    return;
-                }
-            }
-            if(!elseCase)
-                error("no matching case for `" + x.toString() + "`");
-            else
-                inst.stack.push(elseCase.overWith(inst, x));    
-        }
-        this.stack.push(k);
-    }],
-    ["fork", function(){
-        let arr = this.stack.pop();
-        if(arr.length !== 3)
-            error("argument vector must be 3, got " + arr.length);
-        let [fa, ga, ha] = arr;
-        let f = (...args) => fa.overWith(this, ...args);
-        let g = (a, b) => ga.overWith(this, a, b);
-        let h = (...args) => ha.overWith(this, ...args);
-        let arity = 1;
-        if(isDefined(fa.arity) && isDefined(ha.arity)){
-            if(fa.arity !== ha.arity && fa.arity !== null && ha.arity !== null)
-                error("(in `fork`) `" + fa + "` and `" + ha + "` have different arities");
-            arity = Math.max(fa.arity, ha.arity);
-        }
-        let k = new Func("");
-        k.exec = function(inst){
-            if(inst.stack.length < arity)
-                error("(in `" + k + "`) popping from an empty stack");
-            let args = arity ? inst.stack.splice(-arity) : [];  
-            let ltine = f(...args);
-            let rtine = h(...args);
-            let res = g(ltine, rtine);
-            inst.stack.push(res);
-        }
-        k.toString = function(){
-            return arr.toString();
-        }
-        k.arity = arity;
-        this.stack.push(k);
-    }],
-    ["hook", function(){
-        let arr = this.stack.pop();
-        if(arr.length !== 2)
-            error("argument vector must be 2, got " + arr.length);
-        let [ga, fa] = arr;
-        let f = a => fa.overWith(this, a);
-        let g = (a, b) => ga.overWith(this, a, b);
-        let k = new Func("");
-        let arity = g.arity;
-        k.exec = function(inst){
-            let arg = inst.stack.pop();
-            let res = g(arg, f(arg));
-            inst.stack.push(res);
-        }
-        k.toString = function(){
-            return arr.toString();
-        }
-        k.arity = arity;
-        this.stack.push(k);
-    }],
-    ["nfloor", new StackedFunc([
-        [[Decimal, Decimal], (n, p) => {
-            let pow10 = Decimal(10).pow(p);
-            return n.times(pow10).floor().div(pow10);
-        }]
-    ], 2, { vectorize: true })],
-    ["nceil", new StackedFunc([
-        [[Decimal, Decimal], (n, p) => {
-            let pow10 = Decimal(10).pow(p);
-            return n.times(pow10).ceil().div(pow10);
-        }]
-    ], 2, { vectorize: true })],
-    ["nround", new StackedFunc([
-        [[Decimal, Decimal], (n, p) => {
-            let pow10 = Decimal(10).pow(p);
-            return n.times(pow10).round().div(pow10);
-        }]
-    ], 2, { vectorize: true })],
-    ["todec", new StackedFunc([
-        [[Decimal], x => x],
-        [[String], parseNum],
-        [[Array], t => parseNum(flatten(t).join(""))],
-    ], 1)],
-    // ["todec", function(){
-        // let t = this.stack.pop();
-        // let res;
-        // if(t.constructor === Decimal){
-            // res = t;
-        // } else if(t.constructor === String){
-            // res = parseNum(t);
-        // } else if(t.constructor === Array){
-            // res = parseNum(flatten(t).join(""));
-        // } else {
-            // error("invalid type `" + t.constructor.name + "`");
-        // }
-        // this.stack.push(res);
-    // }],
-    ["toarr", new StackedFunc([
-        [[ITERABLE], (e) => [...e]],
-    ], 1)],
-    ["tofunc", new StackedFunc(
-        (s) => new Func(s)
-    , 1, { untyped: true })],
-    ["rot", new StackedFunc([
-        [[String, Decimal], rotate],
-        [[ITERABLE, Decimal], (a, n) => rotate([...a], n)],
-    ], 2)],
-    ["index", new StackedFunc([
-        [[ITERABLE, ANY], (ent, n) => {
-            return new Decimal([...ent].newIndexOf(n))
-        }],
-    ], 2, { vectorize: "right" })],
-    ["execeach", function(){
-        let funcArr = this.stack.pop();
-        if(!funcArr.every(FUNC_LIKE))
-            error("expected an array of Lambdas or Funcs, received " + funcArr);
-        let k = new Func("$(" + funcArr.join(" ") + ")execeach");
-        k.exec = function(inst){
-            let e = inst.stack.pop();
-            inst.stack.push(funcArr.map(f => f.overWith(inst, e)));
-        }
-        this.stack.push(k);
-    }],
-    ["hcat", new StackedFunc([
-        [[Array, Array], hcat],
-        [[String, String], hcat],
-    ], 2)],
-    ["chars", new StackedFunc([
-        [[String], (e) => [...e]],
-    ], 1)],
-    ["chunk", new StackedFunc([
-        [[String, Decimal], (a, b) => chunk([...a], b).map(e => e.join(""))],
-        [[REFORMABLE, Decimal], (a, b) => a[REFORM](chunk([...a], b))],
-    ], 2, { vectorize: "right" })],
-    ["chunkby", new StackedFunc([
-        [[ITERABLE, STP_FUNC_LIKE], function(a, f){
-            return chunkBy(a, (...args) => unsanatize(f.overWith(this, ...args.map(sanatize))));
-        }],
-    ], 2)],
-    ["runsof", new StackedFunc([
-        [[Array, STP_FUNC_LIKE], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
-        [[String, STP_FUNC_LIKE], (a, f) => runsOf(a, (x, y) => f.over(x, y))],
-    ], 2)],
-    ["eval", function(){
-        let t = this.stack.pop();
-        new Func(t).exec(this, 2);
-        // this.stack.push(new Func(t));
-        // let k = ops.get("!").exec(this);
-        // if(k instanceof Function) k();
-    }],
-    // todo: add error handling via functions
-    ["evalp", new StackedFunc([
-        [[String], function(s){
-            let k = stacked.silentError;
-            stacked.silentError = true;
-            try {
-                let inst = stacked(s);
-                inst.vars = clone(this.vars);
-                inst.ops = clone(this.ops);
-                stacked.silentError = k;
-                return inst.stack;
-            } catch(e){
-                stacked.silentError = k;
-                return new Nil;
-            }
-        }],
-    ], 1)],
-    ["perm", new StackedFunc([
-        [[Array], permute],
-        [[String], e => permute([...e]).map(e => e.join(""))],
-    ], 1)],
-    ["powerset", new StackedFunc([
-        [[Array], powerSet],
-        [[String], e => powerSet(e).map(e => e.join(""))],
-    ], 1)],
-    // possibly evil
-    ["setprop", new StackedFunc(
-        (a, b, c) => (a[b] = c, a)
-    , 3, { untyped: true })],
-    ["clamp", new StackedFunc([
-        [[Decimal, Decimal, Decimal], (a, min, max) => a.add(max).mod(min).sub(min)],
-    ], 3)],
-    ["animate", new StackedFunc([
-        [[STP_FUNC_LIKE, Decimal, Decimal, Decimal], function(f, min, max, delay){
-            let msDelay = +delay.mul(1000);
-            let rec = (i) => {
-                f.overWith(this, i);
-                if(i.lt(max))
-                    setTimeout(rec, msDelay, i.add(1));
-            }
-            rec(min);
-        }]
-    ], 4)],
-    ["animation", new StackedFunc([
-        [[STP_FUNC_LIKE, Decimal], function(f, d){
-            let n = +d.mul(1000);
-            f.exec(this);
-            let i = setInterval(() => f.exec(this), n);
-            return typeof i === "number" ? new Decimal(i) : i;
-        }]
-    ], 2)],
-    ["stopani", new StackedFunc([
-        [[Decimal], function(d){
-            clearInterval(+d);
-        }],
-        [[Timeout], function(d){
-            clearInterval(d);
-        }],
-    ], 1)],
-    // possibly evil
-    ["typeof", new StackedFunc(
-        (a) => a.constructor
-    , 1, { untyped: true })],
-    ["timeop", function(){
-        let f = this.stack.pop();
-        let start = +new Date;
-        f.exec(this);
-        let end = +new Date;
-        this.stack.push(Decimal(end - start).div(1000));
-    }],
-    ["format", new StackedFunc([
-        [[String, Array], (s, ar) => format(s, ...ar)]
-    ], 2)],
-    // ["grade", new StackedFunc([
-        // [[Array], id],
-    // ], 1)],
-    ["sorted", new StackedFunc([
-        [[REFORMABLE], (a) => a[REFORM](betterSort([...a]))],
-        [[Array], betterSort],
-    ], 1)],
-    ["sortby", new StackedFunc([
-        [[REFORMABLE, STP_FUNC_LIKE], function(a, f){
-            return a[REFORM]([...a].sort((l, r) => f.overWith(this, l, r)));
-        }],
-        [[Array, STP_FUNC_LIKE], function(a, f){
-            return a.sort((l, r) => f.overWith(this, l, r));
-        }],
-    ], 2)],
-    ["transpose", new StackedFunc([
-        [[Array], transpose],
-    ], 1)],
-    ["prefix", new StackedFunc([
-        [[STP_HAS("slice"), Decimal], (a, d) => prefix(a, d)],
-    ], 2, { vectorize: "right" })],
-    ["keys", new StackedFunc([
-        [[STP_HAS("keys")], (a) => sanatize([...a.keys()])]
-    ], 1)],
-    ["values", new StackedFunc([
-        [[STP_HAS("values")], (a) => sanatize([...a.values()])]
-    ], 1)],
-    ["lower", new StackedFunc([
-        [[String], a => a.toLowerCase()]
-    ], 1, { vectorize: true })],
-    ["upper", new StackedFunc([
-        [[String], a => a.toUpperCase()]
-    ], 1, { vectorize: true })],
-    ["wrap", new StackedFunc(
-        (a) => [a]
-    , 1, { untyped: true })],
-    ["flat", new StackedFunc([
-        [[Array], flatten],
-        [[ANY], e => e]
-    ], 1)],
-    ["enflat", new StackedFunc([
-        [[Array, Decimal], (a, b) => flatten(a, +b)],
-        [[ANY, Decimal], e => e]
-    ], 2, { vectorize: "right" })],
-    ["cellmap", new StackedFunc([
-        [[Array, STP_FUNC_LIKE], function(a, f){ return cellMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
-    ], 2)],
-    ["deepmap", new StackedFunc([
-        [[Array, STP_FUNC_LIKE], function(a, f){ return deepMap(a, (...args) => f.overWith(this, ...args.map(sanatize))) }],
-    ], 2)],
-    ["has", new StackedFunc([
-        [[String, ANY],    (a, b) => sanatize(!!a.find(e => equal(e, b)))],
-        [[ITERABLE, ANY],  (a, b) => sanatize(!![...a].find(e => equal(e, b)))],
-    ], 2, { vectorize: "right" })],
-    ["intersection", new StackedFunc([
-        [[ITERABLE, ITERABLE], intersection],
-    ], 2)],
-    ["union", new StackedFunc([
-        [[ITERABLE, ITERABLE], union],
-    ], 2)],
-    ["partition", new StackedFunc([
-        [[ITERABLE, ITERABLE], partition],
-    ], 2)],
-    ["vrep", new StackedFunc([
-        [[String, Decimal], verticalRepeat],
-    ], 2)],
-    ["hrep", new StackedFunc([
-        [[String, Decimal], horizontalRepeat]
-    ], 2)],
-    ["uniq", new StackedFunc([
-        [[String], s => unique(s).join("")],
-        [[ITERABLE], unique],
-    ], 1)],
-    ["periodloop", new StackedFunc([
-        [[ANY, STP_FUNC_LIKE], function(o, f){
-            return periodLoop(o, (...a) => f.sanatized(this, ...a)).result;
-        }],
-    ], 2)],
-    ["periodsteps", new StackedFunc([
-        [[ANY, STP_FUNC_LIKE], function(o, f){
-            return periodLoop(o, (...a) => f.sanatized(this, ...a)).steps;
-        }],
-    ], 2)],
-    ["jsonparse", new StackedFunc([
-        [[String], JSON.parse],
-    ], 1)],
-    ["fixshape", new StackedFunc([
-        [[Array], e => sanatize(fixShape(e))],
-    ], 1)],
-    ["nfixshape", new StackedFunc([
-        [[Array, ANY], (e, x) => sanatize(fixShape(e, x))],
-    ], 2)],
-    ["compose", new StackedFunc([
-        [[Func, Func], (a, b) => {
-            let k = new Func(a + " " + b + " compose");
-            k.exec = function(inst){
-                a.exec(inst);
-                b.exec(inst);
-            }
-            return k;
-        }],
-        // [[Func, Func], (a, b) => new Func(a.body + " " + b.body)],
-    ], 2)],
-    ["alert", new StackedFunc(
-        e => alert(e)
-    , 1, { untyped: true })],
-    ["download", new StackedFunc([
-        [
-            [ANY, ANY, String],
-            (content, name, type) => download(content.toString(), name.toString(), type)
-        ],
-    ], 3)],
-    ["forget", function(){
-        let nextTok = this.toks[++this.index];
-        if(nextTok.type === "setfunc"){
-            this.ops.delete(nextTok.value);
-        } else if(nextTok.type === "setvar"){
-            this.vars.delete(nextTok.value);
-        } else if(nextTok.type === "word"){
-            switch(nextTok.value){
-                case "all":
-                    this.vars = clone(vars);
-                    this.ops = clone(ops);
-                    break;
-                case "about":
-                    if(this.toks[this.index + 1].value === "it"
-                    && this.toks[this.index + 1].type === "word"){
-                        this.index++;
-                        this.output("No, seriously, forget about it!");
-                    }
-                    break;
-                default:
-                    error("unknown option `" + nextTok.value + "`");
-                    break;
-            }
-        }
-    }],
-    ["retest", new StackedFunc([
-        [[String, String], (a, b) => new Decimal(+new StRegex(b).test(a))],
-    ], 2)],
-    ["takewhile", new StackedFunc([
-        [[REFORMABLE, STP_FUNC_LIKE], function(a, b){
-            return sanatize(a[REFORM](takeWhile([...a], (...e) => {
-                return unsanatize(b.overWith(this, ...sanatize(e)));
-            })));
-        }]
-    ], 2)],
-    ["cartprod", new StackedFunc([
-        [[REFORMABLE, REFORMABLE], (a, b) =>
-            cartProd([...a], [...b]).exhaust().map(e => a[REFORM](e))
-        ]
-    ], 2)],
-    ["multicartprod", new StackedFunc([
-        [[Array], (a) =>
-            cartProd(...a).exhaust()]
-    ], 1)],
-    ["surround", new StackedFunc([
-        [[String, ANY], surround],
-        [[Array, ANY], surround],
-    ], 2)],
-    ["bytes", new StackedFunc([
-        [[String], (s) => sanatize(bytes(s))],
-    ], 1)],
-    ["fromshape", new StackedFunc([
-        [[Array, ANY], (shpe, f) => {
-            return deepMap(createArray(...shpe.map(e => +e)), () => f);
-        }],
-    ], 2)],
-    ["ofshape", new StackedFunc([
-        [[Array], (shpe) => {
-            return createArray(...shpe.map(e => +e));
-        }],
-    ], 1)],
-    ["shapef", new StackedFunc([
-        [[Array, STP_FUNC_LIKE], function(shpe, f){
-            return deepMap(
-                createArray(
-                    ...shpe.map(e => +e)
-                ),
-                (a, e, i) => f.sanatized(this, i)
-            );
-        }],
-    ], 2)],
-    ["eye", new StackedFunc([
-        [[INTEGER], eye],
-    ], 1, { vectorize: true })],
-    ["program", new StackedFunc([
-        [[], function(){ return this.raw; }],
-    ], 0)],
-    ["shape", new StackedFunc([
-        [[ANY], (a) => sanatize(shape(a))],
-    ], 1)],
-    ["arrparse", new StackedFunc([
-        [[String], parseArr],
-    ], 1, { vectorize: true })],
-    ["trim", new StackedFunc([
-        [[String], (e) => e.trim()],
-    ], 1, { vectorize: true })],
-    ["rtrim", new StackedFunc([
-        [[String], (e) => e.trimRight()],
-    ], 1, { vectorize: true })],
-    ["ltrim", new StackedFunc([
-        [[String], (e) => e.trimLeft()],
-    ], 1, { vectorize: true })],
-    // ["?", new StackedFunc([
-        // [[STP_FUNC_LIKE], function(f){
-            // let k = clone(f);
-            // k.modify = false;
-            // k.toString = function(){
-                // return f.toString() + "?";
-            // }
-            // return k;
-        // }],
-    // ], 1, { vectorize: true })],
-    ["isa", new StackedFunc([
-        [[ANY, ANY], (inst, type) => new Decimal(+StackedFunc.ofUnaryType(type)(inst))],
-    ], 2)],
-    /*
-    (
-      typeString ['' split]
-      typeArray  []
-      
-    */
-    ["typed", new StackedFunc([
-        [[Array], function(arr){
-            if(arr.length % 2){
-                let tmp = arr.pop();
-                arr.push(ANY, tmp);
-            }
-            let typeMap = chunk(arr, 2);
-            let [types, fs] = transpose(typeMap);
-            typeMap = typeMap.map(e => {
-                let [a, b] = e;
-                if(!Array.isArray(a)) a = [a];
-                let nextb = function(...args){
-                    return b.overWith(this, ...args);
-                }
-                return [a, nextb];
-            });
-            let arity = typeMap[0][0].length;
-            let _stkfunc = new StackedFunc(typeMap, arity);
-            let k = new Func("[unprintable typed func]");
-            k.exec = function(inst){
-                // if(arity > inst.stack.length)
-                    // error("(in `typed`) popping from an empty stack");
-                // let args = arity == 0 ? [] : inst.stack.splice(-arity);
-                // let ind = types.findIndex(e => StackedFunc.match(e, ...args));
-                // if(ind == -1)
-                    // error
-                _stkfunc.exec(inst);
-            }
-            k.arity = arity;
-            return k;
-        }],
-    ], 1)],
-    
-    ["pop", new StackedFunc([
-        [[Array], (a) => a.pop()],
-    ], 1)],
-    ["shift", new StackedFunc([
-        [[Array], (a) => a.shift()],
-    ], 1)],
-    ["push", new StackedFunc([
-        [[Array, ANY], (a, b) => (a.push(b), a)],
-    ], 2)],
-    ["rescape", new StackedFunc([
-        [[String], RegExp.escape],
-    ], 1)],
-    // ["extend", function(){
-        // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
-        // let name = this.stack.pop();
-        // let f = this.stack.pop();
-        // let types = this.stack.pop();
-        // console.log(name, f+[], types);
-        // let a = [name, types, (...a) => f.over(...a), types.length, false];
-        // console.log(a);
-        // extendTypedLocale(this.ops, ...a);
-        // // this.ops.set(name, ops.get("name"));
-    // }],
-]);
-
-ops.set("cls", isNode
-    ? () => cls()
-    : () => document.getElementById("stacked-output").innerHTML = "");
-
-// math functions
-let arityOverides = new Map([
-    ["max", 2],
-    ["min", 2],
-]);
-["sqrt", "cbrt", "ln", "pow", "mul", "exp",
- "add", "sub", "log", "div", "cos", "sin",
- "tan", "cosh", "sinh", "tanh", "acos", "asin",
- "atan", "acosh", "asinh", "atanh", "sign",
- "atan2", "log2", "log10", "abs", "ceil",
- "floor", "round", "trunc", "max", "min"].map(name => {
-    let len = arityOverides.has(name) ? arityOverides.get(name) : Decimal[name].length;
-    let k = [...Array(len).keys()]
-            .map(e => String.fromCharCode(97 + e));
-    ops.set(
-        name,
-        new StackedFunc([
-            [k.map(e => Decimal), new Function(
-                ...k,
-                k.map(e => "assureTyped(" + e + ", Decimal)").join(";") +
-                ";\nreturn Decimal(Decimal." + name + "(" + k.join(",") + "))"
-            )]
-        ], len, { vectorize: true })
-    );
-});
-
-const makeAlias = (k, v) => {
-    let n = clone(ops.get(k));
-    if(!n)
-        console.error("no func `" + k + "`");
-    if(v.forEach)
-        v.forEach(e => ops.set(e, n));
-    else
-        ops.set(v, n);
-}
-
-// aliases
-new Map([
-    ["oneach", '"'],
-    ["recrepl", "rrepl"],
-    ["frecrepl", "frrepl"],
-    ["dup", ":"],
-    ["swap", "\\"],
-    ["get", "#"],
-    ["insert", "#/"],
-    ["betail", "curtail"],
-    ["plusminus", ["pm", "±"]],
-    ["sqrt", "√"],
-    ["filter", "accept"],
-    ["neg", "_"],
-    ["mod", "%%"],
-    ["execeach", "#!"],
-    ["eval", "#~"],
-    ["powerset", ["\u2119", "P"]],
-    ["transpose", "tr"],
-    ["intersection", "\u2229"],
-    ["union", "\u222A"],
-    ["has", "\u2208"],
-    [">=", "≥"],
-    ["<=", "≤"],
-    ["not", "¬"],
-    ["rep", "×"],
-    ["!=", "≠"],
-    ["merge", "..."],
-    ["ord", "#."],
-    ["chr", "#:"],
-    ["pair", "#,"],
-    ["antibase", "ab"],
-    ["antibaserep", "abr"],
-    ["tobase", "tb"],
-    ["baserep", ["tbr", "tobaserep"]],
-    ["join", "#`"],
-    ["retest", "rtest"],
-    ["upper", ["upcase", "uc"]],
-    ["lower", ["downcase", "lc", "dc"]],
-    ["chunk", "#<"],
-]).forEach((v, k) => {
-    makeAlias(k, v);
-});
-
 const tokenize = (str, opts = {}) => {
     if(str === "") return [];
     keepWhiteSpace = opts.keepWhiteSpace || false;
@@ -2132,8 +842,9 @@ const tokenize = (str, opts = {}) => {
             }
         }
         // 5. match a function array start, if available (`$(`)
-        // 5b. match a grouping symbol
-        else if(needle("$(") || needle("#(")){
+        // 5b. match a grouping symbol (`#(`)
+        // 5c. match a map symbol (`(:`)
+        else if(needle("$(") || needle("#(") || needle("(:")){
             toks.push(cur() + next());
             advance();
         }
@@ -2301,7 +1012,7 @@ class Stacked {
     constructor(code, opts = {}){
         this.raw = code.raw || code;
         this.ops = clone(opts.ops || ops);
-        this.toks = tokenize(code, this.opts) || [];
+        this.toks = Array.isArray(code) ? code : tokenize(code, this.opts) || [];
         this.index = 0;
         this.stack = [];
         // todo: fix popping from an empty stack
@@ -2395,6 +1106,8 @@ class Stacked {
             this.observeToken.bind(this)(cur, "readOp");
         if(cur.type === "comment"){
             // do nothing, it's a comment.
+        } else if(cur.type === ""){
+            
         } else if(cur.type === "popstack"){
             this.stack.pop();
         } else if(cur.type === "accessor"){
@@ -2402,13 +1115,13 @@ class Stacked {
             let ref = this.toks[this.index].raw;
             let e = this.stack.pop();
             // todo: make proper stack
-            let pt = e[ref];
+            let pt = isDefined(e.get) ? e.get(ref) : e[ref];
             if(!isDefined(pt) || pt.constructor === Function){
                 // todo: perhaps make this a sort of currying?
                 // or it's too unpredicatable
                 error("`" + repr(e) + "` has no property `" + ref + "`");
             }
-            this.stack.push(sanatize(e[ref]));
+            this.stack.push(sanatize(pt));
         } else if(cur.type === "quoteFunc"){
             let k = new Func(cur.value);
             k.toString = function(){ return cur.raw; }
@@ -2418,6 +1131,7 @@ class Stacked {
                 toExec.scope = this.scope;
                 inst.execOp(toExec);
             }
+            k.displayName = cur.raw;
             k.arity = (this.ops.get(cur.value) || { arity: null }).arity;
             this.stack.push(k);
         } else if(["number", "string", "nil", "charString"].includes(cur.type)){
@@ -2464,13 +1178,13 @@ class Stacked {
                 let cur = this.toks[this.index];
                 if(cur.type === "funcStart") depth++;
                 if(cur.type === "funcEnd") depth--;
-                build += cur.raw + " ";
+                build.push(cur);
                 this.index++;
             }
             this.index--;
             if(this.toks[this.index].type !== "funcEnd")
                 error("expected `]`, got EOF");
-            build = build.slice(0, -2); // remove trailing " ]"
+            build = build.slice(0, -1); // remove trailing " ]"
             this.stack.push(new Func(build));
         } else if(cur.type === "funcArrayStart"){
             let arr = [];
@@ -2610,6 +1324,92 @@ class Stacked {
     }
 }
 
+ops = produceOps(Stacked, StackedFunc, StackedPseudoType, Func, Lambda);
+
+ops.set("cls", isNode
+    ? () => cls()
+    : () => document.getElementById("stacked-output").innerHTML = "");
+
+// math functions
+let arityOverides = new Map([
+    ["max", 2],
+    ["min", 2],
+]);
+["sqrt", "cbrt", "ln", "pow", "mul", "exp",
+ "add", "sub", "log", "div", "cos", "sin",
+ "tan", "cosh", "sinh", "tanh", "acos", "asin",
+ "atan", "acosh", "asinh", "atanh", "sign",
+ "atan2", "log2", "log10", "abs", "ceil",
+ "floor", "round", "trunc", "max", "min"].map(name => {
+    let len = arityOverides.has(name) ? arityOverides.get(name) : Decimal[name].length;
+    let k = [...Array(len).keys()]
+            .map(e => String.fromCharCode(97 + e));
+    ops.set(
+        name,
+        new StackedFunc([
+            [k.map(e => Decimal), new Function(
+                ...k,
+                k.map(e => "assureTyped(" + e + ", Decimal)").join(";") +
+                ";\nreturn Decimal(Decimal." + name + "(" + k.join(",") + "))"
+            )]
+        ], len, { vectorize: true })
+    );
+});
+
+const makeAlias = (k, v) => {
+    let n = clone(ops.get(k));
+    if(!n)
+        console.error("no func `" + k + "` to alias");
+    if(v.forEach)
+        v.forEach(e => ops.set(e, n));
+    else
+        ops.set(v, n);
+}
+
+// aliases
+new Map([
+    ["oneach", '"'],
+    ["recrepl", "rrepl"],
+    ["frecrepl", "frrepl"],
+    ["dup", ":"],
+    ["swap", "\\"],
+    ["get", "#"],
+    ["insert", "#/"],
+    ["betail", "curtail"],
+    ["plusminus", ["pm", "±"]],
+    ["sqrt", "√"],
+    ["filter", "accept"],
+    ["neg", "_"],
+    ["mod", "%%"],
+    ["execeach", "#!"],
+    ["eval", "#~"],
+    ["powerset", ["\u2119", "P"]],
+    ["transpose", "tr"],
+    ["intersection", "\u2229"],
+    ["union", "\u222A"],
+    ["has", "\u2208"],
+    [">=", "≥"],
+    ["<=", "≤"],
+    ["not", "¬"],
+    ["rep", "×"],
+    ["!=", "≠"],
+    ["merge", "..."],
+    ["ord", "#."],
+    ["chr", "#:"],
+    ["pair", "#,"],
+    ["antibase", "ab"],
+    ["antibaserep", "abr"],
+    ["tobase", "tb"],
+    ["baserep", ["tbr", "tobaserep"]],
+    ["join", "#`"],
+    ["retest", "rtest"],
+    ["upper", ["upcase", "uc"]],
+    ["lower", ["downcase", "lc", "dc"]],
+    ["chunk", "#<"],
+]).forEach((v, k) => {
+    makeAlias(k, v);
+});
+
 vars.set("typeDecimal", Decimal);
 Decimal.toString = function(){ return "[type Decimal]"; }
 vars.set("typeString", String);
@@ -2717,6 +1517,29 @@ if(isNode){
     // todo: add path.format
     
     bootstrap("[argv 2 get] @:d0");
+    
+    ops.set("rwrite", new StackedFunc([
+        [[http.ServerResponse, String], (resp, text) => {
+            resp.write(text);
+            return resp;
+        }],
+        [[http.ServerResponse, Map], (resp, m) => {
+            resp.writeHeader(200, mapToObject(m));
+            return resp;
+        }],
+    ], 2));
+    ops.set("makeserver", new StackedFunc([
+        [[Lambda], function(f){
+            http.createServer((req, resp) => {
+                f.overWith(this, req, resp);
+            });
+        }],
+    ], 1));
+    ops.set("listen", new StackedFunc([
+        [[http.Server, Decimal], function(server, n){
+            server.listen(+n);
+        }],
+    ], 1));
 }
 
 bootstrap(`
@@ -2898,7 +1721,7 @@ $not $any ++ @:none
 [ofshape $tid deepmap] @:ints
 
 
-['g'    frepl] @:repl
+['g'    frepl] 3/ @:repl
 [''     frepl] @:nrepl
 ['gm'   frepl] @:mrepl
 ['gmi'  frepl] @:mirepl
@@ -3278,9 +2101,14 @@ const aliasPrototype = (klass, alias, name) => {
 // color
 aliasPrototype(Color, "-", "sub");
 aliasPrototype(Color, "=", "equal");
+Color.prototype.repr = function(){
+    let s = this.a == Color.A_MAX - 1
+        ? "'" + this + "' Color"
+        : "(" + [...this].join(" ") + ") Color";
+    return "#(" + s + ")";
+}
 integrate(Color, { merge: true });
 vars.set("colors", Color.colors);
-console.log(Color.colors);
 
 // char string
 class CharString {
