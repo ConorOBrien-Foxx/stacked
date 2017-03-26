@@ -29,7 +29,6 @@
   "dependencies": {
     "clear": "latest",
     "minimist": "latest",
-    "readline-sync": "^1.4.7",
-    "syncprompt": "^1.0.1"
+    "readline-sync": "^1.4.7"
   }
 }
