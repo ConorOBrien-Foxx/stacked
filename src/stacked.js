@@ -1,5 +1,8 @@
 var isNode = false;
 var DEBUG = false;
+let getTimeDebug = () => { return new Date().toString().match(/\d+:\d+:\d+/)[0]; }
+if(DEBUG)
+    console.log("starting process at " + getTimeDebug());
 if(typeof require !== "undefined"){
     isNode = true;
     fs = require("fs");
@@ -14,7 +17,7 @@ if(typeof require !== "undefined"){
     http = require("http");
     produceOps = require("./stdlib.js");
     require("./turtle.js");
-    let toMerge = require("./funcs.js");
+    var toMerge = require("./funcs.js");
     for(let k of Object.getOwnPropertyNames(toMerge)){
         if(k !== "highlight")
             global[k] = toMerge[k];
@@ -71,8 +74,12 @@ if(typeof require !== "undefined"){
     // prompt = require("syncprompt");
     
     readLineSync = require("readline-sync");
+    readline = require("readline");
     prompt = (message = "") => readLineSync.question(message);
 }
+
+if(DEBUG)
+    console.log("done including at " + getTimeDebug());
 
 Timeout = typeof Timeout === "undefined" ? (class X {}) : Timeout;
 
@@ -1012,6 +1019,7 @@ class Stacked {
     constructor(code, opts = {}){
         this.raw = code.raw || code;
         this.ops = clone(opts.ops || ops);
+        this.opts = opts;
         this.toks = Array.isArray(code) ? code : tokenize(code, this.opts) || [];
         this.index = 0;
         this.stack = [];
@@ -1150,7 +1158,7 @@ class Stacked {
         } else if(cur.type === "setdestruct"){
             error("destructuring assignment is yet unimplemented");
         } else if(cur.type === "setvar"){
-            if(this.ops.has(cur.value)){
+            if(!this.opts.overWriteIdentifiers && this.ops.has(cur.value)){
                 error("reserved identifier `" + cur.value + "`");
             }
             if(!this.stack.length)
@@ -1159,14 +1167,16 @@ class Stacked {
         } else if(cur.type === "setfunc"){
             if(!this.stack.length)
                 error("popping from an empty stack (expected a function-like for `" + cur.raw + "`)");
-            else if(ops.has(cur.value)){
+            else if(!this.opts.overWriteIdentifiers && ops.has(cur.value)){
                 error("reserved identifier `" + cur.value + "`");
             }
             let funcToSet = this.stack.pop();
             if(!FUNC_LIKE(funcToSet)){
                 error("invalid function-like `" + funcToSet.toString() + "` for `" + cur.raw + "`");
             }
-            let resultFunc = funcToSet instanceof StackedFunc ? myFunc : function(){
+            // idk why (v) was here
+            /*funcToSet.constructor === StackedFunc ? myFunc : */ 
+            let resultFunc = function(){
                 let myFunc = clone(funcToSet);
                 myFunc.displayName = cur.value;
                 myFunc.modify = defined(resultFunc.modify, funcToSet.modify, true);       // _really_ weird
@@ -1338,8 +1348,43 @@ class Stacked {
         return Stacked.getLastN(this.stack, n, source);
     }
 }
+const sanatize = (ent) => {
+    if(typeof ent === "number") return new Decimal(ent);
+    if(typeof ent === "boolean") return new Decimal(+ent);
+    if(ent instanceof Array) return ent.map(sanatize);
+    return ent;
+}
 
-ops = produceOps(Stacked, StackedFunc, StackedPseudoType, Func, Lambda);
+const unsanatize = (ent) => {
+    if(ent instanceof Decimal)
+        return +ent;
+    else if(ent instanceof Array)
+        return ent.map(unsanatize);
+    else if(ent instanceof Func || ent instanceof Lambda)
+        return (...a) => ent.over(...a.map(sanatize));
+    else
+        return ent;
+}
+
+let prodOpsGlobal = {
+    sanatize: sanatize,
+    unsanatize: unsanatize,
+};
+
+if(isNode){
+    for(let k of Object.getOwnPropertyNames(toMerge)){
+        if(k !== "highlight")
+            prodOpsGlobal[k] = toMerge[k];
+    }
+}
+
+if(DEBUG)
+    console.log("done merging at " + getTimeDebug());
+
+ops = produceOps(Stacked, StackedFunc, StackedPseudoType, Func, Lambda, prodOpsGlobal);
+
+if(DEBUG)
+    console.log("done producing at " + getTimeDebug());
 
 ops.set("cls", isNode
     ? () => cls()
@@ -1446,7 +1491,7 @@ const stacked = (...args) => {
 // code to be executed before program start
 // looks for all vars not in the default scope
 const bootstrap = (code) => {
-    let inst = stacked(code);
+    let inst = stacked(code, { overWriteIdentifiers: true   });
     // find that func
     for(let [key] of inst.ops){
         if(!ops.has(key)){
@@ -1455,6 +1500,8 @@ const bootstrap = (code) => {
         }
     }
 }
+
+bootstrap(produceOps.essential);
 
 const bootstrapExp = (code) => {
     let tOps = clone(ops);
@@ -1532,6 +1579,30 @@ if(isNode){
     // todo: add path.format
     
     bootstrap("[argv 2 get] @:d0");
+    var rl;
+    var initrl = () => {
+        rl = readline.createInterface({
+            input: process.stdin,
+            output: null
+        });
+        rl.pause();
+        rl.linesRead = 0;
+        rl.on("line", (l) => {
+            if(l === "\x1a"){
+                rl.pause();
+            }
+            rl.linesRead++;
+        });
+    }
+    ops.set("online", new StackedFunc([
+        [[Lambda], function(f){
+            initrl();
+            rl.resume();
+            rl.on("line", (input) => {
+                f.overWith(this, input, rl.linesRead);
+            });
+        }],
+    ], 1));
     
     ops.set("rwrite", new StackedFunc([
         [[http.ServerResponse, String], (resp, text) => {
@@ -1555,283 +1626,36 @@ if(isNode){
             server.listen(+n);
         }],
     ], 2));
+    
+    bootstrap(`
+{ content type port :
+    { req resp :
+        resp
+        [
+            ('Content-Type' type) wrap tomap rwrite
+            content rwrite
+        ] req.url '/' = if
+        .end 0/ !
+    } makeserver port listen
+} @:contentport
+{ text_content port :
+    text_content 'text/plain' port contentport
+} @:textport
+{ html_content port :
+    { req resp :
+        resp
+        [
+            ('Content-Type' 'text/html') wrap tomap rwrite
+            html_content rwrite
+        ] req.url '/' = if
+        .end 0/ !
+    } makeserver port listen
+} @:htmlport
+`);
 }
 
-bootstrap(`
-(* degrees to radians *)
-[180 / pi *] 1/ @:torad
-[pi / 180 *] 1/ @:todeg
-
-{ arr skew :
-  [
-    arr size @L
-    L skew - inc :> skew dec #> @inds
-    arr inds get
-  ]
-  [
-    arr skew neg chunk fixshape
-  ] skew 0 >= ifelse
-} 2/ @:infixes
-[: size ~> prefix] 1/ @:inits
-{ a f : a inits f map } 2/ @:onpref
-[prime not] @:notprime
-$(+ + -) { x . : x sign } agenda @:increase
-$(- - +) { x . : x sign } agenda @:decrease
-{ init arr func :
-  arr toarr @arr
-  init arr, func doinsert
-} @:fold
-[sign 1 +] 1/ @:skewsign
-[sgroup tail merge] @:isolate
-[: *] 1/ @:square
-[map flat] 2/ @:flatmap
-[0 >] 1/ @:ispos
-[0 <] 1/ @:isneg
-[0 >=] 1/ @:isnneg
-[0 <=] 1/ @:isnpos
-[0 eq] 1/ @:iszero
-{ x : x } @:id
-{ . x : x } @:sid
-{ . . x : x } @:tid
-[: floor -] @:fpart
-[: fpart -] @:ipart
-$(fpart , ipart) fork @:fipart
-$(ipart , fpart) fork @:ifpart
-[2 tobase] @:bits
-[2 antibase] @:unbits
-[2 tobaserep] @:bin
-[2 antibaserep] @:unbin
-[10 tobase] @:digits
-[10 antibase] @:undigits
-[16 tobaserep] @:tohex
-[16 antibaserep] @:unhex
-[$rev map] @:reveach
-['txt' download] @:savetxt
-[2 /] 1/ @:halve
-[2 *] 1/ @:double
-[1 +] 1/ @:inc
-[1 -] 1/ @:dec
-[0 get] 1/ @:first
-[_1 get] 1/ @:last
-[2 mod 1 eq] 1/ @:odd
-[2 mod 0 eq] 1/ @:even
-{ x : 1 0 x ifelse } 1/ @:truthy
-[truthy not] 1/ @:falsey
-$max #/ @:MAX
-$min #/ @:MIN
-$* #/ @:prod
-$+ #/ @:sum
-$and #/ @:all
-$or #/ @:any
-$not $any ++ @:none
-[95 baserep] @:compnum
-[95 antibaserep] @:decompnum
-{ a b :
-  [
-    b @t
-    a b mod @b
-    t @a
-  ] [b 0 !=] while
-  a isolate
-} oneach @:gcd
-{ a b :
-  a b * abs @num
-  a b gcd @den
-  num den /
-} oneach @:lcm
-{ a f : a [merge f!] map } @:with
-
-{ arr mask :
-  arr { . i : mask i get } accept
-} @:keep
-
-{ a f :
-  a   a f map keep
-} @:fkeep
-
-(
-  [1 <=] [()]               (* return empty array for n <= 1*)
-  [3 <=] { n : (n) }        (* 2 and 3 are prime, so return them *)
-  (* otherwise, we can apply the general divisor alogirthm *)
-  { n :
-    1 n |> @divs
-    divs divs n | keep
-  }
-) cases oneach @:divisors
-
-{ a : a size 0 = } @:empty
-
-(* [lower ptable keys'|'join lower''repl empty] *)
-
-{ ent :
-  ent size rand @ind
-  ent ind get
-} @:randin
-
-{ arr i j : arr [i j nswap] apply } @:exch
-
-{ arr :
-  arr size @n
-  { i :
-    i n .. randin @j
-    arr i j exch @arr
-  } 0 n 2- for
-  arr isolate
-} @:shuf
-
-{ ent : hold ent put release } @:tostr
-
-{ arr e :
-  arr e index @ind
-  arr
-  [ ind neg rot ]
-  ind _1 = unless
-} @:mount
-
-{ a : a perm [a eq none] accept } @:derangements
-
-{ f :
-  f tostr @str
-  'Operation %0 took %1 seconds' (str  f timeop) format out
-} @:time
-
-{ ent :
-  ent { el . build : el build first = } chunkby
-  { run :
-    run first @k
-    (k   run size)
-  } map KeyArray
-} @:rle
-
-[rle toarr $rev map flat] @:flatrle
-
-[2 chunk [rev $rep apply] map flat] @:flatrld
-
-[toarr $rev map flat flatrld] @:rld
-
-[Conway '' CellularAutomata] @:conway
-
-{ c : c repr out [cls c step repr out] 1 animation } @:cellani
-
-{ f d : 0 @i [i f! i inc @i] d animation } @:ani
-
-[#/ !] @:doinsert
-
-[: _ \\ |>]" @:steps
-
-[: disp] @:show
-[: out] @:echo
-[: put] @:say
-
-([3 * 1 +] $halve) $even agenda @:ulamstep
-{ x :
-  (x) @a
-  x { n :
-    n ulamstep
-    dup a swap , @a
-  } [1 =] until
-  a isolate
-} @:ulam
-
-[ofshape $tid deepmap] @:ints
-
-
-['g'    frepl] 3/ @:repl
-[''     frepl] @:nrepl
-['gm'   frepl] @:mrepl
-['gmi'  frepl] @:mirepl
-['gi'   frepl] @:irepl
-['m'    frepl] @:nmrepl
-['mi'   frepl] @:nmirepl
-['i'    frepl] @:nirepl
-['ge'   frepl] @:erepl
-['gme'  frepl] @:emrepl
-['gmie' frepl] @:emirepl
-['gie'  frepl] @:eirepl
-['e'    frepl] @:nerepl
-['ei'   frepl] @:neirepl
-['em'   frepl] @:nemrepl
-['emi'  frepl] @:nemirepl
-['' repl] @:del
-['' rrepl] @:DEL
-[CR del LF split] @:lines
-{ a b : #(a b >) #(a b <) - } @:cmp
-{ ent i :
-  ent i ent size mod #
-} @:modget
-{ shpe e F :
-  e flat @e_flat
-  shpe { i : e_flat i F! } shapef } @:FSHAPE
-{ shpe e :
-  e flat @e_flat
-  shpe { i : e_flat i modget } shapef } @:SHAPE
-{ shpe ent pad_el : shpe ent { ent i :
-  [ent i #] [pad_el] i #(ent size) < ifelse
-} FSHAPE } @:PSHAPE
-[2 * 1 -] 1/ @:tmo
-[2 * 1 +] 1/ @:tpo
-[100 *] 1/ @:hundred
-[1000 *] 1/ @:thousand
-[1e6 *] 1/ @:million
-[1e9 *] 1/ @:billion
-
-(* $notprime? whilst doesn't work *)
-[[:notprime] whilst] @:untilprime
-[$inc untilprime] @:nextprime
-[$dec untilprime] @:prevprime
-
-(
-  [1 <=] []
-  { n :
-    2 [nextprime] [: n |] until
-  }
-) cases" @:minpf
-
-
-(* todo: scoping only directly within lambdas should preserve args? *)
-{ n :
-  () @facs
-  n @m
-  [
-    m minpf @d
-    facs d , @facs
-    m d / @m
-  ] [m 1 >] while
-  facs
-} @:pf
-
-[2000 precision] @:lprec
-
-{ x y :
-  (x y) show $size map MIN @min_len
-  (x y) [min_len take] map tr
-} @:zip
-
-{ f :
-  [zip f #/ map]
-} @:zipwith
-
-[ fixshape ] @:FIX
-{ x y :
-  x y / floor @c1
-  (c1 x c1 -)
-} @:cusp
-
-{ f : {! n f ! n =} } @:invariant
-
-{ f p : [f 0 rand p < if] } @:randomly
-
-{ a i :
-  [a i pop # i rget] [a] i size ifelse
-} @:rget
-
-{ a f : a ... f! } @:spread
-
-(* doesn't work, 'p' undefined *)
-(*{ f : f 0.5 randomly } @:rbinly*)
-
-[stack $disp map @.] @:SOUT
-`);
+if(DEBUG)
+    console.log("done node bootstrapping at " + getTimeDebug());
 
 makeAlias("prod", "\u220f");
 makeAlias("modget", "##");
@@ -1840,15 +1664,35 @@ makeAlias("cmp", "<=>");
 makeAlias("square", "²");
 makeAlias("iszero", "is0");
 makeAlias("doinsert", "#\\");
-makeAlias("doinsert", "fold");
 makeAlias("FIX", "#&");
 makeAlias("inc", "↑");
 makeAlias("inc", "#+");
 makeAlias("dec", "↓");
 makeAlias("dec", "#-");
-makeAlias("reject", "NO");
-makeAlias("accept", "YES");
 
+bootstrap(`
+[1/ reject] 2/ @:NO
+[1/ accept] 2/ @:YES
+`);
+
+// html-related
+bootstrap(`
+{ str tag : '<%tag>%str</%tag>'! } @:entag
+['b' entag] 1/ @:hbold
+['i' entag] 1/ @:hitalic
+['u' entag] 1/ @:hunderline
+['em' entag] 1/ @:hemph
+['strong' entag] 1/ @:hstrong
+['small' entag] 1/ @:hsmall
+['mark' entag] 1/ @:hmark
+['del' entag] 1/ @:hdel
+['ins' entag] 1/ @:hins
+['sub' entag] 1/ @:hsub
+['sup' entag] 1/ @:hsup
+['pre' entag] 1/ @:hpre
+`);
+
+makeAlias("hdel", "hstruck");
 
 // some string functions
 bootstrapExp(`
@@ -1987,24 +1831,6 @@ const extendTypedLocale = (locale, opName, newTypeArr, resultFunc, arity = -1, v
 }
 const extendTyped = (...a) => {
     extendTypedLocale(ops, ...a);
-}
-
-const sanatize = (ent) => {
-    if(typeof ent === "number") return new Decimal(ent);
-    if(typeof ent === "boolean") return new Decimal(+ent);
-    if(ent instanceof Array) return ent.map(sanatize);
-    return ent;
-}
-
-const unsanatize = (ent) => {
-    if(ent instanceof Decimal)
-        return +ent;
-    else if(ent instanceof Array)
-        return ent.map(unsanatize);
-    else if(ent instanceof Func || ent instanceof Lambda)
-        return (...a) => ent.over(...a.map(sanatize));
-    else
-        return ent;
 }
 
 // integrates a class into stacked
@@ -2406,8 +2232,13 @@ stacked.silentError = false;
 stacked.tokenize = tokenize;
 stacked.sanatize = sanatize;
 stacked.unsanatize = unsanatize;
+stacked.init = () => {
+    bootstrap(produceOps.boot);
+}
 
 if(isNode){
     stacked.highlight = highlight;
     module.exports = exports.default = stacked;
+} else {
+    stacked.init();
 }

@@ -1,4 +1,5 @@
- const stacked   = require("./../src/stacked.js");
+const stacked   = require("./../src/stacked.js");
+stacked.init();
 const Decimal   = require("./../src/decimal.js");
 const equal     = require("./../src/funcs.js").equal;
 const defined   = require("./../src/funcs.js").defined;
@@ -449,6 +450,11 @@ tester.testCases = [
     ["(1 2 3) (4 5 6) $+ table", { top: 
         [[5, 6, 7], [6, 7, 8], [7, 8, 9]].map(e => e.map(D))
     }],
+    
+    ["(1 2 3 4 5) [3 =] 1/ filter", { top: [3].map(D) }],
+    ["(1 2 3 4 5) [3 =] 1/ reject", { top: [1, 2, 4, 5].map(D) }],
+    ["(1 2 3 4 5) [3 =] YES", { top: [3].map(D) }],
+    ["(1 2 3 4 5) [3 =] NO", { top: [1, 2, 4, 5].map(D) }],
     
     //--bootstrapped functions
     

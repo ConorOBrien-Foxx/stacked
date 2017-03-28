@@ -43,18 +43,30 @@ if(require.main === module){
 			"f": "file",
             "h": "highlight",
             "o": "outLast",
+            "n": "overStdin",
+            "N": "overStdinPrint",
+            "a": "afterPrint",
+            "A": "afterDisp",
+            "b": "bare",
         },
-        boolean: ["t", "p", "P", "h", "o", "T"],
+        boolean: ["t", "p", "P", "h", "o", "T", "n", "N", "a", "A", "b"],
     });
     let prog;
 	let conf = JSON.parse(readFile(args.config ||
 		path.join(__dirname, "stacked.config")
 	));
+    if(args.overStdinPrint){
+        args.afterPrint = true;
+        args.overStdin = true;
+    }
     if(args.e === true)
         args.e = args.exec = " ";
 	for(let p in conf){
 		args[p] = conf[p];
 	}
+    if(!args.bare)
+        stacked.init();
+    
     if(args.test){
         require("./test/test.js").test();
         return;
@@ -67,6 +79,13 @@ if(require.main === module){
     } else {
         let fileName = args.file ? args.file : args._.shift();
 		prog = readFile(fileName);
+    }
+    if(args.afterPrint)
+        prog += " echo";
+    if(args.afterDisp)
+        prog += " show";
+    if(args.overStdin){
+        prog = "{ L N : L@LINE N@LINENUM N L " + prog + " } online";
     }
     if(args.highlight){
         process.stdout.write(highlight(prog));
