@@ -1070,6 +1070,9 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["jsonparse", new StackedFunc([
             [[String], JSON.parse],
         ], 1)],
+        ["jsonstr", new StackedFunc([
+            [[ANY], JSON.stringify],
+        ], 1)],
         ["fixshape", new StackedFunc([
             [[Array], e => world.sanatize(fixShape(e))],
         ], 1)],

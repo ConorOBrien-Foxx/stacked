@@ -29,6 +29,7 @@
   "dependencies": {
     "clear": "latest",
     "minimist": "latest",
+    "opn": "^4.0.2",
     "readline-sync": "^1.4.7"
   }
 }

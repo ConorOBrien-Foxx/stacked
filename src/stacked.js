@@ -1669,7 +1669,7 @@ makeAlias("inc", "↑");
 makeAlias("inc", "#+");
 makeAlias("dec", "↓");
 makeAlias("dec", "#-");
-
+makeAlias("size", "#'");
 bootstrap(`
 [1/ reject] 2/ @:NO
 [1/ accept] 2/ @:YES
@@ -1678,6 +1678,13 @@ bootstrap(`
 // html-related
 bootstrap(`
 { str tag : '<%tag>%str</%tag>'! } @:entag
+{ str tag attr_map :
+  attr_map toarr ['=' join] map ' ' join @tag_desc
+  '<%tag %tag_desc>%str</%tag>'!
+} @:hdesctag
+{ str tag type :
+  str tag (('type' type)) hdesctag
+} @:hoftype
 ['b' entag] 1/ @:hbold
 ['i' entag] 1/ @:hitalic
 ['u' entag] 1/ @:hunderline
