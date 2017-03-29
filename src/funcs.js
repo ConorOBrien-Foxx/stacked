@@ -1163,7 +1163,7 @@ class StRegex {
         return "/" + this.body + "/" + this.flags;
     }
 }
-StRegex.standardEscapes = [..."abfnrv\\'\"^$*+?.(){}[]" +
+StRegex.standardEscapes = [..."abfnrv\\'\"^$*+?.(){}|[]" +
                               "bBdDwWsS" +
                               "c0123456789"];
 StRegex.escapes = new Map([
