@@ -1107,6 +1107,7 @@ class StRegex {
         // escape flag
         if(flags.indexOf("e") >= 0){
             body = RegExp.escape(body);
+            flags = flags.replace(/e/g, "");
         }
         this.pattern = StRegex.toReg(body, flags);
         this.body = body;
