@@ -986,7 +986,7 @@ const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
 const joinArray = (item) => {
     let trav = (arr, depth = depthOf(arr)) => {
         if(!isDefined(arr)) return "undefined";
-        if(arr instanceof Array)
+        if(Array.isArray(arr))
             if(arr.length === 0)
                 return "()";
             else
@@ -998,7 +998,7 @@ const joinArray = (item) => {
         else
             return arr.toString();
     };
-    if(shape(item).length === 2){
+    if(shape(item).length === 2 && item.every(Array.isArray)){
         return display2d(item);
     }
     return trav(item);
