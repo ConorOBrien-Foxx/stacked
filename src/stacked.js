@@ -6,15 +6,17 @@ if(DEBUG)
 if(typeof require !== "undefined"){
     isNode = true;
     fs = require("fs");
-    utf8 = require("./utf8.js");
-    Decimal = require("./decimal.js");
     path = require("path");
     winpath = path.win32;
+    http = require("http");
+    opn = require("opn");
+    request = require("request");
+    utf8 = require("./utf8.js");
+    Decimal = require("./decimal.js");
     Color = require("./color.js");
     Icon = require("./icon.js");
     Table = require("./table.js");
     Element = require("./element.js");
-    http = require("http");
     produceOps = require("./stdlib.js");
     require("./turtle.js");
     var toMerge = require("./funcs.js");
@@ -937,18 +939,6 @@ const tokenize = (str, opts = {}) => {
     }
     
     return toks.map(e => e instanceof Token ? e : new Token(e));
-        // try {
-            // return new Token(e)
-        // } catch(E) {
-            // if(ignoreError){
-                // let t = new Token("");
-                // t.raw = e;
-                // return t;
-            // }
-            // else
-                // throw E;
-        // }
-    // });
 };
 
 let deconstruct = (str) => {
@@ -1264,8 +1254,10 @@ class Stacked {
             this.index++;
             let isGenerator = this.toks[this.index].raw === "*";
             this.index += isGenerator;
-            if(this.toks[this.index].raw == "!"){
+            if(this.toks[this.index].raw === "!"){
                 args.push("n");
+            } else if(this.toks[this.index].raw === "%"){
+                args.push("x", "y");
             } else {
                 // look for args
                 while(this.toks[this.index].raw !== ":"){
@@ -1466,6 +1458,7 @@ new Map([
     ["upper", ["upcase", "uc"]],
     ["lower", ["downcase", "lc", "dc"]],
     ["chunk", "#<"],
+    ["encodeURI", "encURI"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
@@ -1599,7 +1592,7 @@ if(isNode){
             initrl();
             rl.resume();
             rl.on("line", (input) => {
-                f.overWith(this, input, rl.linesRead);
+                f.overWith(this, input, new Decimal(rl.linesRead));
             });
         }],
     ], 1));
@@ -1626,6 +1619,38 @@ if(isNode){
             server.listen(+n);
         }],
     ], 2));
+    
+    ops.set("readhost", new StackedFunc([
+        [[String, STP_FUNC_LIKE], function(host, callback){
+            http.get({ host: host }, (result) => {
+                let data = "";
+                result.on("data", (chunk) => data += chunk);
+                result.on("end", () => {
+                    callback.overWith(this, data);
+                });
+            });
+            return host;
+        }],
+    ], 2));
+    
+    ops.set("curl", new StackedFunc([
+        [[String, STP_FUNC_LIKE], function(url, callback){
+            request(url, (error, response, body) => {
+                if(!error && response.statusCode === 200){
+                    callback.overWith(this, body);
+                }
+            });
+        }],
+    ], 2));
+    
+    ops.set("opn", new StackedFunc([
+        [[String], (s) => sanatize(opn(s))]
+    ], 1));
+    ops.set("OPN", new StackedFunc([
+        [[String, Map], (s, m) => sanatize(opn(s, mapToObject(m)))]
+    ], 2));
+    
+    // stacked -ne "[8079 N+:@port htmlport'localhost made from %L at port %port'!out]readhost"
     
     bootstrap(`
 { content type port :
@@ -1934,6 +1959,25 @@ const integrate = (klass, opts = {}) => {
             vars.set(staticProp, klass[staticProp]);
         }
     }
+}
+
+
+if(typeof Promise !== "undefined"){
+    ops.set("Promise", new StackedFunc([
+        [[STP_FUNC_LIKE], (func) => {
+            return new Promise((resolve, reject) => {
+                func.overWith(this, resolve, reject);
+            });
+        }],
+    ], 1));
+    ops.set("then", new StackedFunc([
+        [[Promise, STP_FUNC_LIKE], (prom, func) => {
+            prom.then((...a) => {
+                func.overWith(this, ...a);
+            })
+            return prom;
+        }]
+    ], 2));
 }
 
 integrate(Element, { merge: false, methods: ["atomic", "sym", "name", "weight"] });

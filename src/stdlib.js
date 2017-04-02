@@ -10,7 +10,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
     const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "{Integer}");
     const STP_FUNC_LIKE = STP(FUNC_LIKE, "{Func-like}");
     const STP_EXECABLE = STP((e) => isDefined(e.exec), "{Executable}");
-    return new Map([
+    let ops = new Map([
         // todo: fix with charstring
         ["+", new StackedFunc([
             [[Decimal, Decimal], (a, b) => a.add(b)],
@@ -1258,6 +1258,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["tomap", new StackedFunc([
             [[Array], (a) => new Map(a)],
         ], 1)],
+        ["encodeURI", new StackedFunc([[[String], encodeURIComponent]], 1)],
         // ["extend", function(){
             // // (typeString typeDecimal) { a b : a tostr b tostr + } '+' extend
             // let name = this.stack.pop();
@@ -1270,6 +1271,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             // // this.ops.set(name, ops.get("name"));
         // }],
     ]);
+    return ops;
 }
 
 let essential = `

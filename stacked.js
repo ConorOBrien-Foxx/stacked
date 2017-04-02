@@ -85,7 +85,7 @@ if(require.main === module){
     if(args.afterDisp)
         prog += " show";
     if(args.overStdin){
-        prog = "{ L N : L@LINE N@LINENUM N L " + prog + " } online";
+        prog = "{ L N : L@LINE $exit 26 #: L = if N@LINENUM N L " + prog + " } online";
     }
     if(args.highlight){
         process.stdout.write(highlight(prog));
