@@ -1400,9 +1400,7 @@ let arityOverides = new Map([
         name,
         new StackedFunc([
             [k.map(e => Decimal), new Function(
-                ...k,
-                k.map(e => "assureTyped(" + e + ", Decimal)").join(";") +
-                ";\nreturn Decimal(Decimal." + name + "(" + k.join(",") + "))"
+                ...k, "return Decimal(Decimal." + name + "(" + k.join(",") + "))"
             )]
         ], len, { vectorize: true })
     );
@@ -1907,7 +1905,7 @@ const integrate = (klass, opts = {}) => {
         let arity = klass.prototype[prop].length;
         let body = function(){
             let instance = this.stack.pop();
-            assureTyped(instance, klass);
+            assureTyped(instance, klass, this.displayName);
             let args = this.stack.splice(-arity);
             if(opts.sanatize) args = args.map(unsanatize);
             this.stack.push(sanatize(instance[prop](...args)));
@@ -2011,7 +2009,7 @@ class CharString {
     }
     
     [EQUAL](y){
-        assureTyped(y, CharString);
+        assureTyped(y, CharString, "[EQUAL]");
         return equal(this.members, y.members);
     }
     
@@ -2038,7 +2036,7 @@ class CharString {
     
     add(c){
         // return this.concat(c);
-        assureTyped(c, CharString);
+        assureTyped(c, CharString, "add");
         return new CharString([...this, ...c]);
     }
     
@@ -2075,7 +2073,7 @@ class CharString {
     }
     
     eq(c){
-        assureTyped(c, CharString);
+        assureTyped(c, CharString, "eq");
         if(c.length !== this.length){
             error("dimension error");
         }
@@ -2095,7 +2093,7 @@ CharString.prototype[VECTORABLE] = true;
 
 aliasPrototype(CharString, "+", "add");
 
-integrate(CharString, { merge: true, ignore: "slice" });
+integrate(CharString, { merge: true, ignore: ["slice", "exch"] });
 
 makeAlias("CharString", "CS");
 
@@ -2197,13 +2195,13 @@ class GeneratorFactory {
     }
     
     static next(stackGen){
-        assureTyped(stackGen, StackedGenerator);
+        assureTyped(stackGen, StackedGenerator, "next");
         return stackGen.next();
     }
     
     static exhaust(stackGen){
-        assureTyped(stackGen, StackedGenerator);
-        
+        assureTyped(stackGen, StackedGenerator, "exhaust");
+        // nope
     }
 }
 

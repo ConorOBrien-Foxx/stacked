@@ -1058,17 +1058,18 @@ const takeWhile = (list, f) => {
     return list.slice(0, i);
 }
 
-const assureTyped = (obj, type) => {
+const assureTyped = (obj, type, source) => {
+    let s = source ? "(in `" + source + "`) " : "";
     if(typeof type !== "function")
         throw new Error(type + " is not a type thingy...");
     
     if(!isDefined(obj))
-        error("popping from an empty stack");
+        error(s + "popping from an empty stack");
     
     if(obj.constructor === type || obj instanceof type)
         return true;
     
-    error("type conflict; expected " + typeName(type) +
+    error(s + "type conflict; expected " + typeName(type) +
         ", received `" + obj + "`, which is of type " +
         typeName(obj.constructor));
 }

@@ -101,7 +101,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             let k = new Func(func + " nth");
             k.exec = function(inst){
                 let n = inst.stack.pop();
-                assureTyped(n, Decimal);
+                assureTyped(n, Decimal, ">nth");
                 let last;
                 for(let i = Decimal(0); n.gte(0); i = i.add(1)){
                     if(falsey(func.over(i))) continue;
@@ -199,7 +199,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["nexec", function(){
             console.warn(pp(this.stack));
             let [k, n] = this.stack.splice(-2);
-            assureTyped(n, Decimal);
+            assureTyped(n, Decimal, "nexec");
             k.exec(this, +n);
         }],
         // divides
@@ -495,9 +495,9 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["for", function(){
             let [f, min, max] = this.stack.splice(-3);
             // console.log(f, min, max);
-            assureTyped(f,   Lambda);
-            assureTyped(min, Decimal);
-            assureTyped(max, Decimal);
+            assureTyped(f,   Lambda, "for");
+            assureTyped(min, Decimal, "for");
+            assureTyped(max, Decimal, "for");
             //todo:fix with slow
             //nvm, slow is evil
             for(var c = min; c.lte(max); c = c.add(1)){
