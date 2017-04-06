@@ -878,9 +878,12 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             if(!funcArr.every(FUNC_LIKE))
                 error("expected an array of Lambdas or Funcs, received " + funcArr);
             let k = new Func("$(" + funcArr.join(" ") + ")execeach");
+            console.log(funcArr[0].arity);
+            let maxArity = Math.max(0, ...funcArr.map(e => e.arity))
             k.exec = function(inst){
-                let e = inst.stack.pop();
-                inst.stack.push(funcArr.map(f => f.overWith(inst, e)));
+                let e = inst.getLastN(maxArity, ">execeach");
+                // console.log(inst.stack+[], maxArity, e);
+                inst.stack.push(funcArr.map(f => f.overWith(inst, ...e)));
             }
             this.stack.push(k);
         }],
@@ -1281,7 +1284,7 @@ let essential = `
 [2 antibaserep] @:unbin
 [10 tobase] @:digits
 [10 antibase] @:undigits
-[16 tobaserep] @:tohex
+[16 tobaserep] @:hex
 [16 antibaserep] @:unhex
 
 { x y :
