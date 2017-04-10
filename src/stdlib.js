@@ -1343,6 +1343,7 @@ $not $any ++ @:none
 `;
 
 let k = `
+[map @.] @:nmap
 (* degrees to radians *)
 [180 / pi *] 1/ @:torad
 [pi / 180 *] 1/ @:todeg
@@ -1486,7 +1487,6 @@ $(ipart , fpart) fork @:ifpart
 } @:ulam
 
 [ofshape $tid deepmap] @:ints
-
 
 ['g'    frepl] 3/ @:repl
 [''     frepl] @:nrepl

@@ -1019,7 +1019,7 @@ const joinGrid = (item) => {
 };
 
 const disp = (item) => {
-    if(shape(item).length === 2){
+    if(item.every && item.every(Array.isArray) && shape(item).length === 2){
         return display2d(item, repr);
         // return display2d(item, disp);
     }

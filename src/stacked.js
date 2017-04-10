@@ -1,3 +1,13 @@
+/*
+ * stacked.js
+ * ----------
+ * In the code, there are things like:
+ *   NOTE: asdf
+ *   TODO: asdf
+ * The former describes potentially code-breaking problems, and the former
+ * is a sign of the author's laziness and/or confusion.
+ */
+
 var isNode = false;
 var DEBUG = false;
 let getTimeDebug = () => { return new Date().toString().match(/\d+:\d+:\d+/)[0]; }
@@ -90,26 +100,39 @@ const errorColor = isNode ? (x) => `\x1b[31m${x}\x1b[0m` : (x) => x;
 const DELAY = 200;
 
 silentError = false;
-error = (err) => {
+error = function(err){
+    let body = "";
+    if(this instanceof Stacked && this.index < this.toks.length){
+        console.log(this.toks[this.index]);
+        body += this.toks[this.index].diagnostic() + " ";
+    }
+    body += "error: ";
+    body += err;
     if(!silentError){
         try {
-            new Stacked("").output("error: " + err);
+            new Stacked("").output(body);
         } catch(e){
             throw new Error(err);
         }
-        throw new Error("haha have fun");
+        throw new Error(body);
     } else
-        throw new Error("error: " + err);
+        throw new Error(body);
 };
 
 if(isNode){
-    error = (e) => {
+    error = function(e){
+        let body = "";
+        if(this instanceof Stacked && this.index < this.toks.length){
+            body += this.toks[this.index].diagnostic() + " ";
+        }
+        body += "error: ";
+        body += err;
         let hasStacked = false;
         try { stacked; hasStacked = true } catch(e) {}
         if(hasStacked && stacked.silentError)
-            throw new Error(e);
+            throw new Error(body);
         else {
-            console.error("error: " +e);
+            console.error(body);
             process.exit(1);
         }
     }
@@ -326,9 +349,13 @@ function func(f, merge = false, refs = [], arity = f.length){
 // }
 
 class Token {
-    constructor(str, isComment){
+    constructor(str, isComment, start, end, line, column){
         this.raw = str;
         this.isComment = isComment;
+        this.start = start;
+        this.end = end;
+        this.line = line;
+        this.column = column;
         if(str instanceof Token){
             this.raw = str = str.raw;
             this.isComment = str.isComment;
@@ -449,7 +476,7 @@ class Token {
     
     // given a Func, yields an op that performs that func
     static from(func){
-        let k = new Token("");
+        let k = new Token("", false, null, null);
         k.raw = repr(func);
         k.type = "op";
         if(func instanceof Func)
@@ -459,6 +486,10 @@ class Token {
         else
             error("bad type to Token.from");
         return k;
+    }
+    
+    diagnostic(){
+        return "(" + this.line + ":" + this.column + ")";
     }
     
     toString(){
@@ -555,7 +586,7 @@ class Func {
         } else if(scoping === 0){
             return;
         } else {
-            error("invalid scoping degree `" + scoping + "`");
+            error.bind(inst)("invalid scoping degree `" + scoping + "`");
         }
     }
     
@@ -596,7 +627,10 @@ class Func {
     }
     
     toString(){
-        return "[" + defined(this.display, this.body, "<not displayable>").toString().trim() + "]";
+        let k = defined(this.display, this.body, "<not displayable>");
+        if(Array.isArray(k))
+            k = k.map(e => defined(e.raw, e).toString()).join(" ");
+        return "[" + k.trim() + "]";
     }
 }
 
@@ -673,7 +707,7 @@ class Lambda {
             stackArguments = [];
         else
             if(inst.stack.length < this.args.length)
-                error("insufficient arguments passed to `" + (this.displayName || this.name || this.toString()) + "`");
+                error.bind(inst)("insufficient arguments passed to `" + (this.displayName || this.name || this.toString()) + "`");
             else
                 stackArguments = inst.stack[this.modify ? "splice" : "slice"](-this.args.length);
         for(let i = 0; i < this.args.length; i++){
@@ -720,7 +754,7 @@ class Lambda {
         } else if(scoping === 0){
             return;
         } else {
-            error("invalid scoping degree `" + scoping + "`");
+            error.bind(inst)("invalid scoping degree `" + scoping + "`");
         }
     }
     
@@ -729,11 +763,17 @@ class Lambda {
     }
     
     toString(){
-        return "{ " +
-            this.args.map(e => e === "" ? "." : e).join(" ") +
-            " : " +
-            this.body.trim()
-            + " }";
+        let k = defined(this.display, this.body, "<not displayable>");
+        if(Array.isArray(k))
+            k = k.map(e => defined(e.raw, e).toString()).join("");
+        k = k.toString().trim();
+        return [
+            "{",
+            ...this.args.map(e => e === "" ? "." : e),
+            ":",
+            k,
+            "}"
+        ].join(" ");
     }
 }
 
@@ -759,37 +799,67 @@ const tokenize = (str, opts = {}) => {
     let toks = [];
     // given a word, determines if that word exists at this index
     let i = 0;
+    let line = 1;
+    let column = 0;
     let needle = (word) =>
         str.indexOf(word, i) === i;
     let isDigit = (d) => (/[0-9]/.test(d));
     let isAlphaNumeric = (d) => (/[A-Za-z0-9]/.test(d));
     let isDigitPrefix = (d) => "_.".has(d);
+    let isWhiteSpace = (d) => (/^\s$/.test(d));
     let cur = () => str[i];
     let peekNext = () => str[i + 1];
-    let curAdvance = () => str[i++];
-    let next = () => str[++i];
-    let advance = (n = 1) => i += n;
+    let curAdvance = () => {
+        column++;
+        return str[i++];
+    }
+    let next = () => {
+        column++;
+        return str[++i];
+    }
+    let advance = (n = 1) => {
+        column += n;
+        i += n;
+        return i;
+    }
     let isStringPrefix = (d) => d === "'";
     let hasCharsLeft = () => i < str.length;
     let isAlpha = (d) => (/[A-Za-z]/.test(d));
     let isIdentifierPrefix = isAlpha;
     let isIdentifier = (d) => isAlphaNumeric(d) || d === "_";
+    let addToken = (val, start = i, comment = false, end = start + val.length) => {
+        toks.push(new Token(val, comment, start, end, line, column - val.length + 1));
+    }
     tokenizeLoop: while(hasCharsLeft()){
         // 0. skip whitespace
-        if(/^\s$/.test(cur())){
+        if(isWhiteSpace(cur())){
+            let build = "";
+            let start = i;
+            let afterLine = line;
+            let afterColumn = column;
+            while(isWhiteSpace(cur())){
+                if(cur() == "\r" || cur() == "\n"){
+                    afterLine++;
+                    afterColumn = 0;
+                }
+                build += cur();
+                advance();
+            }
             if(keepWhiteSpace)
-                toks.push(cur());
-            advance();
+                addToken(build, start);
+            line = afterLine;
+            column = afterColumn;
         }
         // 1. tokenize `nil` if available
         else if(needle("nil")){
+            addToken("nil");
             advance(3);
-            toks.push("nil");
         }
         // 2. tokenize a number, if available.
         // regex: (?:_?\\.?\\d[a-zA-Z0-9.]*)
         else if((isDigitPrefix(cur()) && isDigit(peekNext())) || isDigit(cur())){
             let build = "";
+            let start = i;
             if(isDigitPrefix(cur())){
                 build += curAdvance();
             }
@@ -797,13 +867,14 @@ const tokenize = (str, opts = {}) => {
             while((isAlphaNumeric(cur()) || cur() === ".") && hasCharsLeft()){
                 build += curAdvance();
             }
-            toks.push(build);
+            addToken(build, start);
         }
         
         // 3. tokenize a string, if available.
         // 3b. or a char string
         else if(isStringPrefix(cur()) || needle("$'")){
             let build = cur();
+            let start = i;
             if(cur() === '$'){
                 build += next();
             }
@@ -819,7 +890,7 @@ const tokenize = (str, opts = {}) => {
                 }
             }
             advance();
-            toks.push(build + "'");
+            addToken(build + "'", start);
         }
         // // 3c. or a data string
         // else if(needle("`")){
@@ -827,61 +898,61 @@ const tokenize = (str, opts = {}) => {
         // }
         // 4. match a comment start symbol, if available
         else if(needle("(*")){
-            let commentDepth = 1;
-            let queue = [];
-            queue.push(cur() + next());
-            advance(); // remove initial (*
-            while(commentDepth && hasCharsLeft()){
+            let commentDepth = 0;
+            let start = i;
+            let build = "";
+            while(hasCharsLeft()){
                 if(needle("(*")){
                     commentDepth++;
-                    queue.push(cur() + next());
-                    advance();
+                    build += cur() + next();
                 } else if(needle("*)")){
                     commentDepth--;
-                    queue.push(cur() + next());
-                    advance();
+                    build += cur() + next();
                 } else {
-                    queue.push(cur());
-                    advance();
+                    build += cur();
                 }
+                advance();
+                if(commentDepth <= 0) break;
             }
-            while(queue.length){
-                let t = new Token(queue.shift(), true);
-                toks.push(t);
-            }
+            addToken(build, start, true);
         }
         // 5. match a function array start, if available (`$(`)
         // 5b. match a grouping symbol (`#(`)
         // 5c. match a map symbol (`(:`)
         else if(needle("$(") || needle("#(") || needle("(:")){
-            toks.push(cur() + next());
+            let start = i;
+            addToken(cur() + next(), i);
             advance();
         }
         // 6. match any brace character
         else if("()[]{}".split("").some(needle)){
-            toks.push(curAdvance());
+            addToken(cur());
+            advance();
         }
         // 7. match:
         // 7a. words          e.g. `foo`
         else if(isIdentifierPrefix(cur())){
             let build = curAdvance();
+            let start = i;
             while(isIdentifier(cur()) && hasCharsLeft()){
                 build += curAdvance();
             }
-            toks.push(build);
+            addToken(build, i);
         }
         // 7b. setvars        e.g. `@foo`
         // 7c. setfuncs       e.g. `@:foo`
         // 7d. setdestruct    e.g. `@(a b)`
         else if(needle("@:") || needle("@") || needle("@(")){
             let build = curAdvance();
+            let start = i;
             if(needle("(")){
                 build += curAdvance();
                 let parenDepth = 1;
-                while(parenDepth){
+                while(hasCharsLeft() && parenDepth){
                     if(cur() === "(") parenDepth++;
                     else if(cur() === ")") parenDepth--;
-                    build += curAdvance();
+                    build += cur();
+                    advance();
                 }
             } else {
                 if(needle(":")) build += curAdvance();
@@ -892,53 +963,61 @@ const tokenize = (str, opts = {}) => {
                         build += curAdvance();
                     }
             }
-            toks.push(build);
+            addToken(build, i);
         }
         // 8. quotefuncs     e.g. `$foo` or `$<sym>... `
         else if(needle("$")){
-            let build = curAdvance();
+            let build = cur();
+            let start = i;
+            advance();
             for(let name of opNames){
                 if(needle(name)){
+                    addToken("$" + name, start);
                     advance(name.length);
-                    toks.push("$" + name);
                     continue tokenizeLoop;
                 }
             }
             let condition = isAlpha(cur()) ? isIdentifier : (d) => (!/^\s$/.test(d));
             while(condition(cur()) && hasCharsLeft()){
-                build += curAdvance();
+                build += cur();
+                advance();
             }
-            toks.push(build);
+            addToken(build, start);
         }
         // 9. tokenize an operator, if avaialable
+        // NOTE: this might be nice to have before word tokenization, for if there
+        // was ever an operator such as `asd#a`, it would be tokenized as
+        //    'asd'  '#'  'a'
+        // instead of the desired token. This code as of now is really only good
+        // for tokenzie symbolic operators...
         else {
             for(let name of opNames){
                 if(needle(name)){
+                    addToken(name, i);
                     advance(name.length);
-                    toks.push(name);
                     continue tokenizeLoop;
                 }
             }
             for(let name of varNames){
                 if(needle(name)){
+                    addToken(name, i);
                     advance(name.length);
-                    toks.push(name);
                     continue tokenizeLoop;
                 }
             }
             // 10. match a blank
             if(needle(".")){
-                toks.push(cur());
+                addToken(cur());
                 advance();
             } else {
                 // 11. make sure these error
-                toks.push(new Token(cur()));
+                addToken(cur());
                 advance();
             }
         }
     }
     
-    return toks.map(e => e instanceof Token ? e : new Token(e));
+    return toks;//.map(e => e instanceof Token ? e : new Token(e));
 };
 
 let deconstruct = (str) => {
@@ -956,6 +1035,9 @@ let deconstruct = (str) => {
                     else if(toks[i].type === "arrayEnd") depth--;
                     capture.push(toks[i]);
                     i++;
+                }
+                if(i === toks.length - 1 && toks[i - 1].type !== "arrayEnd"){
+                    error("was looking for `)`, unexpected end");
                 }
                 i--;
                 capture.pop();
@@ -1086,13 +1168,24 @@ class Stacked {
         // return this.toks.slice(this.index - 2, this.index + 2).join(" ");
     }
     
-    getVar(name){
-        for(let [key, val] of this.vars){
-            if(key.toString() === name)
-                return val;
+    getVar(obj){
+        let name;
+        let isToken = null;
+        if(obj.constructor === Token){
+            isToken = true;
+            name = obj.raw;
+        } else {
+            name = obj.toString();
         }
-        // console.log(name, this.vars.get(name));
-        error("undefined variable `" + name + "`\n" + this.trace());
+        if(this.vars.has(name))
+            return this.vars.get(name);
+        let msg = "undefined variable `" + name + "`";
+        // if(isToken)
+            // msg += " at " + obj.diagnostic();
+        msg += "\n";
+        msg += this.trace();
+        error.bind(this)(msg);
+        // error(msg);
     }
     
     setVar(name, val){
@@ -1185,7 +1278,9 @@ class Stacked {
             let depth = 1;
             let build = [];
             this.index++;
-            while(depth && this.index < this.toks.length){
+            while(depth){
+                if(this.index >= this.toks.length)
+                    error("unexpected parse end while looking for `]`");
                 let cur = this.toks[this.index];
                 if(cur.type === "funcStart") depth++;
                 if(cur.type === "funcEnd") depth--;
@@ -1235,7 +1330,9 @@ class Stacked {
             let build = "";
             let depth = 1;
             this.index++;
-            while(depth && this.index < this.toks.length){
+            while(depth){
+                if(this.index >= this.toks.length)
+                    error("unexpected parse end while looking for `)`");
                 let cur = this.toks[this.index];
                 if(cur.type === "arrayStart") depth++;
                 if(cur.type === "arrayEnd") depth--;
@@ -1269,7 +1366,7 @@ class Stacked {
                     }
                     this.index++;
                     if(!isDefined(this.toks[this.index])){
-                        error("unexpected end in lambda while looking for `:`");
+                        error("unexpected parse end while looking for `:`");
                     }
                 }
             }
@@ -1277,7 +1374,9 @@ class Stacked {
             // parse body
             let build = "";
             let depth = 1;
-            while(depth && this.index < this.toks.length){
+            while(depth){
+                if(this.index >= this.toks.length)
+                    error("unexpected parse end while looking for `}`");
                 let cur = this.toks[this.index];
                 if(cur.type === "lambdaStart") depth++;
                 if(cur.type === "lambdaEnd") depth--;
@@ -1291,7 +1390,7 @@ class Stacked {
                 res = new GeneratorFactory(res);
             this.stack.push(res);
         } else if(cur.type === "word"){
-            this.stack.push(this.getVar(cur.raw));
+            this.stack.push(this.getVar(cur));
         } else {
             error("Invalid character `" + cur.raw + "` (token type `" + cur.type + "`)");
         }
@@ -1457,6 +1556,7 @@ new Map([
     ["lower", ["downcase", "lc", "dc"]],
     ["chunk", "#<"],
     ["encodeURI", "encURI"],
+    ["if", "?"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
@@ -1832,6 +1932,13 @@ export @lorem
 `);
 
 makeAlias("encap", "capitalize");
+makeAlias("swapcase", "sc");
+makeAlias("lower", "downcase");
+makeAlias("lower", "lc");
+makeAlias("lower", "dc");
+makeAlias("upper", "upcase");
+makeAlias("upper", "uc");
+makeAlias("swapcase", "sc");
 makeAlias("titlecase", "tc");
 makeAlias("smarttitlecase", "stc");
 
