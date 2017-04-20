@@ -90,6 +90,11 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                 return c.lt(0) ? c.add(b) : c;
             }],
         ], 2, { vectorize: true })],
+        // e.g.
+        // executes function if STOS is truthy.
+        ["?", function(){
+            error("42 error `?`?");
+        }],
         // given a function, returns a function that
         // finds the nth integer after 0 for which
         // that functon yields a truthy value
@@ -867,7 +872,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["rot", new StackedFunc([
             [[String, Decimal], rotate],
             [[ITERABLE, Decimal], (a, n) => rotate([...a], n)],
-        ], 2)],
+        ], 2, { vectorize: "right" })],
         ["index", new StackedFunc([
             [[ITERABLE, ANY], (ent, n) => {
                 return new Decimal([...ent].newIndexOf(n))

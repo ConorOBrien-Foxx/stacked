@@ -1325,7 +1325,10 @@ class Stacked {
                 this.readOp(cur);
                 // this.index++;
             }
-            this.stack = stackCopy.concat(this.stack);
+            if(this.stack.length === 0)
+                error("(in grouping) expected at least one member, received none.");
+            
+            this.stack = stackCopy.concat(this.stack.pop());
         } else if(cur.type === "arrayStart"){
             let build = "";
             let depth = 1;
@@ -1556,7 +1559,6 @@ new Map([
     ["lower", ["downcase", "lc", "dc"]],
     ["chunk", "#<"],
     ["encodeURI", "encURI"],
-    ["if", "?"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
