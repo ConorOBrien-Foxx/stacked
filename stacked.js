@@ -53,7 +53,6 @@ if(require.main === module){
         boolean: ["t", "p", "P", "h", "o", "T", "n", "N", "a", "A", "b"],
         default: {
             "use": [],
-            "exec": " ",
         },
     });
     
