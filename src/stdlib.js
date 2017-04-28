@@ -1345,6 +1345,8 @@ $not $any ++ @:none
 [: *] 1/ @:square
 
 { f : {! n f ! n =} } @:invariant
+
+{ list start end : list start end .. # } @:slice
 `;
 
 let k = `

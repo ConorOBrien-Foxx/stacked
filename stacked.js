@@ -48,9 +48,29 @@ if(require.main === module){
             "a": "afterPrint",
             "A": "afterDisp",
             "b": "bare",
+            "u": "use"
         },
         boolean: ["t", "p", "P", "h", "o", "T", "n", "N", "a", "A", "b"],
+        default: {
+            "use": [],
+            "exec": " ",
+        },
     });
+    
+    // console.log(args.use, typeof args.use);
+    if(typeof args.use === "string"){
+        args.use = [args.use];
+    }
+    
+    for(let req of args.use){
+        let toprod;
+        try {
+            toprod = require(req);
+        } catch(e){
+            toprod = require("./" + req);
+        }
+        stacked.requireOps(toprod);
+    }
     let prog;
 	let conf = JSON.parse(readFile(args.config ||
 		path.join(__dirname, "stacked.config")
@@ -59,8 +79,7 @@ if(require.main === module){
         args.afterPrint = true;
         args.overStdin = true;
     }
-    if(args.e === true)
-        args.e = args.exec = " ";
+    
 	for(let p in conf){
 		args[p] = conf[p];
 	}

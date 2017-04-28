@@ -126,7 +126,7 @@ if(isNode){
             body += this.toks[this.index].diagnostic() + " ";
         }
         body += "error: ";
-        body += err;
+        body += e;
         let hasStacked = false;
         try { stacked; hasStacked = true } catch(e) {}
         if(hasStacked && stacked.silentError)
@@ -1475,7 +1475,14 @@ if(isNode){
 if(DEBUG)
     console.log("done merging at " + getTimeDebug());
 
-ops = produceOps(Stacked, StackedFunc, StackedPseudoType, Func, Lambda, prodOpsGlobal);
+ops = new Map([]);
+
+const requireOps = (f) => {
+    ops = new Map([...ops, ...f(Stacked, StackedFunc, StackedPseudoType, Func, Lambda, prodOpsGlobal)]);
+}
+
+requireOps(produceOps);
+// ops = produceOps(Stacked, StackedFunc, StackedPseudoType, Func, Lambda, prodOpsGlobal);
 
 if(DEBUG)
     console.log("done producing at " + getTimeDebug());
@@ -1569,7 +1576,7 @@ vars.set("typeString", String);
 String.toString = function(){ return "[type String]"; }
 vars.set("typeFunc", Func);
 Func.toString = function(){ return "[type Func]"; }
-vars.set("typeLabmda", Lambda);
+vars.set("typeLambda", Lambda);
 Lambda.toString = function(){ return "[type Lambda]"; }
 vars.set("typeArray", Array);
 Array.toString = function(){ return "[type Array]"; }
@@ -2390,6 +2397,7 @@ stacked.silentError = false;
 stacked.tokenize = tokenize;
 stacked.sanatize = sanatize;
 stacked.unsanatize = unsanatize;
+stacked.requireOps = requireOps;
 stacked.init = () => {
     bootstrap(produceOps.boot);
 }
