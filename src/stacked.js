@@ -1566,6 +1566,7 @@ new Map([
     ["lower", ["downcase", "lc", "dc"]],
     ["chunk", "#<"],
     ["encodeURI", "encURI"],
+    ["eq","#="],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });
