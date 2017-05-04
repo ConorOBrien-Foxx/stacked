@@ -458,6 +458,14 @@ tester.testCases = [
     
     //--bootstrapped functions
     
+    ["() prod", { top: D(1) }],
+    ["(0) prod", { top: D(0) }],
+    ["(2 3 2) prod", { top: D(12) }],
+    
+    ["1 pf", { top: [] }],
+    ["20 pf", { top: [2, 2, 5].map(D) }],
+    ["100 pf", { top: [2, 2, 5, 5].map(D) }],
+    
     ["_2 3 cmp", { stack: [D(-1)] }],
     ["3 3 cmp", { stack: [D(0)] }],
     ["10 3 cmp", { stack: [D(1)] }],

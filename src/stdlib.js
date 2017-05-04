@@ -1311,7 +1311,7 @@ let essential = `
 [truthy not] 1/ @:falsey
 $max #/ @:MAX
 $min #/ @:MIN
-$* #/ @:prod
+[1 \\ $* fold] @:prod
 $+ #/ @:sum
 $and #/ @:all
 $or #/ @:any
@@ -1373,9 +1373,9 @@ let k = `
 [prime not] @:notprime
 $(+ + -) { x . : x sign } agenda @:increase
 $(- - +) { x . : x sign } agenda @:decrease
-{ init arr func :
-  arr toarr @arr
-  init arr, func doinsert
+{ init iter func :
+  iter toarr @arr
+  (init) arr ++ func #\\
 } @:fold
 { x : x } @:id
 { . x : x } @:sid
