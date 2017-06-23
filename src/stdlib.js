@@ -1332,9 +1332,16 @@ $not $any ++ @:none
   ent i ent size mod #
 } @:modget
 
+(* shpe - shape of destination *)
+(* e - the array *)
+(* F - the function to be applied *)
 { shpe e F :
-  e flat @e_flat
-  shpe { i : e_flat i F! } shapef } @:FSHAPE
+  e flat @e_flat  (* flatten e *)
+  shpe { i :
+    (* apply to only indices *)
+    (e_flat i) F.arity take F apply
+  } shapef
+} @:FSHAPE
 { shpe e :
   e flat @e_flat
   shpe { i : e_flat i modget } shapef } @:SHAPE

@@ -889,6 +889,10 @@ const tokenize = (str, opts = {}) => {
                     advance();
                 }
             }
+            if(!cur() || !isStringPrefix(cur())){
+                console.error("Syntax Error: expected string suffix, got " + (cur() === undefined ? "EOF" : cur()));
+                process.exit(-1);
+            }
             advance();
             addToken(build + "'", start);
         }
@@ -1335,7 +1339,7 @@ class Stacked {
             this.index++;
             while(depth){
                 if(this.index >= this.toks.length)
-                    error("unexpected parse end while looking for `)`");
+                    error("unexpected parse end while looking for `)` at " + this.index);
                 let cur = this.toks[this.index];
                 if(cur.type === "arrayStart") depth++;
                 if(cur.type === "arrayEnd") depth--;
@@ -1369,7 +1373,7 @@ class Stacked {
                     }
                     this.index++;
                     if(!isDefined(this.toks[this.index])){
-                        error("unexpected parse end while looking for `:`");
+                        error("unexpected parse end while looking for `:` at " + this.index);
                     }
                 }
             }
@@ -1379,7 +1383,7 @@ class Stacked {
             let depth = 1;
             while(depth){
                 if(this.index >= this.toks.length)
-                    error("unexpected parse end while looking for `}`");
+                    error("unexpected parse end while looking for `}` at " + this.index);
                 let cur = this.toks[this.index];
                 if(cur.type === "lambdaStart") depth++;
                 if(cur.type === "lambdaEnd") depth--;
