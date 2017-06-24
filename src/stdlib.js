@@ -1420,7 +1420,7 @@ $(ipart , fpart) fork @:ifpart
 
 (
   [1 <=] [()]               (* return empty array for n <= 1*)
-  [3 <=] { n : (n) }        (* 2 and 3 are prime, so return them *)
+  [3 <=] { n : (1 n) }      (* 2 and 3 are prime, so return them *)
   (* otherwise, we can apply the general divisor alogirthm *)
   { n :
     1 n |> @divs
