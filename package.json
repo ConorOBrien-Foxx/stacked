@@ -1,5 +1,5 @@
 {
-  "name": "stacked",
+  "name": "stk-lang",
   "version": "1.0.0",
   "description": "A concatenative language",
   "main": "stacked.js",
@@ -32,5 +32,9 @@
     "opn": "^4.0.2",
     "readline-sync": "^1.4.7",
     "request": "^2.83.0"
-  }
+  },
+  "directories": {
+    "test": "test"
+  },
+  "devDependencies": {}
 }
