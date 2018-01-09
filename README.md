@@ -1,8 +1,11 @@
-# stacked
+![logo](./logo.svg)
+
+# Stacked
 
 ## A stack-based language with a focus on functions and scripting.
 
-Notes on the interpreter: it's currently written in browser JavaScript. Since it uses ES6 syntax, I can only guarentee that it works on FireFox. The final product is intended to be written in C++, but that is some distance away. The syntax itself is not subject to much change hereafter, same with most functions.
+
+Notes on the interpreter: it's currently written in browser JavaScript. Since it uses ES6 syntax, I can only guarentee that it works on FireFox. The final product is intended to be written in C++ or C, but that is still some time away. The syntax itself is not subject to much change hereafter, same with most functions.
 
 The programs themselves are primarily intended to be readable yet writeable. That is, I intend the language to never force you to write boilerplate. That is, you should never have to do `public static main void function long asdf` to print a string.
 
@@ -12,7 +15,7 @@ As for developing, I'm currently not accepting co-developers (though tell me if 
 
 Check out [the wiki](https://github.com/ConorOBrien-Foxx/stacked/wiki) for more information!
 
-[Online interpreter](https://conorobrien-foxx.github.io/stacked/stacked.html). Well, the only one.
+[Online interpreter](https://conorobrien-foxx.github.io/stacked/stacked.html), and [Try it online!](http://tio.run/#stacked).
 
 ## FAQ
 
