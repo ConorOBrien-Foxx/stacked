@@ -2290,7 +2290,13 @@ integrate(KeyArray, { merge: true });
 
 aliasPrototype(Complex, "+", "add");
 aliasPrototype(Complex, "-", "sub");
-integrate(Complex, { merge: true, methods: ["re", "im"], vectors: ["add", "-", "sub", "+"] });
+aliasPrototype(Complex, "*", "mul");
+aliasPrototype(Complex, "/", "div");
+integrate(Complex, {
+    merge: true,
+    methods: ["re", "im"],
+    vectors: ["add", "-", "sub", "+", "mul", "*", "div", "/"]
+});
 
 integrate(AutomataRule, { merge: true });
 integrate(CellularAutomata, { merge: true, ignore: ["AutomataRule"] });
