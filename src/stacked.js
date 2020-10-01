@@ -920,8 +920,8 @@ const tokenize = (str, opts = {}) => {
                 }
             }
             if(!cur() || !isStringPrefix(cur())){
-                console.error("Syntax Error: expected string suffix, got " + (cur() === undefined ? "EOF" : cur()));
-                process.exit(-1);
+                error("Syntax Error: expected string suffix, got " + (cur() === undefined ? "EOF" : cur()));
+                // process.exit(-1);
             }
             advance();
             addToken(build + "'", start);
@@ -1329,7 +1329,9 @@ class Stacked {
         } else if(cur.type === "funcArrayStart"){
             let arr = [];
             this.index++;
-            while(this.index < this.toks.length){
+            while(true) {
+                if(this.index >= this.toks.length)
+                    error("unexpected parse end while looking for `)` to match `$(` at " + this.index);
                 let cur = this.toks[this.index];
                 if(cur.type === "arrayEnd")
                     break;
@@ -1351,7 +1353,10 @@ class Stacked {
             this.stack = [];
             let depth = 1;
             this.index++;
-            while(depth && this.index < this.toks.length){
+            while(depth) {
+                if(this.index >= this.toks.length) {
+                    error("unexpected parse end while looking for `)` to match `#(` at " + this.index);
+                }
                 let cur = this.toks[this.index];
                 if(cur.type === "groupStart") depth++;
                 if(cur.type === "arrayEnd") depth--;
@@ -1369,7 +1374,7 @@ class Stacked {
             this.index++;
             while(depth){
                 if(this.index >= this.toks.length)
-                    error("unexpected parse end while looking for `)` at " + this.index);
+                    error("unexpected parse end while looking for `)` to match `(` at " + this.index);
                 let cur = this.toks[this.index];
                 if(cur.type === "arrayStart") depth++;
                 if(cur.type === "arrayEnd") depth--;
