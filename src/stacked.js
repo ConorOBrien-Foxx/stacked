@@ -2056,7 +2056,10 @@ const integrate = (klass, opts = {}) => {
         let arity = klass.prototype[prop].length;
         let isVector = opts.vectors.has(prop);
         let body = function(){
-            let args = this.stack.splice(-arity);
+            let args = [];
+            if(arity > 0) {
+                args = this.stack.splice(-arity);
+            }
             if(opts.sanatize) args = args.map(unsanatize);
             let instance = this.stack.pop();
             assureTyped(instance, klass, this.displayName);
@@ -2093,7 +2096,7 @@ const integrate = (klass, opts = {}) => {
             }
         }
         else {
-            console.log("uwu?", klass, prop, body);
+            // console.log("uwu?", klass, prop, body);
             ops.set(dprop, body);
         }
     }
@@ -2253,7 +2256,7 @@ class CharString {
 
 CharString.prototype[VECTORABLE] = true;
 
-aliasPrototype(CharString, "+", "add");
+// aliasPrototype(CharString, "+", "add");
 
 integrate(CharString, { merge: true, ignore: ["slice", "exch"] });
 
@@ -2339,7 +2342,7 @@ integrate(Complex, {
     vectors: [
         "add", "-", "sub", "+",
         "mul", "*", "div", "/",
-        "conj"
+        "conj", "abs", "arg",
     ]
 });
 

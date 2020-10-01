@@ -5,8 +5,12 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
     const STP = (...args) => new StackedPseudoType(...args);
     const STP_HAS = (prop) => STP(e => isDefined(e[prop]), "{has#" + prop.toString() + "}");
     const ANY = STP(() => true, "{Any}");
+    const BASIC_TYPES = [Decimal, String, Func];
+    const BASIC = STP((e) => BASIC_TYPES.indexOf(e.constructor) !== -1, "{Basic}");
     const IMPLEMENTS = (prop) => STP(
-        (e) => isDefined(e[prop]) && typeof e[prop] === "function",
+        (e) => isDefined(e[prop])
+            && typeof e[prop] === "function"
+            && !BASIC.f(e),
         "{implements#" + prop.toString() + "}"
     );
     const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]), "{Iterable}");
@@ -29,6 +33,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                 (f.body + " " + g.body).replace(/ +/g, " ")
             )],
             [[IMPLEMENTS("add"), ANY], (a, b) => a.add(b)],
+            [[ANY, IMPLEMENTS("add")], (a, b) => b.add(a)],
         ], 2, { vectorize: true, name: "+" })],
         ["++", new StackedFunc([
             [[STP_HAS("concat"), ANY], (a, b) => a.concat(b)],
@@ -46,6 +51,8 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["-", new StackedFunc([
             [[Decimal, Decimal], (a, b) => a.sub(b)],
             [[String, String], (s, t) => s.replace(new StRegex(t, "g"), "")],
+            [[ANY, IMPLEMENTS("rsub")], (a, b) => b.rsub(a)],
+            [[IMPLEMENTS("sub"), ANY], (a, b) => a.sub(b)],
         ], 2, { vectorize: true })],
         ["/", new StackedFunc([
             [[Decimal, Decimal], (a, b) => a.div(b)],
@@ -59,6 +66,8 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ], 2, { vectorize: true })],
         ["^", new StackedFunc([
             [[Decimal, Decimal], (a, b) => a.pow(b)],
+            [[IMPLEMENTS("pow"), ANY], (a, b) => a.pow(b)],
+            [[ANY, IMPLEMENTS("pow")], (a, b) => b.pow(a)],
         ], 2, { vectorize: true })],
         ["*", new StackedFunc([
             [[Decimal, Decimal],       (a, b) => a.mul(b)],
@@ -76,6 +85,8 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                 this.stack.push(f, b);
                 ops.get("*").exec(this);
             }],
+            [[IMPLEMENTS("mul"), ANY], (a, b) => a.mul(b)],
+            [[ANY, IMPLEMENTS("mul")], (a, b) => b.mul(a)],
         ], 2, { vectorize: true })],
         ["rep", new StackedFunc([
             [[ANY, Decimal], (a, b) => [...Array(+b)].fill(a)],
