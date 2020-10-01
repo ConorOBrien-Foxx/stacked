@@ -28,10 +28,10 @@
   "homepage": "https://github.com/ConorOBrien-Foxx/stacked#readme",
   "dependencies": {
     "clear": "0.0.1",
-    "minimist": "^1.2.0",
+    "minimist": "^1.2.5",
     "opn": "^4.0.2",
-    "readline-sync": "^1.4.7",
-    "request": "^2.83.0"
+    "readline-sync": "^1.4.10",
+    "request": "^2.88.2"
   },
   "directories": {
     "test": "test"
