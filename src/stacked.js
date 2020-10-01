@@ -1991,8 +1991,8 @@ bootstrap(`
 { list el : list [el pair] map $++ #\\ betail } @:intersperse
 [intersperse flat] @:intercalate
 $(take pair drop) fork @:splitat
-([1 - take] $pair $drop) fork" @:splitdr
-($take $pair [1 + drop]) fork" @:splitdl
+([1 - take] $pair $drop) fork @:splitdr
+($take $pair [1 + drop]) fork @:splitdl
 `);
 
 // extends a current operation for typed-ness
