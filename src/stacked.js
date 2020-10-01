@@ -1386,6 +1386,9 @@ class Stacked {
         } else if(cur.type === "lambdaStart"){
             let args = [];
             this.index++;
+            if(this.index >= this.toks.length) {
+                error("unexpected parse end while looking for `:` at " + this.index);
+            }
             let isGenerator = this.toks[this.index].raw === "*";
             this.index += isGenerator;
             if(this.toks[this.index].raw === "!"){
