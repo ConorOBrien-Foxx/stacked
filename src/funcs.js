@@ -271,7 +271,7 @@ const betterSort = (arr, f = (l, r) => l > r) => {
 const makeArray = (len, fill) => [...Array(len)].map(() => fill);
 
 // modified from http://stackoverflow.com/a/966938/4119004
-function createArray(length) {
+const createArray = (length) => {
     var arr = new Array(length || 0),
         i = length;
 
@@ -285,7 +285,7 @@ function createArray(length) {
     }
 
     return arr;
-}
+};
 
 
 const surround = (s, f) => {
@@ -748,22 +748,6 @@ const equal = (x, y) => {
     }
 }
 
-const less = (x, y) => {
-	if(x.lt){
-		return x.lt(y);
-	} else {
-		return x < y;
-	}
-}
-
-const greater = (x, y) => {
-	if(x.gt){
-		return x.gt(y);
-	} else if(y.lt){
-		return !less(y, x);
-	}
-}
-
 const warn = (err) => {
     if(typeof DEBUG !== "undefined" && DEBUG)
         (console.warn || console.log)("warning: " + err);
@@ -1188,76 +1172,84 @@ StRegex.escapes = new Map([
 
 if(isNode){
     module.exports = exportObject = {
-        REFORM: REFORM,
-		range: range,
-        EQUAL: EQUAL,
-        defined: defined,
-        isPrime: isPrime,
-        repr: repr,
-        joinGrid: joinGrid,
-        vectorize: vectorize,
-        hcat: hcat,
-        permute: permute,
-        powerSet: powerSet,
-        betterSort: betterSort,
-        transpose: transpose,
-        flatten: flatten,
-        intersection: intersection,
-        union: union,
-        partition: partition,
-        verticalRepeat: verticalRepeat,
-        horizontalRepeat: horizontalRepeat,
-        unique: unique,
-        surround: surround,
-        DECIMAL_DEFAULT_PRECISION: DECIMAL_DEFAULT_PRECISION,
-        isDefined: isDefined,
-        VECTORABLE: VECTORABLE,
-        warn: warn,
-        toBase: toBase,
-        vectorizeRight: vectorizeRight,
-        isString: isString,
-        Nil: Nil,
-        typeName: typeName,
-        pp: pp,
-        disp: disp,
-        falsey: falsey,
-        assureTyped: assureTyped,
-        truthy: truthy,
-        chunkBy: chunkBy,
-        equal: equal,
-        bytes: bytes,
-        chunk: chunk,
-        dispJS: dispJS,
-        toBaseString: toBaseString,
-        factorial: factorial,
-        recursiveRepl: recursiveRepl,
-        joinArray: joinArray,
-        clone: clone,
-        format: format,
-        createArray: createArray,
-        eye: eye,
         antiBase: antiBase,
-        shape: shape,
+        antiBaseString: antiBaseString,
+        assureTyped: assureTyped,
+        betterSort: betterSort,
+        bytes: bytes,
+        cellMap: cellMap,
+        chunk: chunk,
+        chunkBy: chunkBy,
+        clone: clone,
+        createArray: createArray,
+        DECIMAL_DEFAULT_PRECISION: DECIMAL_DEFAULT_PRECISION,
+        deepMap: deepMap,
+        defined: defined,
+        depthOf: depthOf,
+        disp: disp,
+        dispJS: dispJS,
         display2d: display2d,
+        equal: equal,
+        EQUAL: EQUAL,
+        eye: eye,
+        factorial: factorial,
+        FALSE: FALSE,
+        falsey: falsey,
+        fixShape: fixShape,
+        flatten: flatten,
+        format: format,
+        formatDate: formatDate,
+        Generator: Generator,
+        GeneratorFunction: GeneratorFunction,
+        getFrom: getFrom,
+        // grade: grade,
+        gridify: gridify,
+        hcat: hcat,
+        horizontalRepeat: horizontalRepeat,
+        intersection: intersection,
+        isDefined: isDefined,
+        isPrime: isPrime,
+        isString: isString,
+        joinArray: joinArray,
+        joinGrid: joinGrid,
+        makeArray: makeArray,
+        mapToObject: mapToObject,
+        moore: moore,
+        Nil: Nil,
+        objRepr: objRepr,
         parseArr: parseArr,
         parseNum: parseNum,
-        deepMap: deepMap,
-        TRUE: TRUE,
-        FALSE: FALSE,
-        gridify: gridify,
-        ungridify: ungridify,
-		table: table,
-        formatDate: formatDate,
-        antiBaseString: antiBaseString,
-        getFrom: getFrom,
-        StRegex: StRegex,
+        partition: partition,
         periodLoop: periodLoop,
+        permute: permute,
+        powerSet: powerSet,
+        pp: pp,
         prefix: prefix,
+        range: range,
+        recursiveRepl: recursiveRepl,
+        REFORM: REFORM,
+        repr: repr,
         rotate: rotate,
-        fixShape: fixShape,
-        cellMap: cellMap,
-        mapToObject: mapToObject,
-        objRepr: objRepr,
+        runsOf: runsOf,
+        shape: shape,
+        StRegex: StRegex,
+        surround: surround,
+        table: table,
+        takeWhile: takeWhile,
+        toBase: toBase,
+        toBaseString: toBaseString,
+        transpose: transpose,
+        TRUE: TRUE,
+        truthy: truthy,
+        typeName: typeName,
+        ungridify: ungridify,
+        union: union,
+        unique: unique,
+        VECTORABLE: VECTORABLE,
+        vectorizeRight: vectorizeRight,
+        vectorize: vectorize,
+        verticalRepeat: verticalRepeat,
+        warn: warn,
         highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js
