@@ -13,6 +13,7 @@ button {
 
 #stacked-output, #code, #repl, .current, .replStage {
 	font-family: "Source Code Pro", "Consolas", monospace;
+    white-space: pre-wrap;
 }
 
 html {
