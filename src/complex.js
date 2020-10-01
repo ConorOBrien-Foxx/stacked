@@ -68,6 +68,10 @@ class Complex {
         }
     }
     
+    conj() {
+        return new Complex(this.re, -this.im);
+    }
+    
     *[Symbol.iterator](){
         yield this.re;
         yield this.im;
