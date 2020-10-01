@@ -4,32 +4,42 @@ if(isNode)
 	var Decimal = require("./decimal.js");
 
 class Complex {
-    constructor(re, im){
+    constructor(re, im = 0) {
         this.re = Decimal(re);
-        this.im = Decimal(im || 0);
+        this.im = Decimal(im);
     }
     
-    add(c){
+    add(c) {
         if(c instanceof Complex){
             return new Complex(this.re.add(c.re), this.im.add(c.im));
-        } else if(c instanceof Decimal){
+        }
+        else if(c instanceof Decimal){
             return new Complex(this.re.add(c), this.im);
-        } else {
+        }
+        else {
+            // TODO: error properly, ditto for rest
             console.log(c);
         }
         // idk
         return Decimal(234234234234);
     }
     
-    sub(c){
+    sub(c) {
         if(c instanceof Complex){
             return new Complex(this.re.sub(c.re), this.im.sub(c.im));
-        } else if(c instanceof Decimal){
+        }
+        else if(c instanceof Decimal){
             return new Complex(this.re.sub(c), this.im);
         }
-        // else if(c[VECTORABLE]){
-            // return c.map(e => this.sub(e));
-        // }
+    }
+    
+    rsub(c) {
+        if(c instanceof Complex){
+            return c.sub(this);
+        }
+        else if(c instanceof Decimal){
+            return new Complex(c.sub(this.re), -this.im);
+        }
     }
     
     mul(c) {
@@ -45,9 +55,6 @@ class Complex {
                 this.im.mul(c)
             );
         }
-        // else if(c[VECTORABLE]) {
-            // return c.map(e => this.mul(e));
-        // }
     }
     
     div(c) {
@@ -64,9 +71,6 @@ class Complex {
                 this.im.div(c)
             );
         }
-        // else if(c[VECTORABLE]) {
-            // return c.map(e => this.div(e));
-        // }
     }
     
     rdiv(c) {
@@ -79,9 +83,41 @@ class Complex {
                 c.div(this.im),
             );
         }
-        // else if(c[VECTORABLE]) {
-            // return c.map(e => this.mul(e));
-        // }
+    }
+    
+    abs() {
+        return this.absq().sqrt();
+    }
+    
+    absq() {
+        return this.re.mul(this.re).add(this.im.mul(this.im));
+    }
+    
+    toPolar() {
+        let r = this.abs();
+        let theta = this.arg();
+        return [r, theta];
+    }
+    
+    arg() {
+        return Decimal.atan2(this.im, this.re);
+    }
+    
+    pow(c) {
+        if(c instanceof Complex) {
+            let aq = this.absq();
+            let m1 = aq.pow(c.re.div(2));
+            let m2 = c.im.neg().mul(this.arg()).exp();
+            let m = m1.mul(m2);
+            let v = c.re.mul(this.arg())
+                .add(aq.ln().mul(c.im).div(2));
+            let re = m.mul(v.cos());
+            let im = m.mul(v.sin());
+            return new Complex(re, im);
+        }
+        else if(c instanceof Decimal) {
+            
+        }
     }
     
     conj() {
