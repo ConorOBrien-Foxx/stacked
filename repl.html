@@ -23,14 +23,20 @@
     </header>
     <div id="repl"></div>
 	<script>
-        const highlight = (prog) =>
-            tokenize(prog, { keepWhiteSpace: true, ignoreError: true }).map(e => {
-                let s = e.raw;
-                //if(e.type === "string" || e.type === "charString"){
-                //    s = repr(e.value);
-                //}
-                return "<span class=\"" + e.type + "\">" + s + "</span>";
-            }).join("");
+        const highlight = (prog) => {
+            try {
+                return tokenize(prog, { keepWhiteSpace: true, ignoreError: true }).map(e => {
+                    let s = e.raw;
+                    //if(e.type === "string" || e.type === "charString"){
+                    //    s = repr(e.value);
+                    //}
+                    return "<span class=\"" + e.type + "\">" + s + "</span>";
+                }).join("");
+            }
+            catch(e) {
+                return prog;
+            }
+        };
         
         let lastError = "";
         
