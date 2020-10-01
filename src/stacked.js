@@ -387,7 +387,7 @@ class Token {
             this.value = new Nil;
         }
         
-        else if(str.match(/^[_.]?\d[\d.A-Za-z]*$/)){
+        else if(str.match(/^[_.]?\d[\d.A-Za-z]*$|_?∞|\b(?:NaN|nan)\b|(_|\b)inf\b/)){
             this.type = "number";
             this.value = parseNum(str);
         }
@@ -827,6 +827,7 @@ const tokenize = (str, opts = {}) => {
     let isAlpha = (d) => (/[A-Za-z]/.test(d));
     let isIdentifierPrefix = isAlpha;
     let isIdentifier = (d) => isAlphaNumeric(d) || d === "_";
+    let isInfinite = (d) => d === "∞";
     let addToken = (val, start = i, comment = false, end = start + val.length) => {
         toks.push(new Token(val, comment, start, end, line, column - val.length + 1));
     }
@@ -868,6 +869,35 @@ const tokenize = (str, opts = {}) => {
                 build += curAdvance();
             }
             addToken(build, start);
+        }
+        
+        // 2b. Tokenize infinity
+        else if(isInfinite(cur()) || (isDigitPrefix(cur()) && isInfinite(peekNext()))) {
+            let build = "";
+            let start = i;
+            if(isDigitPrefix(cur())){
+                build += curAdvance();
+            }
+            build += curAdvance();
+            addToken(build, start);
+        }
+        else if(needle("inf")) {
+            addToken("inf");
+            advance(3);
+        }
+        else if(needle("_inf")) {
+            addToken("_inf");
+            advance(4);
+        }
+        
+        // 2c. Tokenize NaN
+        else if(needle("NaN")) {
+            addToken("NaN");
+            advance(3);
+        }
+        else if(needle("nan")) {
+            addToken("nan");
+            advance(3);
         }
         
         // 3. tokenize a string, if available.
@@ -2024,35 +2054,46 @@ const integrate = (klass, opts = {}) => {
         if(["constructor", "toString", "length"].indexOf(prop) >= 0
             || opts.ignore.indexOf(prop) >= 0) continue;
         let arity = klass.prototype[prop].length;
+        let isVector = opts.vectors.has(prop);
         let body = function(){
-            let instance = this.stack.pop();
-            assureTyped(instance, klass, this.displayName);
             let args = this.stack.splice(-arity);
             if(opts.sanatize) args = args.map(unsanatize);
-            this.stack.push(sanatize(instance[prop](...args)));
+            let instance = this.stack.pop();
+            assureTyped(instance, klass, this.displayName);
+            // let instFn = .bind(instance);
+            // if(isVector) {
+                // instFn = vectorize(instFn, arity);
+            // }
+            let result = sanatize(instance[prop](...args));
+            this.stack.push(result);
         };
-        if(ops.has(prop) && !opts.merge){
-            warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
-            dprop = kdispname + dprop;
-            ops.set(dprop, body);
-        } else if(ops.has(prop) && opts.merge){
+        if(ops.has(prop)) {
+            if(opts.merge) {
             // construct type
             let types = [...Array(arity)];
-            types.fill(ANY);
-            types.push(klass);
-            // if(opts.vectors.length) console.log(opts.vectors, prop, opts.vectors.has(prop));
-            permute(types).forEach(typeArr => {
-                extendTyped(prop, typeArr, (...a) => {
-                    let inst = a.find(e => e instanceof klass);
-                    if(!inst){
-                        error("no instance of `" + kname + "` found in arguments (`" + prop + "`)")
-                    }
-                    a.splice(a.indexOf(inst), 1);
-                    if(opts.sanatize) a = a.map(unsanatize);
-                    return sanatize(inst[prop](...a));
-                }, arity + 1, opts.vectors.has(prop)); 
-            });
-        } else {
+                types.fill(ANY);
+                types.push(klass);
+                // if(opts.vectors.length) console.log(opts.vectors, prop, opts.vectors.has(prop), prop);
+                permute(types).forEach(typeArr => {
+                    extendTyped(prop, typeArr, (...a) => {
+                        let inst = a.find(e => e instanceof klass);
+                        if(!inst){
+                            error("no instance of `" + kname + "` found in arguments (`" + prop + "`)")
+                        }
+                        a.splice(a.indexOf(inst), 1);
+                        if(opts.sanatize) a = a.map(unsanatize);
+                        return sanatize(inst[prop](...a));
+                    }, arity + 1, isVector); 
+                });
+            }
+            else {
+                warn("name conflict under `" + dprop + "` of `" + kname + "`; renaming to `" + kdispname + dprop + "`");
+                dprop = kdispname + dprop;
+                ops.set(dprop, body);
+            }
+        }
+        else {
+            console.log("uwu?", klass, prop, body);
             ops.set(dprop, body);
         }
     }
@@ -2288,14 +2329,18 @@ class KeyArray {
 // allow the default `map`, `filter`, etc. to be used
 integrate(KeyArray, { merge: true });
 
-aliasPrototype(Complex, "+", "add");
-aliasPrototype(Complex, "-", "sub");
-aliasPrototype(Complex, "*", "mul");
-aliasPrototype(Complex, "/", "div");
+// aliasPrototype(Complex, "+", "add");
+// aliasPrototype(Complex, "-", "sub");
+// aliasPrototype(Complex, "*", "mul");
+// aliasPrototype(Complex, "/", "div");
 integrate(Complex, {
     merge: true,
     methods: ["re", "im"],
-    vectors: ["add", "-", "sub", "+", "mul", "*", "div", "/"]
+    vectors: [
+        "add", "-", "sub", "+",
+        "mul", "*", "div", "/",
+        "conj"
+    ]
 });
 
 integrate(AutomataRule, { merge: true });

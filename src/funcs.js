@@ -8,7 +8,9 @@ if(isNode){
 }
 
 const parseNum = function(str){
-    str = str.replace(/\s/g, "");
+    str = str.replace(/\s/g, "")
+        .replace(/nan/gi, "NaN")
+        .replace(/inf/g, "∞");
     if(str.has("i")){
         if(str.endsWith("i")){
             return new Complex(Decimal(0), parseNum(str.slice(0, -1)));
@@ -25,7 +27,9 @@ const parseNum = function(str){
         // return new Rational(...parts);
         return parts[0].div(parts[1]);  
     }
-    str = str.replace(/(.+)n$/, "-$1").replace(/^_/, "-");
+    str = str.replace(/(.+)n$/, "-$1")
+        .replace(/^_/, "-")
+        .replace(/∞/g, "Infinity");
     try {
         return new Decimal(str);
     } catch(e){
@@ -921,7 +925,9 @@ const repr = (item) => {
     }
     
     else if(item instanceof Decimal){
-        return item.toFixed().replace(/-/g, "_");
+        return item.toFixed()
+            .replace(/-/g, "_")
+            .replace(/Infinity/g, "∞");
     }
     
     else if(item.constructor === Object){
@@ -994,7 +1000,7 @@ const joinArray = (item) => {
                     .join(depth === 1 ? " "
                         : "\n".repeat(depth - 1)) + ")";
         else if(arr instanceof Decimal)
-            return arr.toString().replace(/-/g, "_");
+            return repr(arr);
         else
             return arr.toString();
     };
@@ -1011,7 +1017,7 @@ const joinGrid = (item) => {
                 .join(depth <= 1 ? ""
                     : "\n".repeat(depth - 1));
         else if(arr instanceof Decimal)
-            return arr.toString().replace(/-/g, "_");
+            return repr(arr.toString());
         else
             return arr.toString();
     };

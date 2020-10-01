@@ -26,9 +26,10 @@ class Complex {
             return new Complex(this.re.sub(c.re), this.im.sub(c.im));
         } else if(c instanceof Decimal){
             return new Complex(this.re.sub(c), this.im);
-        } else if(c[VECTORABLE]){
-            return c.map(e => this.sub(e));
         }
+        // else if(c[VECTORABLE]){
+            // return c.map(e => this.sub(e));
+        // }
     }
     
     mul(c) {
@@ -44,9 +45,9 @@ class Complex {
                 this.im.mul(c)
             );
         }
-        else if(c[VECTORABLE]) {
-            return c.map(e => this.mul(e));
-        }
+        // else if(c[VECTORABLE]) {
+            // return c.map(e => this.mul(e));
+        // }
     }
     
     div(c) {
@@ -63,9 +64,24 @@ class Complex {
                 this.im.div(c)
             );
         }
-        else if(c[VECTORABLE]) {
-            return c.map(e => this.mul(e));
+        // else if(c[VECTORABLE]) {
+            // return c.map(e => this.div(e));
+        // }
+    }
+    
+    rdiv(c) {
+        if(c instanceof Complex) {
+            return c.div(this);
         }
+        else if(c instanceof Decimal) {
+            return new Complex(
+                c.div(this.re),
+                c.div(this.im),
+            );
+        }
+        // else if(c[VECTORABLE]) {
+            // return c.map(e => this.mul(e));
+        // }
     }
     
     conj() {

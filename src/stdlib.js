@@ -5,6 +5,10 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
     const STP = (...args) => new StackedPseudoType(...args);
     const STP_HAS = (prop) => STP(e => isDefined(e[prop]), "{has#" + prop.toString() + "}");
     const ANY = STP(() => true, "{Any}");
+    const IMPLEMENTS = (prop) => STP(
+        (e) => isDefined(e[prop]) && typeof e[prop] === "function",
+        "{implements#" + prop.toString() + "}"
+    );
     const ITERABLE = STP((e) => isDefined(e[Symbol.iterator]), "{Iterable}");
     const REFORMABLE = STP_HAS(REFORM);
     const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "{Integer}");
@@ -24,6 +28,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                 },
                 (f.body + " " + g.body).replace(/ +/g, " ")
             )],
+            [[IMPLEMENTS("add"), ANY], (a, b) => a.add(b)],
         ], 2, { vectorize: true, name: "+" })],
         ["++", new StackedFunc([
             [[STP_HAS("concat"), ANY], (a, b) => a.concat(b)],
@@ -49,6 +54,8 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                 f.arity = +d;
                 return f;
             }],
+            [[ANY, IMPLEMENTS("rdiv")], (a, b) => b.rdiv(a)],
+            [[IMPLEMENTS("div"), ANY], (a, b) => a.div(b)],
         ], 2, { vectorize: true })],
         ["^", new StackedFunc([
             [[Decimal, Decimal], (a, b) => a.pow(b)],
