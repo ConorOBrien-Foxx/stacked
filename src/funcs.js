@@ -895,6 +895,9 @@ const objRepr = (obj, width = 4) => {
 }
 
 const repr = (item) => {
+    if(item === null) {
+        return "!null!";
+    }
     if(!isDefined(item)){
         return "undef";
     }

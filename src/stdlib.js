@@ -1062,6 +1062,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ], 2)],
         ["has", new StackedFunc([
             [[String, ANY],    (a, b) => world.sanatize(!!a.find(e => equal(e, b)))],
+            [[IMPLEMENTS("has"), ANY], (a, b) => world.sanatize(a.has(b))],
             [[ITERABLE, ANY],  (a, b) => world.sanatize(!![...a].find(e => equal(e, b)))],
         ], 2, { vectorize: "right" })],
         ["intersection", new StackedFunc([
@@ -1282,7 +1283,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             [[String], RegExp.escape],
         ], 1)],
         ["tomap", new StackedFunc([
-            [[Array], (a) => new Map(a)],
+            [[Array], (a) => new StackedMap(a)],
         ], 1)],
         ["encodeURI", new StackedFunc([[[String], encodeURIComponent]], 1)],
         // ["extend", function(){

@@ -1374,6 +1374,26 @@ class Stacked {
             let last = this.stack.pop();
             this.stack = stackCopy;
             this.stack.push(last);
+        } else if(cur.type === "mapStart"){
+            let stackCopy = clone(this.stack);
+            this.stack = [];
+            this.index++;
+            while(true) {
+                if(this.index >= this.toks.length) {
+                    error("unexpected parse end while looking for `)` to match `(:` at " + this.index);
+                }
+                let cur = this.toks[this.index];
+                if(cur.type === "arrayEnd") break;
+                this.readOp(cur);
+            }
+            
+            if(this.stack.length % 2) {
+                error("Excess element in map: " + repr(this.stack.pop()));
+            }
+            let map = new StackedMap(chunk(this.stack, 2));
+            
+            this.stack = stackCopy;
+            this.stack.push(map);
         } else if(cur.type === "arrayStart"){
             let build = "";
             let depth = 1;
