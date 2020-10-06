@@ -1226,6 +1226,13 @@ class Stacked {
         this.vars.set(name.toString(), val);
     }
     
+    isParenStart (token) {
+        return token.type === "arrayStart"
+            || token.type === "funcArrayStart"
+            || token.type === "groupStart"
+            || token.type === "mapStart";
+    }
+    
     readOp(cur){
         if(this.observeToken)
             this.observeToken.bind(this)(cur, "readOp");
@@ -1351,23 +1358,22 @@ class Stacked {
         } else if(cur.type === "groupStart"){
             let stackCopy = clone(this.stack);
             this.stack = [];
-            let depth = 1;
             this.index++;
-            while(depth) {
+            while(true) {
                 if(this.index >= this.toks.length) {
                     error("unexpected parse end while looking for `)` to match `#(` at " + this.index);
                 }
                 let cur = this.toks[this.index];
-                if(cur.type === "groupStart") depth++;
-                if(cur.type === "arrayEnd") depth--;
-                if(!depth) break;
+                if(cur.type === "arrayEnd") break;
                 this.readOp(cur);
-                // this.index++;
             }
-            if(this.stack.length === 0)
+            if(this.stack.length === 0) {
                 error("(in grouping) expected at least one member, received none.");
+            }
             
-            this.stack = stackCopy.concat(this.stack.pop());
+            let last = this.stack.pop();
+            this.stack = stackCopy;
+            this.stack.push(last);
         } else if(cur.type === "arrayStart"){
             let build = "";
             let depth = 1;
@@ -1376,7 +1382,7 @@ class Stacked {
                 if(this.index >= this.toks.length)
                     error("unexpected parse end while looking for `)` to match `(` at " + this.index);
                 let cur = this.toks[this.index];
-                if(cur.type === "arrayStart") depth++;
+                if(this.isParenStart(cur)) depth++;
                 if(cur.type === "arrayEnd") depth--;
                 build += cur.raw + " ";
                 this.index++;
