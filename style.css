@@ -92,7 +92,7 @@ button:hover {
 /* for syntax highlighting */
 .number { color: rgb(255, 205, 54); }
 .setfunc, .setvar { color: rgb(147, 199, 99); }
-.arrayStart, .arrayEnd, .funcArrayStart, .groupStart { color: rgb(150, 200, 150); }
+.arrayStart, .arrayEnd, .funcArrayStart, .groupStart, .mapStart { color: rgb(150, 200, 150); }
 .lambdaStart, .lambdaEnd, .funcStart, .funcEnd { font-weight: bold; }
 .op { color: rgb(232, 226, 183); }
 .quoteFunc { color: rgb(182, 176, 133); }

@@ -114,7 +114,7 @@ class Turtle {
      * @param {Number} y The y-position to move to.
      * @return {Turtle} The class itself.
      */
-    goto(x = this.x, y = this.y){
+    goto(x = this.x, y = this.y) {
         this.x = x;
         this.y = y;
         this.ctx.moveTo(this.x, this.y);

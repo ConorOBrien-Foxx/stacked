@@ -381,6 +381,19 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             let top = this.stack.pop();
             this.stack.push(top, top);
         }],
+        ["ndup", new StackedFunc([
+            [[Decimal], function (n) {
+                let copy = [];
+                while(n.gt(0)) {
+                    if(this.stack.length == 0) {
+                        error("(in `" + (this.displayName || "ndup") + "`) popping from an empty stack");
+                    }
+                    copy.unshift(this.stack.pop());
+                    n = n.sub(1);
+                }
+                this.stack.push(...copy, ...copy);
+            }],
+        ], 1)],
         ["swap", function(){
             if(this.stack.length < 2)
                 error("(in `" + (this.displayName || "swap") + "`) popping from an empty stack");
@@ -528,6 +541,14 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                 f.exec(this);
             }
         }],
+        // "truthy of" - equivalent to or
+        ["tof", new StackedFunc([
+            [[ANY, ANY], (a, b) => truthy(a) ? a : b],
+        ], 2)],
+        // "falsey of" - equivalent to and
+        ["fof", new StackedFunc([
+            [[ANY, ANY], (a, b) => !truthy(a) ? a : b],
+        ], 2)],
         ["agenda", new StackedFunc([
             [[Array, STP_FUNC_LIKE], function(agenda, agendaCond){
                 let k = new Func(agenda + " agenda");
@@ -605,6 +626,25 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
                     });
                 }
             }]
+        ], 2)],
+        ["groupby", new StackedFunc([
+            [[ITERABLE, STP_FUNC_LIKE], function(arr, f) {
+                let fn;
+                // TODO: abstract this into a to-function thing
+                if(f instanceof Lambda) {
+                    fn = (a, b) => f.overWith(this, a, b);
+                } else if(f instanceof Func)  {
+                    fn = (a, b) => {
+                        let t = new Stacked("", this.options);
+                        t.vars = this.vars;
+                        t.ops = this.ops;
+                        t.stack.push(a, b);
+                        f.exec(t);
+                        return defined(t.stack.pop(), new Nil);
+                    };
+                }
+                return groupBy(arr, fn);
+            }],
         ], 2)],
         // map the stack
         ["smap", function(){
@@ -702,13 +742,13 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             }],
         ], 1, { vectorize: true })],
         ["and", new StackedFunc([
-            [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) && truthy(b)))],
+            [[ANY, ANY], (a, b) => new Decimal(+(truthy(a) && truthy(b)))],
         ], 2, { vectorize: true })],
         ["or", new StackedFunc([
-            [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) || truthy(b)))],
+            [[ANY, ANY], (a, b) => new Decimal(+(truthy(a) || truthy(b)))],
         ], 2, { vectorize: true })],
         ["xor", new StackedFunc([
-            [[Decimal, Decimal], (a, b) => new Decimal(+(truthy(a) ^ truthy(b)))],
+            [[ANY, ANY], (a, b) => new Decimal(+(truthy(a) ^ truthy(b)))],
         ], 2, { vectorize: true })],
         ["BAND", new StackedFunc([
             [[Decimal, Decimal], (a, b) => new Decimal(+a & +b)],

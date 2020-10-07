@@ -1484,9 +1484,10 @@ class Stacked {
     
     run(){
         if(this.slow){
+            // TODO: slow does not work well with recursive functions
             this.step();
             if(this.isRunning)
-                setTimeout(Stacked.prototype.run.bind(this), DELAY);
+                setTimeout(Stacked.prototype.run.bind(this), 0);
             return;
         }
         while(this.isRunning){
@@ -1635,6 +1636,8 @@ new Map([
     ["chunk", "#<"],
     ["encodeURI", "encURI"],
     ["eq","#="],
+    ["tof","#T"],
+    ["fof","#F"],
 ]).forEach((v, k) => {
     makeAlias(k, v);
 });

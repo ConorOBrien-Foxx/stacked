@@ -768,6 +768,24 @@ const falsey = (tp) => {
 
 const truthy = (tp) => !falsey(tp);
 
+const groupBy = (arr, fn) => {
+    let build = [];
+    let result = [];
+    for(let e of arr) {
+        if(build.length === 0 || truthy(fn(build[build.length - 1], e))) {
+            build.push(e);
+        }
+        else {
+            result.push(build);
+            build = [e];
+        }
+    }
+    if(build.length) {
+        result.push(build);
+    }
+    return result;
+}
+
 function vectorize(f, arity = f.length){
     if(arity === 1){
         function trav(item){
@@ -1207,6 +1225,7 @@ if(isNode){
         getFrom: getFrom,
         // grade: grade,
         gridify: gridify,
+        groupBy: groupBy,
         hcat: hcat,
         horizontalRepeat: horizontalRepeat,
         intersection: intersection,
