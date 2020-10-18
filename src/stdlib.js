@@ -402,6 +402,21 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             this.stack.push(top, secondTop);
         }],
         ["spop", function(){ this.stack.pop(); }],
+        ["sget", function() {
+            let index = this.stack.pop();
+            if(index >= this.stack.length) {
+                error("(in `" + (this.displayName || "sget") + "`) invalid index");
+            }
+            let [el] = this.stack.splice(~index, 1);
+            this.stack.push(el);
+        }],
+        ["&", function () {
+            if(this.stack.length < 3) {
+                error("(in `" + (this.displayName || "sget") + "`) popping from an empty stack");
+            }
+            let [el] = this.stack.splice(~2, 1);
+            this.stack.push(el);
+        }],
         ["drop", new StackedFunc([
             [[STP_HAS("slice"), Decimal], (a, b) => a.slice(+b)]
         ], 2, { vectorize: "right" })],
@@ -1342,6 +1357,9 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
 }
 
 let essential = `
+[\\ if] @:IF
+[& ifelse] @:IFELSE
+
 [2 tobase] @:bits
 [2 antibase] @:unbits
 [2 tobaserep] @:bin
