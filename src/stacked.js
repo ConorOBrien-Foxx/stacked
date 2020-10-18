@@ -1624,6 +1624,7 @@ new Map([
     ["merge", "..."],
     ["ord", "#."],
     ["chr", "#:"],
+    ["without", "#_"],
     ["pair", "#,"],
     ["antibase", "ab"],
     ["antibaserep", "abr"],

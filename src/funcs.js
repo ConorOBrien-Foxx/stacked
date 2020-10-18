@@ -343,7 +343,10 @@ const mapToObject = (map) => {
 const union = (a, b) => unique([...a, ...b]);
 
 const intersection = (a, b) =>
-    unique(union(a, b).filter(e => a.indexOf(e) >= 0 && b.indexOf(e) >= 0));
+    unique(union(a, b).filter(e => a.has(e) && b.has(e)));
+
+const without = (a, b) => 
+    unique(a).filter(e => !b.has(e));
 
 const partition = (a, b) => {
     b = flatten([...b]);
@@ -1272,6 +1275,7 @@ if(isNode){
         vectorize: vectorize,
         verticalRepeat: verticalRepeat,
         warn: warn,
+        without: without,
         highlight: (x) => x,
         // ##insert
         // from: https://github.com/stevenvachon/cli-clear/blob/master/index.js

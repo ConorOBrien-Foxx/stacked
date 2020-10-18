@@ -1126,6 +1126,9 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ["union", new StackedFunc([
             [[ITERABLE, ITERABLE], union],
         ], 2)],
+        ["without", new StackedFunc([
+            [[ITERABLE, ITERABLE], without],
+        ], 2)],
         ["partition", new StackedFunc([
             [[ITERABLE, ITERABLE], partition],
         ], 2)],
