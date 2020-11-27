@@ -1,0 +1,32 @@
+(*
+ * Program to calculate the "Buenos Aires" constant
+ * From Numberphile video "2.920050977316 - Numberphile" [1]
+ *
+ *
+ * [1] https://www.youtube.com/watch?v=_gCKX6VMvmU
+ *
+ *)
+[
+    (* initial implementation *)
+    :> : nprime 1- \ :> nprime $prod map / sum
+] @:BA_naive
+
+[
+    :> :        (* the indices of n *)
+    nprime :    (* the first n primes *)
+    1- \        (* the first n primes each -1 *)
+    & prefix    (* the first k primes, for k = 0..n *)
+    $prod map   (* the product of these primes *)
+    / sum       (* divide primes-1 by these products and sum *)
+] @:BA
+
+[ '@id -> '! put BA : out ] @:BA_debug
+
+(* minified: [:>:nprime:1-\&prefix$prodmap/sum]@:BA *)
+
+[precision 1 $BA_debug untilInvariant] @:BA_prec_test
+(20 40 80) [
+    'Finding the Buenos Aires constant with precision = @id!'! out
+    BA_prec_test
+    'Required taking n = @id'! out
+] nmap
