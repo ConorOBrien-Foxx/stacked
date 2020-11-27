@@ -116,25 +116,52 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         // given a function, returns a function that
         // finds the nth integer after 0 for which
         // that functon yields a truthy value
-        ["nth", function(){
-            let func = this.stack.pop();
-            if(!FUNC_LIKE(func))
-                error("expected `Func` or `Lambda`, but got `" +
-                    typeName(func.constructor) + "` instead.");
-            let k = new Func(func + " nth");
-            k.exec = function(inst){
-                let n = inst.stack.pop();
-                assureTyped(n, Decimal, ">nth");
-                let last;
-                for(let i = Decimal(0); n.gte(0); i = i.add(1)){
-                    if(falsey(func.over(i))) continue;
-                    n = n.sub(1);
-                    last = i;
-                }
-                inst.stack.push(last);
-            }
-            this.stack.push(k);
-        }],
+        // ["nth", function(){
+            // let func = this.stack.pop();
+            // if(!FUNC_LIKE(func))
+                // error("expected `Func` or `Lambda`, but got `" +
+                    // typeName(func.constructor) + "` instead.");
+            // let k = new Func(func + " nth");
+            // k.exec = function(inst){
+                // let n = inst.stack.pop();
+                // assureTyped(n, Decimal, ">nth");
+                // let last;
+                // for(let i = Decimal(0); n.gte(0); i = i.add(1)){
+                    // if(falsey(func.over(i))) continue;
+                    // n = n.sub(1);
+                    // last = i;
+                // }
+                // inst.stack.push(last);
+            // }
+            // this.stack.push(k);
+        // }],
+        ["nth", new StackedFunc([
+            [[STP_FUNC_LIKE], (func) => {
+                let memo = {};
+                let stf = new StackedFunc([
+                    [[Decimal], (n) => {
+                        let ns = n.toString();
+                        if(memo[ns]) return memo[ns];
+                        let last;
+                        for(let i = Decimal(0); n.gte(0); i = i.add(1)){
+                            if(falsey(func.over(i))) continue;
+                            n = n.sub(1);
+                            last = i;
+                        }
+                        memo[ns] = last;
+                        return last;
+                    }]
+                ], 1, { vectorize: true });
+                let res = Func.of(
+                    function (inst) {
+                        stf.exec(inst);
+                    },
+                    func + " nth"
+                );
+                res.arity = 1;
+                return res;
+            }]
+        ], 1, { vectorize: true })],
         // generators are pretty bad in stacked...
         // takes a condition P and a generation function F. Instead of iterating from
         // x = 0... untll P(x), this iterates from x = f(0), f(1), ... until P(f(x)).
@@ -1437,6 +1464,7 @@ $not $any ++ @:none
 `;
 
 let k = `
+$prime nth @:nprime
 [map @.] @:nmap
 (* degrees to radians *)
 [180 / pi *] 1/ @:torad

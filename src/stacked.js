@@ -307,6 +307,10 @@ class StackedFunc {
     static ofUnaryType(type){
         return (n) => StackedFunc.match([type], n);
     }
+    
+    toString() {
+        return "#(" + (this.options.body || "'StackedFunc'") + ")";
+    }
 }
 
 StackedFunc.NO_MATCH = Symbol("NO_MATCH");

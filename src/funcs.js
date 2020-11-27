@@ -47,6 +47,8 @@ const range = (a, b) => {
         c[b.sub(a)] = b;
     }
     
+    // console.log(c);
+    
     return c;
 }
 
@@ -962,7 +964,16 @@ const table = (a, b, f) => {
     return a.map(x => b.map(y => f(x, y)));
 };
 
-const display2d = (item, castToStr = (toCast) => toCast.toString()) => {
+const naiveToString = (toCast) => {
+    try {
+        return toCast.toString();
+    }
+    catch(e) {
+        return "<no rep>";
+    }
+}
+
+const display2d = (item, castToStr = naiveToString) => {
     let nothing = Symbol("nothing");
     item = fixShape(item, nothing);
     let handle = (e) => {
