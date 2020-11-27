@@ -1675,6 +1675,17 @@ $(ipart , fpart) fork @:ifpart
 { a f : a ... f a size / ! } @:spread
 
 [stack $disp map @.] @:SOUT
+
+{ i f :
+    i f! @iv
+    () @ov
+    [
+        iv @ov
+        i 1+ @i
+        i f! @iv
+    ] [ov iv !=] while
+    i
+} @:untilInvariant
 `
 
 produceOps.boot = k;
