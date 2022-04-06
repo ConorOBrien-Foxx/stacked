@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>stacked</title>
+	<link href="style.css" rel="STYLESHEET" type="text/css">
+	<script src="./src/decimal.js"></script>
+	<script src="./src/stdlib.js"></script>
+	<script src="./src/utf8.js"></script>
+	<script src="./src/color.js"></script>
+	<script src="./src/icon.js"></script>
+	<script src="./src/table.js"></script>
+	<script src="./src/element.js"></script>
+	<script src="./src/turtle.js"></script>
+	<script src="./src/funcs.js"></script>
+	<script src="./src/map.js"></script>
+	<script src="./src/complex.js"></script>
+	<script src="./src/automata.js"></script>
+	<script src="./src/stacked.js"></script>
+</head>
+<body>
+    <header>
+        <h1>stacked interpreter <a href="./repl">(repl)</a> <a href="https://github.com/ConorOBrien-Foxx/stacked">(github)</a></h1>
+    </header>
+    <h2>code</h2>
+	<textarea id="code" spellcheck="false" rows="10">'Hello, World!' out</textarea>
+	<button id="run">run</button> <button id="runSlow">run (delayed)</button> <button id="stylize">stylize (syntax highlighter)</button> <!-- <br> <input type="file" id="fileInput"/> <button id="upload">upload</button> -->
+	<h2>output</h2>
+	<pre id="stacked-output"></pre>
+    <h2>canvas</h2>
+	<canvas id="canvas" height="250" width="250"></canvas>
+	<script>
+        // upload.addEventListener("click", function(){
+        //     if(!window.FileReader){
+        //         error("your browser does not support `FileReader`.");
+        //         if(fileInput.files.length){
+        //             let file = fileInput.files[0];
+        //             let reader = new FileReader();
+        //             reader.onload = function(e){
+        //                 code.value = e.target.result;
+        //             };
+        //             reader.readAsText(file);
+        //             console.log(window.reader = reader);
+        //         } else {
+        //             error("no file uploaded");
+        //         }
+        //     }
+        // });
+        let encountered = new Map([]);
+        // vars.set("canvas", document.getElementById("canvas"));
+        let pen = new Turtle(canvas);
+        let ctx = canvas.getContext("2d");
+        let props = Object.getOwnPropertyNames(Turtle.prototype);
+        props.forEach(k => {
+            let name = k;
+            if(ops.has(k)){
+                console.log("`" + k + "` name conflict; renaming to `pen" + k + "`");
+                name = "pen" + k;
+            }
+            if(!(pen[k] instanceof Function)) return;
+            ops.set(name, function(){
+                let arity = pen[k].length;
+                let args = arity ? this.stack.splice(-arity) : [];
+                args = args.map(e => e instanceof Decimal ? +e : e);
+                pen[k](...args);
+            });
+        });
+        ops.set("back", function(){
+            let k = this.stack.pop();
+            assureTyped(k, Decimal);
+            pen.back(+k);
+            pen.stroke();
+        });
+        ops.set("WIDTH", func(() => Decimal(pen.width)));
+        ops.set("HEIGHT", func(() => Decimal(pen.height)));
+        ops.set("snap", function(){
+            let arr = this.stack.pop();
+            if(isString(arr)){
+                arr = arr.split(" ");
+            } else if(arr instanceof Decimal){
+                arr = arr.toFixed().split("").map(Number);
+            } else if(!isArray(arr)){
+                error("expected `Decimal`, `String`, or `Array`, got `" + typeName(arr.constructor) + "`");
+            }
+            for(let k of arr){
+                if(k === "left" || k === 0){
+                    pen.goto(0, pen.y);
+                } else if(k === "bottom" || k === 1){
+                    pen.goto(pen.x, pen.height);
+                } else if(k === "right" || k === 2){
+                    pen.goto(pen.width, pen.y);
+                } else if(k === "top" || k === 3){
+                    pen.goto(pen.x, 0);
+                }
+            }
+        });
+        const getPixel = (x, y) =>
+            new Color(pen.ctx.getImageData(x, y, 1, 1).data);
+
+        let globalPicId = pen.ctx.createImageData(1, 1);
+        let globalD = globalPicId.data;
+
+        const setPixel = (x, y, c) => {
+            c = [...c];
+            for(let i = 0; i < 4; i++){
+                globalD[i] = c[i];
+            }
+            pen.ctx.putImageData(globalPicId, x, y);
+        }
+
+        const floodFill = (x, y, tcol, rcol) => {
+            if(tcol.equal(rcol)) return;
+            if(!getPixel(x, y).equal(tcol)) return;
+            setPixel(x, y, rcol);
+            floodFill(x, y + 1, tcol, rcol);
+            floodFill(x + 1, y, tcol, rcol);
+            floodFill(x, y - 1, tcol, rcol);
+            floodFill(x - 1, y, tcol, rcol);
+        };
+        ops.set("setpixel", new StackedFunc([
+            [[Decimal, Decimal, Color], setPixel]
+        ], 3));
+        ops.set("fill",  new StackedFunc([
+            [[Decimal, Decimal, Color], (x, y, c) => floodFill(x, y, getPixel(x, y), c)],
+        ], 3));
+        ops.set("reset", function(){
+            pen.canvas.getContext("2d").clearRect(0, 0, pen.canvas.width, pen.canvas.height);
+            pen.goto(pen.canvas.width / 2, pen.canvas.height / 2);
+            pen.angle(90);
+            pen.allstyle("#CCCCCC");
+            pen.font("20px Consolas");
+            pen.pendown();
+        });
+        ops.set("setwidth", function(){
+            pen.canvas.width = +this.stack.pop();
+            ops.get("reset")();
+        });
+        ops.set("setheight", function(){
+            pen.canvas.height = +this.stack.pop();
+            ops.get("reset")();
+        });
+        ops.set("setbg",  new StackedFunc([
+            [[Color], (c) => {
+                ctx.fillStyle = c.toString();
+                ctx.fillRect(0, 0, pen.canvas.width, pen.canvas.height);
+            }],
+            [[String], (c) => {
+                ctx.fillStyle = c.toString();
+                ctx.fillRect(0, 0, pen.canvas.width, pen.canvas.height);
+            }]
+        ], 1));
+        ops.set("getpos", func(() => sanatize([pen.x, pen.y])));
+        ops.set("setpos", function(){
+            console.log(pen.x, pen.y);
+            [pen.x, pen.y] = unsanatize(this.stack.pop());
+            console.log(pen.x, pen.y);
+        });
+        ops.get("reset")();
+        bootstrap("[neg turn] @:left");
+        bootstrap("[turn] @:right");
+        bootstrap("[begin go stroke close] @:forth");
+        bootstrap("[:setwidth setheight reset] @:squaredim");
+        bootstrap("['#CCC' penstyle stdfg setbg] @:initpen");
+        bootstrap(`
+{ width : width 2/ @r penup r go pendown
+  90 right r go [90 right width go] 3*
+  90 right r go
+  penup 90 left r back
+} @:msquare
+`);
+        vars.set("stdbg", new Color(34));
+        vars.set("stdfg", new Color(51));
+        const highlight = (prog) =>
+            tokenize(prog, { keepWhiteSpace: true, ignoreError: true }).map(e => "<span class=\"" + e.type + "\">" + e.raw + "</span>").join("");
+            
+        // vars.set("PEN", pen);
+
+        const before = () => {
+            ops.get("reset")();
+            if(document && document.getElementById("stacked-output")){
+                document.getElementById("stacked-output").innerHTML = "";
+            }
+            let c = code.value;
+            let res = encountered.has(c) ? encountered.get(c) : Decimal(0);
+            vars.set("execCounter", res);
+            encountered.set(c, res.add(1));
+        }
+
+        run.addEventListener("click", function(e){
+            before();
+            stacked(code.value);
+        });
+        runSlow.addEventListener("click", function(e){
+            before();
+            stacked(code.value, { slow: true });
+        });
+        stylize.addEventListener("click", function(e){
+            document.getElementById("stacked-output").innerHTML = highlight(code.value);
+        });
+	</script>
+</body>
+</html>
