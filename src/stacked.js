@@ -1578,12 +1578,15 @@ let arityOverides = new Map([
     let len = arityOverides.has(name) ? arityOverides.get(name) : Decimal[name].length;
     let k = [...Array(len).keys()]
             .map(e => String.fromCharCode(97 + e));
+    let restAny = [];
+    for(let i = 1; i < len; i++) restAny.push(produceOps.ANY);
     ops.set(
         name,
         new StackedFunc([
             [k.map(e => Decimal), new Function(
                 ...k, "return Decimal(Decimal." + name + "(" + k.join(",") + "))"
-            )]
+            )],
+            [[produceOps.IMPLEMENTS(name), ...restAny], (first, ...rest) => first[name](...rest)],
         ], len, { vectorize: true })
     );
 });

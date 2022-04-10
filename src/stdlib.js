@@ -18,6 +18,10 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
     const INTEGER = STP(e => StackedFunc.ofUnaryType(Decimal)(e) && e.floor().eq(e), "{Integer}");
     const STP_FUNC_LIKE = STP(FUNC_LIKE, "{Func-like}");
     const STP_EXECABLE = STP((e) => isDefined(e.exec), "{Executable}");
+    
+    produceOps.ANY = ANY;
+    produceOps.IMPLEMENTS = IMPLEMENTS;
+    
     let ops = new Map([
         // todo: fix with charstring
         ["+", new StackedFunc([
@@ -200,11 +204,9 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         )],
         ["<", new StackedFunc([
             [[Decimal, Decimal], (a, b) => Decimal(+a.lt(b))],
-            [[String, String], (a, b) => Decimal(+(a < b))]
-        ], 2, { vectorize: true })],
-        ["<", new StackedFunc([
-            [[Decimal, Decimal], (a, b) => Decimal(+a.lt(b))],
-            [[String, String], (a, b) => Decimal(+(a < b))]
+            [[String, String], (a, b) => Decimal(+(a < b))],
+            [[IMPLEMENTS("lt"), ANY], (a, b) => Decimal(+a.lt(b))],
+            [[ANY, IMPLEMENTS("gt")], (a, b) => Decimal(+b.gt(a))],
         ], 2, { vectorize: true })],
         ["<=", new StackedFunc([
             [[Decimal, Decimal], (a, b) => Decimal(+a.lte(b))],
@@ -212,7 +214,9 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
         ], 2, { vectorize: true })],
         [">", new StackedFunc([
             [[Decimal, Decimal], (a, b) => Decimal(+a.gt(b))],
-            [[String, String], (a, b) => Decimal(+(a > b))]
+            [[String, String], (a, b) => Decimal(+(a > b))],
+            [[IMPLEMENTS("gt"), ANY], (a, b) => Decimal(+a.gt(b))],
+            [[ANY, IMPLEMENTS("lt")], (a, b) => Decimal(+b.lt(a))],
         ], 2, { vectorize: true })],
         [">=", new StackedFunc([
             [[Decimal, Decimal], (a, b) => Decimal(+a.gte(b))],
@@ -288,7 +292,7 @@ let produceOps = (Stacked, StackedFunc, StackedPseudoType, Func, Lambda, world) 
             }],
         ], 1, { vectorize: true })],
         ["neg", new StackedFunc([
-            [[Decimal], a => a.neg()],
+            [[IMPLEMENTS("neg")], a => a.neg()],
         ], 1, { vectorize: true })],
         ["join", new StackedFunc([
             [[ITERABLE, String], (a, b) => [...a].join(b)],
@@ -1691,5 +1695,6 @@ $(ipart , fpart) fork @:ifpart
 produceOps.boot = k;
 produceOps.essential = essential;
 
-if(isNode)
+if(isNode) {
     module.exports = exports.defualt = produceOps;
+}

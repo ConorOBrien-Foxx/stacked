@@ -116,8 +116,32 @@ class Complex {
             return new Complex(re, im);
         }
         else if(c instanceof Decimal) {
-            
+            return this.pow(new Complex(c, 0));
         }
+    }
+    
+    neg() {
+        return new Complex(-this.re, -this.im);
+    }
+    
+    floor() {
+        return new Complex(this.re.floor(), this.im.floor());
+    }
+    
+    round() {
+        return new Complex(this.re.round(), this.im.round());
+    }
+    
+    ceil() {
+        return new Complex(this.re.ceil(), this.im.ceil());
+    }
+    
+    sqrt() {
+        return this.pow(new Decimal("0.5"));
+    }
+    
+    cbrt() {
+        return this.pow(new Decimal("0.3333333333333333"));
     }
     
     conj() {
